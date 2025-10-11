@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -18,16 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.composable
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.data.Pages
 import com.gswxxn.restoresplashscreen.ui.apppage.BackgroundExceptPage
 import com.gswxxn.restoresplashscreen.ui.apppage.BgIndividualPage
-import com.gswxxn.restoresplashscreen.ui.page.AboutPage
-import com.gswxxn.restoresplashscreen.ui.page.BackgroundPage
-import com.gswxxn.restoresplashscreen.ui.page.BasicPage
-import com.gswxxn.restoresplashscreen.ui.page.BottomPage
 import com.gswxxn.restoresplashscreen.ui.apppage.CustomScopePage
 import com.gswxxn.restoresplashscreen.ui.apppage.ForceSplashPage
 import com.gswxxn.restoresplashscreen.ui.apppage.HideIconPage
@@ -35,6 +31,10 @@ import com.gswxxn.restoresplashscreen.ui.apppage.IgnoreAppIconPage
 import com.gswxxn.restoresplashscreen.ui.apppage.MinDurationPage
 import com.gswxxn.restoresplashscreen.ui.apppage.RemoveBrandingPage
 import com.gswxxn.restoresplashscreen.ui.component.ColorPickerPage
+import com.gswxxn.restoresplashscreen.ui.page.AboutPage
+import com.gswxxn.restoresplashscreen.ui.page.BackgroundPage
+import com.gswxxn.restoresplashscreen.ui.page.BasicPage
+import com.gswxxn.restoresplashscreen.ui.page.BottomPage
 import com.gswxxn.restoresplashscreen.ui.page.DevPage
 import com.gswxxn.restoresplashscreen.ui.page.DisplayPage
 import com.gswxxn.restoresplashscreen.ui.page.IconPage
@@ -45,7 +45,7 @@ import com.highcapable.yukihookapi.hook.factory.dataChannel
 import com.highcapable.yukihookapi.hook.factory.prefs
 import dev.lackluster.hyperx.compose.activity.SafeSP
 import dev.lackluster.hyperx.compose.base.HyperXApp
-import top.yukonga.miuix.kmp.basic.Box
+import dev.lackluster.hyperx.compose.navigation.miuixComposable
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class MainActivity : ComponentActivity() {
@@ -53,8 +53,6 @@ class MainActivity : ComponentActivity() {
         val moduleActive: MutableState<Boolean> = mutableStateOf(false)
         val devMode: MutableState<Boolean> = mutableStateOf(false)
         val blurEnabled: MutableState<Boolean> = mutableStateOf(true)
-        val blurTintAlphaLight: MutableFloatState = mutableFloatStateOf(0.6f)
-        val blurTintAlphaDark: MutableFloatState = mutableFloatStateOf(0.5f)
         val splitEnabled: MutableState<Boolean> = mutableStateOf(true)
 
         val systemUIRestartNeeded = mutableStateOf(true)
@@ -70,12 +68,11 @@ class MainActivity : ComponentActivity() {
             SafeSP.setSP(
                 getSharedPreferences("${packageName ?: "unknown"}_preferences", MODE_WORLD_READABLE)
             )
-        } catch (_: SecurityException) { }
+        } catch (_: SecurityException) {
+        }
 
         devMode.value = prefs().get(DataConst.ENABLE_DEV_SETTINGS)
         blurEnabled.value = prefs().get(DataConst.MODULE_APP_BLUR)
-        blurTintAlphaLight.floatValue = prefs().get(DataConst.HAZE_TINT_ALPHA_LIGHT) / 100f
-        blurTintAlphaDark.floatValue = prefs().get(DataConst.HAZE_TINT_ALPHA_DARK) / 100f
         splitEnabled.value = prefs().get(DataConst.SPLIT_VIEW)
 
         enableEdgeToEdge()
@@ -117,25 +114,25 @@ class MainActivity : ComponentActivity() {
                 }
             },
             otherPageBuilder = { navController, adjustPadding, mode ->
-                composable(Pages.ABOUT) { AboutPage(navController, adjustPadding, mode) }
-                composable(Pages.BASIC_SETTINGS) { BasicPage(navController, adjustPadding, mode) }
-                composable(Pages.SCOPE_SETTINGS) { ScopePage(navController, adjustPadding, mode) }
-                composable(Pages.ICON_SETTINGS) { IconPage(navController, adjustPadding, mode) }
-                composable(Pages.BOTTOM_SETTINGS) { BottomPage(navController, adjustPadding, mode) }
-                composable(Pages.BACKGROUND_SETTINGS) { BackgroundPage(navController, adjustPadding, mode) }
-                composable(Pages.DISPLAY_SETTINGS) { DisplayPage(navController, adjustPadding, mode) }
-                composable(Pages.DEVELOPER_SETTINGS) { DevPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.ABOUT) { AboutPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.BASIC_SETTINGS) { BasicPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.SCOPE_SETTINGS) { ScopePage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.ICON_SETTINGS) { IconPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.BOTTOM_SETTINGS) { BottomPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.BACKGROUND_SETTINGS) { BackgroundPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.DISPLAY_SETTINGS) { DisplayPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.DEVELOPER_SETTINGS) { DevPage(navController, adjustPadding, mode) }
 
-                composable(Pages.CONFIG_CUSTOM_SCOPE) { CustomScopePage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_IGNORE_APP_ICON) { IgnoreAppIconPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_HIDE_SPLASH_ICON) { HideIconPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_REMOVE_BRANDING) { RemoveBrandingPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_BACKGROUND_EXCEPT) { BackgroundExceptPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_BACKGROUND_INDIVIDUALLY) { BgIndividualPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_MIN_DURATION) { MinDurationPage(navController, adjustPadding, mode) }
-                composable(Pages.CONFIG_FORCE_SHOW_SPLASH) { ForceSplashPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_CUSTOM_SCOPE) { CustomScopePage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_IGNORE_APP_ICON) { IgnoreAppIconPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_HIDE_SPLASH_ICON) { HideIconPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_REMOVE_BRANDING) { RemoveBrandingPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_BACKGROUND_EXCEPT) { BackgroundExceptPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_BACKGROUND_INDIVIDUALLY) { BgIndividualPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_MIN_DURATION) { MinDurationPage(navController, adjustPadding, mode) }
+                miuixComposable(Pages.CONFIG_FORCE_SHOW_SPLASH) { ForceSplashPage(navController, adjustPadding, mode) }
 
-                composable("${Pages.CONFIG_COLOR_PICKER}?PkgName={PkgName}") {
+                miuixComposable("${Pages.CONFIG_COLOR_PICKER}?PkgName={PkgName}") {
                     val pkgName = it.arguments?.getString("PkgName") ?: ""
                     /* Todo: 传入 是否为 OVERALL_BG 设置, 不应为现在的依据包名为 “” 来判断*/
                     ColorPickerPage(navController, adjustPadding, pkgName, mode)

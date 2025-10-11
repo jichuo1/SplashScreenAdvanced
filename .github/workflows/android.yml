@@ -3,7 +3,7 @@ name: Android CI
 on:
   workflow_dispatch:
   push:
-    branches: ["master"]
+    branches: ["Compose"]
     tags:
       - 'v*'
     paths-ignore:
@@ -18,15 +18,15 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
 
-      - name: Set up JDK 20
-        uses: actions/setup-java@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
         with:
-          java-version: "20"
-          distribution: "temurin"
+          java-version: "21"
+          distribution: "zulu"
             
       - name: Build with Gradle and Sign
         run: |
@@ -80,18 +80,6 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           echo "RELEASE_TAG_NAME=$(bash ./gradlew -q getVersionCode 2>&1 | tail -n 1)" >> "$GITHUB_ENV"
-
-      - name: Create LSPosed Repository Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: softprops/action-gh-release@v1
-        with:
-          prerelease: true
-          name: ${{ github.ref_name }}
-          tag_name: ${{ env.RELEASE_TAG_NAME }}
-          body: "This is a pre-release version automatically created by GitHub Actions, awaiting developer's addition of the changelog."
-          repository: Xposed-Modules-Repo/com.gswxxn.restoresplashscreen
-          token: ${{ secrets.GH_TOKEN }}
-          files: ${{ env.APK_FILE }}
 
       - name: Display APK Hashes
         run: |

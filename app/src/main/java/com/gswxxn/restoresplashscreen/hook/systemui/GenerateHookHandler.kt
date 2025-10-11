@@ -3,7 +3,7 @@ package com.gswxxn.restoresplashscreen.hook.systemui
 import android.content.pm.ActivityInfo
 import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.data.StartingWindowInfo
-import com.gswxxn.restoresplashscreen.hook.NewSystemUIHooker
+import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.getMapPrefs
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 /**
  * 此对象用于处理 基础设置 和 实验功能 中的 Hook
  */
-object GenerateHookHandler: BaseHookHandler() {
+object GenerateHookHandler : BaseHookHandler() {
     var currentPackageName = ""
     var currentActivity = ""
     var exceptCurrentApp = false
@@ -38,7 +38,7 @@ object GenerateHookHandler: BaseHookHandler() {
     override fun onHook() {
 
         // Hook 起始位置, 获取应用信息
-        NewSystemUIHooker.Members.makeSplashScreenContentView.addBeforeHook({ true }) {
+        SystemUIHooker.Members.makeSplashScreenContentView.addBeforeHook({ true }) {
             var activityInfo: ActivityInfo?
 
             if (args[1]!! is ActivityInfo)
@@ -53,12 +53,11 @@ object GenerateHookHandler: BaseHookHandler() {
 
             isHooking = true
             currentPackageName = activityInfo.packageName
-            currentActivity = activityInfo.targetActivity ?: ""
+            currentActivity = activityInfo.targetActivity ?: "unknown activity"
             exceptCurrentApp = isExcept()
 
             printLog(
-                "****** $currentPackageName; $currentActivity:",
-                "makeSplashScreenContentView(): ${ if (exceptCurrentApp) "Except" else "Allow"} this app"
+                "****** $currentPackageName; $currentActivity: makeSplashScreenContentView(): ${if (exceptCurrentApp) "except" else "allow"} this app"
             )
 
             /**
@@ -76,7 +75,7 @@ object GenerateHookHandler: BaseHookHandler() {
         }
 
         // 遮罩最小持续时间, 也是 Hook 结束位置, 清除缓存的应用信息
-        NewSystemUIHooker.Members.removeStartingWindow.addReplaceHook({ true }) {
+        SystemUIHooker.Members.removeStartingWindow.addReplaceHook({ true }) {
             if (exceptCurrentApp || !isHooking) callOriginal()
             else when (currentPackageName) {
                 "" -> {

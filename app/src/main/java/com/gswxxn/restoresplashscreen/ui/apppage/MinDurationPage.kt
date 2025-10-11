@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -44,12 +45,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import com.gswxxn.restoresplashscreen.R
@@ -69,7 +72,6 @@ import dev.lackluster.hyperx.compose.base.DrawableResIcon
 import dev.lackluster.hyperx.compose.base.HazeScaffold
 import dev.lackluster.hyperx.compose.base.IconSize
 import dev.lackluster.hyperx.compose.base.ImageIcon
-import dev.lackluster.hyperx.compose.icon.Back
 import dev.lackluster.hyperx.compose.preference.EditTextDataType
 import dev.lackluster.hyperx.compose.preference.EditTextDialog
 import dev.lackluster.hyperx.compose.preference.EditTextPreference
@@ -80,12 +82,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
-import top.yukonga.miuix.kmp.basic.LazyColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -96,13 +99,12 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.icons.Info
-import top.yukonga.miuix.kmp.icon.icons.Search
+import top.yukonga.miuix.kmp.icon.icons.useful.Back
+import top.yukonga.miuix.kmp.icon.icons.useful.Info
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.BackHandler
-import top.yukonga.miuix.kmp.utils.HorizontalDivider
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtil.Companion.dismissDialog
 import top.yukonga.miuix.kmp.utils.getWindowSize
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 /**
  * 基础设置 - 遮罩最小持续时长
@@ -113,26 +115,16 @@ fun MinDurationPage(
     adjustPadding: PaddingValues,
     mode: BasePageDefaults.Mode,
     blurEnabled: MutableState<Boolean> = MainActivity.blurEnabled,
-    blurTintAlphaLight: MutableFloatState = MainActivity.blurTintAlphaLight,
-    blurTintAlphaDark: MutableFloatState = MainActivity.blurTintAlphaDark,
 ) {
     val context = LocalContext.current
 //    val checkedListKey = DataConst.MIN_DURATION_LIST.key
 //    val configMapKey = DataConst.MIN_DURATION_CONFIG_MAP.key
-    val topAppBarBackground = MiuixTheme.colorScheme.background
     val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
+    val hazeTint = MiuixTheme.colorScheme.background.copy(
+        if (scrollBehavior.state.collapsedFraction <= 0f) 1f
+        else lerp(1f, 0.67f, (scrollBehavior.state.collapsedFraction))
+    )
     val listState = rememberLazyListState()
-    val topBarBlurState by remember {
-        derivedStateOf {
-            blurEnabled.value &&
-                    scrollBehavior.state.collapsedFraction >= 1.0f &&
-                    (listState.isScrollInProgress || listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12)
-        }
-    }
-    val topBarBlurTintAlpha = remember { mutableFloatStateOf(
-        if (topAppBarBackground.luminance() >= 0.5f) blurTintAlphaLight.floatValue
-        else blurTintAlphaDark.floatValue
-    ) }
     val modifiedDialogVisibility = remember { mutableStateOf(false) }
 
     val dialogMessage = stringResource(R.string.set_min_duration) + "\n" + stringResource(R.string.set_min_duration_unit)
@@ -203,7 +195,7 @@ fun MinDurationPage(
                 delay(100)
                 appInfoFilter = appInfoList.toMutableList().apply {
                     sortBy { it.appName }
-                    sortByDescending { it.config.value != null}
+                    sortByDescending { it.config.value != null }
                     sortByDescending { it.isChecked.value }
                 }
             } else {
@@ -228,9 +220,7 @@ fun MinDurationPage(
         modifier = Modifier.fillMaxSize(),
         topBar = { contentPadding ->
             TopAppBar(
-                color = topAppBarBackground.copy(
-                    if (topBarBlurState) 0f else 1f
-                ),
+                color = if (blurEnabled.value) Color.Transparent else MiuixTheme.colorScheme.background,
                 title = stringResource(R.string.min_duration_title),
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
@@ -257,7 +247,7 @@ fun MinDurationPage(
                     ) {
                         Icon(
                             modifier = Modifier.size(26.dp),
-                            imageVector = MiuixIcons.Back,
+                            imageVector = MiuixIcons.Useful.Back,
                             contentDescription = "Back",
                             tint = MiuixTheme.colorScheme.onSurfaceSecondary
                         )
@@ -337,26 +327,25 @@ fun MinDurationPage(
         blurTopBar = blurEnabled.value,
         blurBottomBar = blurEnabled.value,
         hazeStyle = HazeStyle(
-            blurRadius = 66.dp,
-            backgroundColor = topAppBarBackground,
-            tint = HazeTint(
-                topAppBarBackground.copy(alpha = topBarBlurTintAlpha.floatValue),
-            )
+            blurRadius = 25.dp,
+            noiseFactor = 0f,
+            backgroundColor = MiuixTheme.colorScheme.background,
+            tint = HazeTint(hazeTint)
         ),
         adjustPadding = adjustPadding,
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .height(getWindowSize().height.dp)
-                .background(MiuixTheme.colorScheme.background),
+                .overScrollVertical()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
             state = listState,
             contentPadding = paddingValues,
-            topAppBarScrollBehavior = scrollBehavior
+            overscrollEffect = null
         ) {
             item {
                 SearchBar(
-                    modifier = Modifier
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp),
+                    modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
                     inputField = {
                         InputField(
                             query = queryString,
@@ -364,15 +353,7 @@ fun MinDurationPage(
                             onSearch = { },
                             expanded = false,
                             onExpandedChange = { },
-                            label = stringResource(R.string.search_hint),
-                            leadingIcon = {
-                                Icon(
-                                    modifier = Modifier.padding(start = 12.dp, end = 8.dp),
-                                    imageVector = MiuixIcons.Search,
-                                    tint = MiuixTheme.colorScheme.onSurfaceContainer,
-                                    contentDescription = "Search"
-                                )
-                            },
+                            label = stringResource(R.string.search_hint)
                         )
                     },
                     expanded = false,
@@ -385,14 +366,15 @@ fun MinDurationPage(
                     BasicComponent(
                         insideMargin = PaddingValues(16.dp),
                         summary = stringResource(R.string.min_duration_sub_setting_hint),
+                        summaryColor = BasicComponentDefaults.titleColor(),
                         leftAction = {
                             Image(
                                 modifier = Modifier
-                                    .padding(end = 16.dp)
-                                    .size(28.dp),
-                                imageVector = MiuixIcons.Info,
+                                    .padding(end = 8.dp)
+                                    .size(20.dp),
+                                imageVector = MiuixIcons.Useful.Info,
                                 contentDescription = null,
-                                colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurface)
                             )
                         }
                     )
@@ -405,7 +387,7 @@ fun MinDurationPage(
                         key = DataConst.MIN_DURATION.key,
                         dataType = EditTextDataType.INT,
                         dialogMessage = stringResource(R.string.set_min_duration_unit),
-                        isValueValid = { (it as? Int) in 0..1000}
+                        isValueValid = { (it as? Int) in 0..1000 }
                     )
                 }
             }
@@ -428,8 +410,8 @@ fun MinDurationPage(
                 itemsIndexed(appInfoFilter, key = { index, item ->
                     item.packageName + item.isChecked + index + appInfoFilter.size
                 }) { index, item ->
-                    val topCornerRadius = if (index == 0) CardDefaults.ConorRadius else 0.dp
-                    val bottomCornerRadius = if (index == appInfoFilter.size - 1) CardDefaults.ConorRadius else 0.dp
+                    val topCornerRadius = if (index == 0) CardDefaults.CornerRadius else 0.dp
+                    val bottomCornerRadius = if (index == appInfoFilter.size - 1) CardDefaults.CornerRadius else 0.dp
                     SpliceCard(
                         topCornerRadius,
                         bottomCornerRadius
@@ -453,11 +435,9 @@ fun MinDurationPage(
                         }
                     }
                 }
-            }
-            item {
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
+                item {
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
             }
         }
     }
@@ -470,7 +450,7 @@ fun MinDurationPage(
         negativeText = stringResource(R.string.button_abandonment),
         positiveText = stringResource(R.string.button_reedit),
         onNegativeButton = {
-            dismissDialog(modifiedDialogVisibility)
+            modifiedDialogVisibility.value = false
             navController.popBackStack()
         }
     )
@@ -508,7 +488,9 @@ fun MinDurationPreference(
         },
         rightActions = {
             Text(
-                modifier = Modifier.widthIn(max = 130.dp).padding(end = 12.dp),
+                modifier = Modifier
+                    .widthIn(max = 130.dp)
+                    .padding(end = 12.dp),
                 text = stringValue,
                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                 color = MiuixTheme.colorScheme.onSurfaceVariantActions,

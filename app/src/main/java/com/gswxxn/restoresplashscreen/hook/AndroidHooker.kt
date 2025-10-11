@@ -38,39 +38,35 @@ object AndroidHooker : YukiBaseHooker() {
                         && (!prefs.get(DataConst.REDUCE_SPLASH_SCREEN) || isLaunchedFromSystemSurface)
 
                 if (isForceShowSS) resultTrue()
-                printLog("[Android] validateStartingWindowTheme():" +
-                        "${if (isForceShowSS) "" else "Not"} force show $pkgName splash screen, " +
-                        "isLaunchedFromSystemSurface: $isLaunchedFromSystemSurface")
+                printLog("[Android] validateStartingWindowTheme():${if (isForceShowSS) "" else " not"} force show $pkgName splash screen, isLaunchedFromSystemSurface: $isLaunchedFromSystemSurface")
             }
         }
 
         // 彻底关闭 Splash Screen
         activityRecordClass.method {
             name = "showStartingWindow"
-            paramCount(if (isAtLeastT) 7 else  5)
+            paramCount(if (isAtLeastT) 7 else 5)
         }.hook {
             before {
                 val currentPkgName = instance.getField<String>("packageName")
 
                 val isDisableSS = prefs.get(DataConst.DISABLE_SPLASH_SCREEN)
-                printLog("[Android] addStartingWindow():${if (isDisableSS) "" else "Not"} disable $currentPkgName splash screen")
-                if (isDisableSS) {
-                    resultNull()
-                }
+                printLog("[Android] addStartingWindow():${if (isDisableSS) "" else " not"} disable $currentPkgName splash screen")
+                if (isDisableSS) resultNull()
             }
         }
 
         // 热启动时生成启动遮罩
         activityRecordClass.method {
             name = "getStartingWindowType"
-            paramCount(if (isAtLeastT) 7 else  6)
+            paramCount(if (isAtLeastT) 7 else 6)
         }.hook {
             before {
                 val isHotStartCompatible = prefs.get(DataConst.ENABLE_HOT_START_COMPATIBLE)
                         && prefs.get(DataConst.FORCE_ENABLE_SPLASH_SCREEN)
                         && args(1).boolean()
                 if (isHotStartCompatible) result = 2
-                printLog("[Android] getStartingWindowType():${if (isHotStartCompatible) "" else "Not"} set result to 2")
+                printLog("[Android] getStartingWindowType():${if (isHotStartCompatible) "" else " not"} set result to 2")
             }
         }
     }

@@ -36,8 +36,6 @@ fun BasicPage(navController: NavController, adjustPadding: PaddingValues, mode: 
         adjustPadding = adjustPadding,
         title = stringResource(R.string.basic_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {

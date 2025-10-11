@@ -1,6 +1,10 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +36,6 @@ fun BottomPage(navController: NavController, adjustPadding: PaddingValues, mode:
         adjustPadding = adjustPadding,
         title = stringResource(R.string.bottom_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -67,7 +69,11 @@ private fun RemoveBrandingImageSettingsGroup(navController: NavController) {
             context.toast(R.string.custom_scope_message)
         }
     }
-    AnimatedVisibility(removeBrandingImage.value) {
+    AnimatedVisibility(
+        visible = removeBrandingImage.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 配置移除列表
         TextPreference(title = stringResource(R.string.remove_branding_image_list)) {
             navController.navigateTo(Pages.CONFIG_REMOVE_BRANDING)

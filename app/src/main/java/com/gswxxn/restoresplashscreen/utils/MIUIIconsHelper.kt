@@ -6,7 +6,7 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
 import android.provider.Settings
-import com.gswxxn.restoresplashscreen.hook.NewSystemUIHooker.hook
+import com.gswxxn.restoresplashscreen.hook.SystemUIHooker.hook
 import com.gswxxn.restoresplashscreen.utils.GraphicUtils.getCenterDrawable
 import com.highcapable.yukihookapi.hook.factory.current
 import com.highcapable.yukihookapi.hook.factory.field

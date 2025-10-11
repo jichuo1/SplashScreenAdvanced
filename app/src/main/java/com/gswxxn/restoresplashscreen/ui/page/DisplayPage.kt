@@ -1,6 +1,10 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
@@ -33,8 +37,6 @@ fun DisplayPage(navController: NavController, adjustPadding: PaddingValues, mode
         adjustPadding = adjustPadding,
         title = stringResource(R.string.display_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -78,13 +80,18 @@ private fun ForceShowSplashScreenSettingsGroup(navController: NavController) {
     SwitchPreference(
         title = stringResource(R.string.force_show_splash_screen),
         summary = stringResource(R.string.force_show_splash_screen_tips),
-        prefsData = DataConst.FORCE_SHOW_SPLASH_SCREEN
+        prefsData = DataConst.FORCE_SHOW_SPLASH_SCREEN,
+        checked = forceShowSplash
     ) { newValue ->
         if (newValue) {
             context.toast(R.string.custom_scope_message)
         }
     }
-    AnimatedVisibility(forceShowSplash.value) {
+    AnimatedVisibility(
+        visible = forceShowSplash.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         Column {
             // 配置应用列表
             TextPreference(title = stringResource(R.string.force_show_splash_screen_list)) {
@@ -107,26 +114,43 @@ private fun ForceShowSplashScreenSettingsGroup(navController: NavController) {
 private fun OtherDisplaySettingsGroup() {
     val prefs = LocalContext.current.prefs()
 
+    val forceDisableSplash = remember { mutableStateOf(prefs.get(DataConst.DISABLE_SPLASH_SCREEN)) }
     val forceEnableSplash = remember { mutableStateOf(prefs.get(DataConst.FORCE_ENABLE_SPLASH_SCREEN)) }
 
-    // 强制开启启动遮罩
-    SwitchPreference(
-        title = stringResource(R.string.force_enable_splash_screen),
-        summary = stringResource(R.string.force_enable_splash_screen_tips),
-        prefsData = DataConst.FORCE_ENABLE_SPLASH_SCREEN,
-        checked = forceEnableSplash
-    )
-    // 将启动遮罩适用于热启动
-    SwitchPreference(
-        title = stringResource(R.string.hot_start_compatible),
-        summary = stringResource(R.string.hot_start_compatible_tips),
-        prefsData = DataConst.ENABLE_HOT_START_COMPATIBLE,
-        enabled = forceEnableSplash.value
-    )
+    // 互斥设置
+    AnimatedVisibility(
+        visible = !forceDisableSplash.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        Column {
+            // 强制开启启动遮罩
+            SwitchPreference(
+                title = stringResource(R.string.force_enable_splash_screen),
+                summary = stringResource(R.string.force_enable_splash_screen_tips),
+                prefsData = DataConst.FORCE_ENABLE_SPLASH_SCREEN,
+                checked = forceEnableSplash
+            )
+            // 将启动遮罩适用于热启动
+            AnimatedVisibility(
+                visible = forceEnableSplash.value,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                SwitchPreference(
+                    title = stringResource(R.string.hot_start_compatible),
+                    summary = stringResource(R.string.hot_start_compatible_tips),
+                    prefsData = DataConst.ENABLE_HOT_START_COMPATIBLE,
+                    enabled = forceEnableSplash.value
+                )
+            }
+        }
+    }
     // 彻底关闭 Splash Screen
     SwitchPreference(
         title = stringResource(R.string.disable_splash_screen),
         summary = stringResource(R.string.disable_splash_screen_tips),
-        prefsData = DataConst.DISABLE_SPLASH_SCREEN
+        prefsData = DataConst.DISABLE_SPLASH_SCREEN,
+        checked = forceDisableSplash
     )
 }

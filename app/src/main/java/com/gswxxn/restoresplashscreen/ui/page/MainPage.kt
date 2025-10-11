@@ -1,7 +1,6 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -27,16 +26,17 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.navigation.NavController
 import com.gswxxn.restoresplashscreen.BuildConfig
 import com.gswxxn.restoresplashscreen.R
-import com.gswxxn.restoresplashscreen.ui.page.data.ModulePreferenceRes
 import com.gswxxn.restoresplashscreen.data.Pages
 import com.gswxxn.restoresplashscreen.ui.MainActivity
 import com.gswxxn.restoresplashscreen.ui.MainActivity.Companion.androidRestartNeeded
 import com.gswxxn.restoresplashscreen.ui.MainActivity.Companion.moduleActive
 import com.gswxxn.restoresplashscreen.ui.MainActivity.Companion.systemUIRestartNeeded
 import com.gswxxn.restoresplashscreen.ui.component.TextPreference
+import com.gswxxn.restoresplashscreen.ui.page.data.ModulePreferenceRes
 import com.gswxxn.restoresplashscreen.ui.page.data.ModuleStatusType
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.execShell
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toast
@@ -48,6 +48,7 @@ import dev.lackluster.hyperx.compose.navigation.navigateWithPopup
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopup
@@ -59,10 +60,9 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.extra.DropdownImpl
 import top.yukonga.miuix.kmp.extra.SuperDialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.icons.ImmersionMore
+import top.yukonga.miuix.kmp.icon.icons.useful.ImmersionMore
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtil.Companion.dismissDialog
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtil.Companion.dismissPopup
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * 主界面 Page
@@ -76,8 +76,6 @@ fun MainPage(navController: NavController, adjustPadding: PaddingValues, mode: B
         adjustPadding = adjustPadding,
         title = stringResource(R.string.app_name),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode,
         navigationIcon = { },
         actions = { PopUpMenu(it, navController, dialogRestartVisibility) }
@@ -115,7 +113,8 @@ private fun TopCard() {
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 6.dp, top = 12.dp),
-        color = colorResource(moduleStatusTypeRes.cardBackground)
+        colors = CardDefaults.defaultColors(colorResource(moduleStatusTypeRes.cardBackground)),
+        pressFeedbackType = PressFeedbackType.Sink
     ) {
         Row(
             // todo: 目前 execShell 并没有能力判断命令执行成功与否,
@@ -198,7 +197,7 @@ private fun SettingItems(
         ModuleSettingPreference(ModulePreferenceRes.FAQ) {
             with(context) {
                 startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.faq_url)))
+                    Intent(Intent.ACTION_VIEW, getString(R.string.faq_url).toUri())
                 )
             }
         }
@@ -233,7 +232,7 @@ private fun PopUpMenu(
         }
     ) {
         Icon(
-            imageVector = MiuixIcons.ImmersionMore,
+            imageVector = MiuixIcons.Useful.ImmersionMore,
             contentDescription = "Menu"
         )
     }
@@ -255,11 +254,16 @@ private fun PopUpMenu(
                     isSelected = false,
                     index = index
                 ) {
-                    when(it) {
-                        0 -> { dialogRestartVisibility.value = true }
-                        1 -> { navController.navigateWithPopup(Pages.ABOUT) }
+                    when (it) {
+                        0 -> {
+                            dialogRestartVisibility.value = true
+                        }
+
+                        1 -> {
+                            navController.navigateWithPopup(Pages.ABOUT)
+                        }
                     }
-                    dismissPopup(showTopPopup)
+                    showTopPopup.value = false
                 }
             }
         }
@@ -278,7 +282,7 @@ private fun RestartDialog(
         title = stringResource(R.string.restart_title),
         summary = stringResource(R.string.restart_message),
         show = show,
-        onDismissRequest = { dismissDialog(show) }
+        onDismissRequest = { show.value = false },
     ) {
         Column {
             // 重启手机 按钮
@@ -311,7 +315,7 @@ private fun RestartDialog(
                 colors = ButtonDefaults.textButtonColorsPrimary(),
                 text = stringResource(R.string.button_cancel),
                 onClick = {
-                    dismissDialog(show)
+                    show.value = false
                 }
             )
         }

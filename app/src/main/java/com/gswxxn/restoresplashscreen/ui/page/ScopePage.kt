@@ -1,6 +1,10 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
@@ -33,8 +37,6 @@ fun ScopePage(navController: NavController, adjustPadding: PaddingValues, mode: 
         adjustPadding = adjustPadding,
         title = stringResource(R.string.custom_scope_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -60,13 +62,18 @@ private fun SettingItems(navController: NavController) {
     // 自定义模块作用域
     SwitchPreference(
         title = stringResource(R.string.custom_scope),
-        prefsData = DataConst.ENABLE_CUSTOM_SCOPE
+        prefsData = DataConst.ENABLE_CUSTOM_SCOPE,
+        checked = customScope
     ) { newValue ->
         if (newValue) {
             context.toast(R.string.custom_scope_message)
         }
     }
-    AnimatedVisibility(customScope.value) {
+    AnimatedVisibility(
+        visible = customScope.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         Column {
             // 将作用域外的应用替换位空白启动遮罩
             SwitchPreference(

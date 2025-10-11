@@ -8,7 +8,6 @@ import com.highcapable.yukihookapi.hook.xposed.prefs.data.PrefsData
  *  [YukiHookAPI](https://fankes.github.io/YukiHookAPI/zh-cn/api/public/com/highcapable/yukihookapi/hook/xposed/prefs/data/PrefsData.html)
  */
 object DataConst {
-    val ENABLE_NEW_SYSTEM_UI_HOOKER = PrefsData("enable_new_system_ui_hooker", true)
     val ENABLE_LOG = PrefsData("enable_log", false)
     val ENABLE_LOG_TIMESTAMP = PrefsData("enable_log_timestamp", 0L)
     val ENABLE_CUSTOM_SCOPE = PrefsData("enable_custom_scope", false)

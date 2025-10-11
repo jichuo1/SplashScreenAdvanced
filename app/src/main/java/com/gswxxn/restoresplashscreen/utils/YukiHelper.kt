@@ -2,7 +2,7 @@ package com.gswxxn.restoresplashscreen.utils
 
 import android.content.Context
 import com.gswxxn.restoresplashscreen.data.DataConst
-import com.gswxxn.restoresplashscreen.hook.NewSystemUIHooker.toClass
+import com.gswxxn.restoresplashscreen.hook.SystemUIHooker.toClass
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
 import com.gswxxn.restoresplashscreen.hook.base.HookManager
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toMap
@@ -17,7 +17,6 @@ import com.highcapable.yukihookapi.hook.log.YLog
 import com.highcapable.yukihookapi.hook.type.java.StringClass
 import com.highcapable.yukihookapi.hook.xposed.prefs.YukiHookPrefsBridge
 import com.highcapable.yukihookapi.hook.xposed.prefs.data.PrefsData
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**

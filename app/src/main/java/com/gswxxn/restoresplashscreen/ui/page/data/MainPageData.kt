@@ -14,9 +14,9 @@ import com.gswxxn.restoresplashscreen.data.Pages
  * @param stateTextRes 状态关联的文本的 string 资源 ID
  */
 enum class ModuleStatusType(
-    @ColorRes val cardBackground: Int,
-    @DrawableRes val stateIconRes: Int,
-    @StringRes val stateTextRes: Int
+    @get:ColorRes val cardBackground: Int,
+    @get:DrawableRes val stateIconRes: Int,
+    @get:StringRes val stateTextRes: Int
 ) {
     ACTIVE_NO_NEED_RESTART(R.color.green, R.drawable.ic_success, R.string.module_is_active),
     ACTIVE_ANDROID_RESTART(R.color.yellow, R.drawable.ic_warn, R.string.module_is_updated_restart_phone_needed),
@@ -32,8 +32,8 @@ enum class ModuleStatusType(
  * @property navigateTo 导航目标的路由字符串，表示点击此设置项后跳转的页面。如果为 null，则不执行导航操作。
  */
 enum class ModulePreferenceRes(
-    @DrawableRes val iconRes: Int,
-    @StringRes val stringRes: Int,
+    @get:DrawableRes val iconRes: Int,
+    @get:StringRes val stringRes: Int,
     // todo: navigateTo 不应为 String, 后续封装为枚举类型
     val navigateTo: String? = null,
 ) {

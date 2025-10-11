@@ -22,13 +22,10 @@ import com.gswxxn.restoresplashscreen.ui.component.SwitchPreference
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.getHookInfo
 import dev.lackluster.hyperx.compose.base.BasePage
 import dev.lackluster.hyperx.compose.base.BasePageDefaults
-import dev.lackluster.hyperx.compose.preference.EditTextDataType
-import dev.lackluster.hyperx.compose.preference.EditTextPreference
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
 import dev.lackluster.hyperx.compose.preference.SeekBarPreference
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 
 /**
  * 开发者选项
@@ -40,12 +37,10 @@ fun DevPage(navController: NavController, adjustPadding: PaddingValues, mode: Ba
         adjustPadding = adjustPadding,
         title = stringResource(R.string.dev_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
-            SettingItems()
+            SettingItems(navController)
         }
     }
 }
@@ -54,8 +49,8 @@ fun DevPage(navController: NavController, adjustPadding: PaddingValues, mode: Ba
  * 分组设置
  */
 @Composable
-private fun SettingItems() {
-    PreferenceGroup(first = true) { GeneralSettingItems() }
+private fun SettingItems(navController: NavController) {
+    PreferenceGroup(first = true) { GeneralSettingItems(navController = navController) }
     PreferenceGroup(title = stringResource(R.string.icon_settings)) { IconSettingItems() }
     PreferenceGroup(title = stringResource(R.string.hook_info), last = true) { HookInfo() }
 }
@@ -64,36 +59,15 @@ private fun SettingItems() {
  * 通用设置
  */
 @Composable
-private fun GeneralSettingItems() {
+private fun GeneralSettingItems(navController: NavController) {
     SwitchPreference(
         title = stringResource(R.string.dev_settings),
         prefsData = DataConst.ENABLE_DEV_SETTINGS,
-        onCheckedChange = { MainActivity.devMode.value = it }
+        onCheckedChange = {
+            MainActivity.devMode.value = it
+            navController.popBackStack()
+        }
     )
-    EditTextPreference(
-        title = stringResource(R.string.dev_blur_tint_alpha_light),
-        key = DataConst.HAZE_TINT_ALPHA_LIGHT.key,
-        defValue = (MainActivity.blurTintAlphaLight.floatValue * 100).roundToInt().coerceIn(0..100),
-        dataType = EditTextDataType.INT,
-        dialogMessage = stringResource(R.string.dev_blur_tint_alpha_tips),
-        isValueValid = { (it as? Int) in (0..100) }
-    ) { _, newValue ->
-        (newValue as? Int)?.let {
-            MainActivity.blurTintAlphaLight.floatValue = it / 100f
-        }
-    }
-    EditTextPreference(
-        title = stringResource(R.string.dev_blur_tint_alpha_dark),
-        key = DataConst.HAZE_TINT_ALPHA_DARK.key,
-        defValue = (MainActivity.blurTintAlphaDark.floatValue * 100).roundToInt().coerceIn(0..100),
-        dataType = EditTextDataType.INT,
-        dialogMessage = stringResource(R.string.dev_blur_tint_alpha_tips),
-        isValueValid = { (it as? Int) in (0..100) }
-    ) { _, newValue ->
-        (newValue as? Int)?.let {
-            MainActivity.blurTintAlphaDark.floatValue = it / 100f
-        }
-    }
 }
 
 /**
@@ -103,7 +77,7 @@ private fun GeneralSettingItems() {
 private fun IconSettingItems() {
     SeekBarPreference(
         title = stringResource(R.string.dev_icon_round_corner_rate),
-        key =  DataConst.DEV_ICON_ROUND_CORNER_RATE.key,
+        key = DataConst.DEV_ICON_ROUND_CORNER_RATE.key,
         defValue = DataConst.DEV_ICON_ROUND_CORNER_RATE.value,
         min = 0,
         max = 50,
@@ -122,7 +96,7 @@ private fun HookInfo() {
     LaunchedEffect(Unit) {
         hookInfos.clear()
         context.getHookInfo("com.android.systemui") { newHookInfos ->
-            hookInfos.addAll(newHookInfos.entries.sortedWith(compareBy({ !it.value.isAbnormal }, {it.key})))
+            hookInfos.addAll(newHookInfos.entries.sortedWith(compareBy({ !it.value.isAbnormal }, { it.key })))
         }
     }
 

@@ -1,6 +1,10 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
@@ -19,8 +23,8 @@ import com.gswxxn.restoresplashscreen.ui.component.DropDownPreference
 import com.gswxxn.restoresplashscreen.ui.component.HeaderCard
 import com.gswxxn.restoresplashscreen.ui.component.SwitchPreference
 import com.gswxxn.restoresplashscreen.ui.component.TextPreference
-import com.gswxxn.restoresplashscreen.ui.page.data.ChangeBGColorTypes
 import com.gswxxn.restoresplashscreen.ui.page.data.BGColorModes
+import com.gswxxn.restoresplashscreen.ui.page.data.ChangeBGColorTypes
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.isMIUI
 import com.highcapable.yukihookapi.hook.factory.hasClass
 import com.highcapable.yukihookapi.hook.factory.prefs
@@ -40,8 +44,6 @@ fun BackgroundPage(navController: NavController, adjustPadding: PaddingValues, m
         adjustPadding = adjustPadding,
         title = stringResource(R.string.background_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -64,7 +66,7 @@ private fun SettingItems(navController: NavController) {
         GeneralSettingItems(navController = navController, ignoreDarkMode = ignoreDarkMode)
     }
 
-    if(isMIUI) {
+    if (isMIUI) {
         PreferenceGroup(last = true) {
             MIUISettingsGroup(ignoreDarkMode = ignoreDarkMode)
         }
@@ -95,7 +97,11 @@ private fun GeneralSettingItems(
         onSelectedIndexChange = { changeBGColorType.intValue = it }
     )
 
-    AnimatedVisibility(shouldShowColorMode) {
+    AnimatedVisibility(
+        visible = shouldShowColorMode,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 颜色模式
         DropDownPreference(
             title = stringResource(R.string.color_mode),
@@ -110,7 +116,11 @@ private fun GeneralSettingItems(
             }
         }
     }
-    AnimatedVisibility(changeBGColorType.intValue == ChangeBGColorTypes.FromCustom.ordinal) {
+    AnimatedVisibility(
+        visible = changeBGColorType.intValue == ChangeBGColorTypes.FromCustom.ordinal,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 自定义背景颜色
         TextPreference(
             title = stringResource(R.string.set_custom_bg_color),
@@ -119,7 +129,11 @@ private fun GeneralSettingItems(
             navController.navigateTo("${Pages.CONFIG_COLOR_PICKER}?PkgName=${""}")
         }
     }
-    AnimatedVisibility(changeBGColorType.intValue != ChangeBGColorTypes.NotChangeBGColor.ordinal) {
+    AnimatedVisibility(
+        visible = changeBGColorType.intValue != ChangeBGColorTypes.NotChangeBGColor.ordinal,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         Column {
             // 跳过已主动设置背景颜色的应用
             SwitchPreference(

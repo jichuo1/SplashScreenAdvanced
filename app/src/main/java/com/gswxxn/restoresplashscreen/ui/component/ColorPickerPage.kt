@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -35,20 +36,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.magnifier
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -65,9 +69,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -79,7 +83,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.toColorInt
 import androidx.navigation.NavController
 import androidx.palette.graphics.Palette
 import com.gswxxn.restoresplashscreen.R
@@ -97,15 +103,17 @@ import dev.lackluster.hyperx.compose.base.AlertDialog
 import dev.lackluster.hyperx.compose.base.AlertDialogMode
 import dev.lackluster.hyperx.compose.base.BasePageDefaults
 import dev.lackluster.hyperx.compose.base.HazeScaffold
-import dev.lackluster.hyperx.compose.icon.Back
+import dev.lackluster.hyperx.compose.base.TabRow
 import dev.lackluster.hyperx.compose.preference.EditTextDialog
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Box
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.LazyColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Slider
@@ -113,7 +121,6 @@ import top.yukonga.miuix.kmp.basic.SliderColors
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextButtonColors
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SpinnerEntry
@@ -121,11 +128,11 @@ import top.yukonga.miuix.kmp.extra.SpinnerMode
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperSpinner
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.icons.useful.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.HorizontalDivider
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtil.Companion.dismissDialog
-import top.yukonga.miuix.kmp.utils.SmoothRoundedCornerShape
+import top.yukonga.miuix.kmp.utils.G2RoundedCornerShape
 import top.yukonga.miuix.kmp.utils.getWindowSize
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 import kotlin.math.pow
 import kotlin.math.round
 
@@ -141,21 +148,14 @@ fun ColorPickerPage(
 ) {
     // 模块 App 透明度配置
     val blurEnabled = MainActivity.blurEnabled
-    val blurTintAlphaLight = MainActivity.blurTintAlphaLight
-    val blurTintAlphaDark = MainActivity.blurTintAlphaDark
 
     // 顶部栏模糊状态
-    val topAppBarBackground = MiuixTheme.colorScheme.background
-    val listState = rememberLazyListState()
     val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
-    val topBarBlurState by remember {
-        derivedStateOf {
-            blurEnabled.value &&
-                    scrollBehavior.state.collapsedFraction >= 1.0f &&
-                    (listState.isScrollInProgress || listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12)
-        }
-    }
-
+    val hazeTint = MiuixTheme.colorScheme.background.copy(
+        if (scrollBehavior.state.collapsedFraction <= 0f) 1f
+        else lerp(1f, 0.67f, (scrollBehavior.state.collapsedFraction))
+    )
+    val listState = rememberLazyListState()
     // dialog 的显示状态
     val modifiedDialogVisibility = remember { mutableStateOf(false) }
     val dropdownDialogVisibility = remember { mutableStateOf(false) }
@@ -175,54 +175,60 @@ fun ColorPickerPage(
         blurTopBar = blurEnabled.value,
         blurBottomBar = blurEnabled.value,
         hazeStyle = HazeStyle(
-            blurRadius = 66.dp,
-            backgroundColor = topAppBarBackground,
-            tint = HazeTint(topAppBarBackground.copy(alpha =
-                if (topAppBarBackground.luminance() >= 0.5f)
-                    blurTintAlphaLight.floatValue
-                else
-                    blurTintAlphaDark.floatValue),
-            )
+            blurRadius = 25.dp,
+            noiseFactor = 0f,
+            backgroundColor = MiuixTheme.colorScheme.background,
+            tint = HazeTint(hazeTint)
         ),
         adjustPadding = adjustPadding,
-        topBar = { TopBar(
-            paddingValues = it,
-            mode = mode,
-            appName = appColorConfig.appName,
-            topAppBarBackground = topAppBarBackground,
-            topBarBlurState = topBarBlurState,
-            scrollBehavior = scrollBehavior,
-            onBack = { onBack(
-                navController = navController,
-                appColorConfig = appColorConfig,
-                currentDarkMode = currentDarkMode,
-                pickedColor = pickedColor,
-                modifiedDialogVisibility = modifiedDialogVisibility
-            ) }
-        ) },
+        topBar = {
+            TopBar(
+                paddingValues = it,
+                mode = mode,
+                appName = appColorConfig.appName,
+                scrollBehavior = scrollBehavior,
+                blurEnabled = blurEnabled,
+                onBack = {
+                    onBack(
+                        navController = navController,
+                        appColorConfig = appColorConfig,
+                        currentDarkMode = currentDarkMode,
+                        pickedColor = pickedColor,
+                        modifiedDialogVisibility = modifiedDialogVisibility
+                    )
+                }
+            )
+        },
         content = { paddingValues ->
             LazyColumn(
                 modifier = Modifier
                     .height(getWindowSize().height.dp)
-                    .background(MiuixTheme.colorScheme.background),
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
                 state = listState,
                 contentPadding = paddingValues,
-                topAppBarScrollBehavior = scrollBehavior,
-                content = { item { MainContent(
-                    appColorConfig,
-                    pickedColor,
-                    currentDarkMode,
-                    dropdownDialogVisibility
-                ) } }
+                overscrollEffect = null,
+                content = {
+                    item {
+                        MainContent(
+                            appColorConfig,
+                            pickedColor,
+                            currentDarkMode,
+                            dropdownDialogVisibility
+                        )
+                    }
+                }
             )
         },
-        bottomBar = { BottomBar(
-            contentPadding = it,
-            appColorConfig = appColorConfig,
-            pickedColor = pickedColor,
-            blurEnabled = blurEnabled,
-            currentDarkMode = currentDarkMode
-        ) }
+        bottomBar = {
+            BottomBar(
+                contentPadding = it,
+                appColorConfig = appColorConfig,
+                pickedColor = pickedColor,
+                blurEnabled = blurEnabled,
+                currentDarkMode = currentDarkMode
+            )
+        }
     )
 
     // 注册界面上的 Dialog
@@ -244,14 +250,13 @@ private fun TopBar(
     paddingValues: PaddingValues,
     mode: BasePageDefaults.Mode,
     appName: String,
-    topAppBarBackground: Color,
-    onBack: () -> Unit,
     scrollBehavior: ScrollBehavior,
-    topBarBlurState: Boolean,
+    blurEnabled: MutableState<Boolean>,
+    onBack: () -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(
-        WindowInsetsSides.Horizontal).asPaddingValues()
+    val systemBarInsets =
+        WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal).asPaddingValues()
     val navigationIconPadding = PaddingValues.Absolute(
         left = if (mode != BasePageDefaults.Mode.SPLIT_RIGHT)
             systemBarInsets.calculateLeftPadding(layoutDirection)
@@ -259,7 +264,7 @@ private fun TopBar(
             0.dp
     )
     TopAppBar(
-        color = topAppBarBackground.copy(if (topBarBlurState) 0f else 1f),
+        color = if (blurEnabled.value) Color.Transparent else MiuixTheme.colorScheme.background,
         title = appName,
         scrollBehavior = scrollBehavior,
         navigationIcon = {
@@ -272,7 +277,7 @@ private fun TopBar(
             ) {
                 Icon(
                     modifier = Modifier.size(26.dp),
-                    imageVector = MiuixIcons.Back,
+                    imageVector = MiuixIcons.Useful.Back,
                     contentDescription = "Back",
                     tint = MiuixTheme.colorScheme.onSurfaceSecondary
                 )
@@ -304,18 +309,38 @@ private fun MainContent(
             dropdownDialogVisibility = dropdownDialogVisibility
         )
     }
-    PreferenceGroup(title = stringResource(R.string.rgb_color_space)) {
-        RGBPreference(pickedColor)
-    }
-    PreferenceGroup(title = stringResource(R.string.hsv_color_space)) {
-        HSVPreference(pickedColor)
-    }
-    PreferenceGroup(first = true, last = true) {
+    PreferenceGroup {
         ResetText(
             appColorConfig = appColorConfig,
             pickedColor = pickedColor,
             currentDarkMode = darkMode
         )
+    }
+    val tabIndex = remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
+    TabRow(
+        modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp),
+        tabs = listOf(
+            stringResource(R.string.rgb_color_space),
+            stringResource(R.string.hsv_color_space)
+        ),
+        selectedTabIndex = tabIndex.intValue,
+        onTabSelected = {
+            tabIndex.intValue = it
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(it)
+            }
+        }
+    )
+    HorizontalPager(
+        modifier = Modifier.fillMaxWidth(),
+        state = pagerState
+    ) { page ->
+        when (page) {
+            0 -> PreferenceGroup(last = true) { RGBPreference(pickedColor) }
+            1 -> PreferenceGroup(last = true) { HSVPreference(pickedColor) }
+        }
     }
 }
 
@@ -332,7 +357,7 @@ private fun DisplayCard(
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 6.dp, top = 12.dp),
-        color = colorResource(R.color.colorDemoBackground)
+        colors = CardDefaults.defaultColors(colorResource(R.color.colorDemoBackground))
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             DisplayColorDemo(
@@ -355,10 +380,13 @@ private fun DisplayColorDemo(
     pickedColor: PickedColor,
     appColorConfig: AppColorConfig
 ) {
-    Box(modifier = Modifier.padding(16.dp).wrapContentSize()) {
+    Box(
+        modifier = Modifier
+            .padding(16.dp)
+            .wrapContentSize()
+    ) {
         var magnifierCenter by remember { mutableStateOf(Offset.Unspecified) }
         val appIcon = appColorConfig.appIcon
-        var collimationVisibility by remember { mutableStateOf(false) }
         Image(
             painter = painterResource(id = R.drawable.demo_transparency),
             contentDescription = null,
@@ -377,10 +405,10 @@ private fun DisplayColorDemo(
                     zoom = 5f,
                     size = DpSize(100.dp, 100.dp),
                     cornerRadius = 50.dp
-                ).pointerInput(Unit) {
+                )
+                .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
-                            collimationVisibility = true
                             magnifierCenter = offset
                             appIcon.getColor(
                                 (appIcon.width * magnifierCenter.x / size.width).toInt().coerceIn(0, appIcon.width - 1),
@@ -388,7 +416,6 @@ private fun DisplayColorDemo(
                             ).toArgb().let { pickedColor.colorInt = it }
                         },
                         onDrag = { _, delta ->
-                            collimationVisibility = true
                             magnifierCenter += delta
                             appIcon.getColor(
                                 (appIcon.width * magnifierCenter.x / size.width).toInt().coerceIn(0, appIcon.width - 1),
@@ -396,16 +423,14 @@ private fun DisplayColorDemo(
                             ).toArgb().let { pickedColor.colorInt = it }
                         },
                         onDragEnd = {
-                            collimationVisibility = false
                             magnifierCenter = Offset.Unspecified
                         },
                         onDragCancel = {
-                            collimationVisibility = false
                             magnifierCenter = Offset.Unspecified
                         }
                     )
                 },
-            bitmap =  appIcon.asImageBitmap(),
+            bitmap = appIcon.asImageBitmap(),
             contentDescription = null,
         )
     }
@@ -430,7 +455,7 @@ private fun DisplayColorSelection(
             text = stringResource(R.string.please_select),
             fontSize = MiuixTheme.textStyles.body2.fontSize,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -527,7 +552,7 @@ private fun InputColor(
         onInputConfirm = { newString ->
             val trimmedString = newString.replace("#", "")
             try {
-                pickedColor.colorInt = android.graphics.Color.parseColor("#$trimmedString")
+                pickedColor.colorInt = "#$trimmedString".toColorInt()
             } catch (_: IllegalArgumentException) {
                 context.toast(R.string.color_input_invalid)
             }
@@ -673,7 +698,11 @@ private fun BottomBar(
         )
     }
     Surface(color = MiuixTheme.colorScheme.background.copy(if (blurEnabled.value) 0f else 1f)) {
-        Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent)
+        ) {
             HorizontalDivider(
                 thickness = 0.75.dp,
                 color = MiuixTheme.colorScheme.dividerLine
@@ -695,14 +724,7 @@ private fun BottomBar(
                 TextButton(
                     modifier = Modifier.weight(1.0f),
                     text = stringResource(R.string.save),
-                    colors = Color(pickedColor.colorInt).let {
-                        TextButtonColors(
-                            color = it,
-                            disabledColor = it,
-                            textColor = if (it.luminance() > 0.5f) Color.Black else Color.White,
-                            disabledTextColor = it
-                        )
-                    },
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
                     minHeight = 50.dp,
                     onClick = {
                         val colorHexString = "#" + "%08X".format(pickedColor.colorInt).substring(2)
@@ -728,26 +750,26 @@ private fun BottomBar(
                             if (value.isBlank())
                                 Color.White.toArgb()
                             else
-                                android.graphics.Color.parseColor(value)
+                                value.toColorInt()
                         } else {
                             val value = prefs.get(DataConst.INDIVIDUAL_BG_COLOR_APP_MAP).toMap()[appColorConfig.packageName]
                             if (value.isNullOrBlank())
                                 getBgColor(appColorConfig.appIcon, true)
                             else
-                                android.graphics.Color.parseColor(value)
+                                value.toColorInt()
                         }
                         appColorConfig.defaultColorDark = if (appColorConfig.isConfiguringOverallBGColor) {
                             val value = prefs.get(DataConst.OVERALL_BG_COLOR_NIGHT)
                             if (value.isBlank())
                                 Color.Black.toArgb()
                             else
-                                android.graphics.Color.parseColor(value)
+                                value.toColorInt()
                         } else {
                             val value = prefs.get(DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK).toMap()[appColorConfig.packageName]
                             if (value.isNullOrBlank())
                                 getBgColor(appColorConfig.appIcon, false)
                             else
-                                android.graphics.Color.parseColor(value)
+                                value.toColorInt()
                         }
                         context.toast(R.string.save_successful)
                     }
@@ -778,7 +800,7 @@ private fun AlertDialogs(
         negativeText = stringResource(R.string.button_abandonment),
         positiveText = stringResource(R.string.button_reedit),
         onNegativeButton = {
-            dismissDialog(modifiedDialogVisibility)
+            modifiedDialogVisibility.value = false
             navController.popBackStack()
         }
     )
@@ -791,7 +813,7 @@ private fun AlertDialogs(
         negativeText = stringResource(R.string.button_abandonment),
         positiveText = stringResource(R.string.button_reedit),
         onNegativeButton = {
-            dismissDialog(dropdownDialogVisibility)
+            dropdownDialogVisibility.value = false
             currentDarkMode.value = !currentDarkMode.value
             pickedColor.colorInt = appColorConfig.getDefaultBGColor(currentDarkMode.value)
         }
@@ -859,7 +881,6 @@ private fun HueSeekBar(
         )
         val hapticFeedback = LocalHapticFeedback.current
         var dragOffset by remember { mutableFloatStateOf(0f) }
-        var isDragging by remember { mutableStateOf(false) }
         var currentValue by remember { mutableFloatStateOf(value) }
         var hapticTriggered by remember { mutableStateOf(false) }
         val updatedOnProgressChange by rememberUpdatedState(onValueChange)
@@ -874,7 +895,6 @@ private fun HueSeekBar(
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
-                            isDragging = true
                             dragOffset = offset.x
                             currentValue = calculateProgress(dragOffset, size.width, size.height)
                             updatedOnProgressChange(currentValue)
@@ -890,17 +910,16 @@ private fun HueSeekBar(
                             } else if (currentValue != 0.0f && currentValue != 360.0f) {
                                 hapticTriggered = false
                             }
-                        },
-                        onDragEnd = {
-                            isDragging = false
                         }
                     )
                 },
             contentAlignment = Alignment.CenterStart
         ) {
             Canvas(
-                modifier = Modifier.fillMaxWidth().height(28.dp)
-                    .clip(SmoothRoundedCornerShape(28.dp))
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .clip(G2RoundedCornerShape(28.dp))
                     .drawBehind {
                         val barHeight = size.height
                         val barWidth = size.width
@@ -956,7 +975,7 @@ private fun FloatColorSeekBar(
             title = title,
             rightActions = {
                 Text(
-                    text = "${"%.2f".format(value) } / 1.0",
+                    text = "${"%.2f".format(value)} / 1.0",
                     fontSize = MiuixTheme.textStyles.body2.fontSize,
                     color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                     textAlign = TextAlign.End,
@@ -1043,21 +1062,25 @@ private class AppColorConfig(realPackageName: String?, context: Context) {
             isConfiguringOverallBGColor && isDark -> {
                 prefs.get(DataConst.OVERALL_BG_COLOR_NIGHT)
             }
+
             isConfiguringOverallBGColor -> {
                 prefs.get(DataConst.OVERALL_BG_COLOR)
             }
+
             !isConfiguringOverallBGColor && isDark -> {
                 prefs.get(DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK)
                     .toMap()[packageName].takeIf { !it.isNullOrBlank() }
             }
+
             !isConfiguringOverallBGColor -> {
                 prefs.get(DataConst.INDIVIDUAL_BG_COLOR_APP_MAP)
                     .toMap()[packageName].takeIf { !it.isNullOrBlank() }
             }
+
             else -> null
         }
 
-        val color = colorValue?.let { android.graphics.Color.parseColor(it) }
+        val color = colorValue?.toColorInt()
             ?: getBgColor(appIcon, !isDark)
 
         return color
@@ -1095,18 +1118,24 @@ class PickedColor(
     var b
         get() = rgbColorState.intValue and 0xFF
         set(value) {
-            colorInt = (rgbColorState.intValue and 0xFFFF00FF.toInt()) or ((value and 0xFF) shl 8)
+            colorInt = (rgbColorState.intValue and 0xFFFFFF00.toInt()) or (value and 0xFF)
         }
 
     var h
         get() = hsvColorState[0]
-        set(value) { setHsvColor(0, value) }
+        set(value) {
+            setHsvColor(0, value)
+        }
     var s
         get() = hsvColorState[1]
-        set(value) { setHsvColor(1, value) }
+        set(value) {
+            setHsvColor(1, value)
+        }
     var v
         get() = hsvColorState[2]
-        set(value) { setHsvColor(2, value) }
+        set(value) {
+            setHsvColor(2, value)
+        }
 
     var colorInt = 0
         get() = rgbColorState.intValue

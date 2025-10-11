@@ -1,6 +1,10 @@
 package com.gswxxn.restoresplashscreen.ui.page
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,8 +46,6 @@ fun IconPage(navController: NavController, adjustPadding: PaddingValues, mode: B
         adjustPadding = adjustPadding,
         title = stringResource(R.string.icon_settings),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -80,9 +82,11 @@ private fun CommonSettingsGroup() {
 
     // 图标包列表预处理
     val selectedIconPackIndex = remember { mutableIntStateOf(0) }
-    val availableIconPackItems = remember { mutableStateListOf(
-        SpinnerEntry(title = "None", summary = "None")
-    ) }
+    val availableIconPackItems = remember {
+        mutableStateListOf(
+            SpinnerEntry(title = "None", summary = "None")
+        )
+    }
     LaunchedEffect(Unit) {
         availableIconPackItems.addAll(
             IconPackManager(context).getAvailableIconPacks()
@@ -159,11 +163,18 @@ private fun DefaultIconSettingsGroup(navController: NavController) {
     SwitchPreference(
         title = stringResource(R.string.default_style),
         summary = stringResource(R.string.default_style_tips),
-        prefsData = DataConst.ENABLE_DEFAULT_STYLE
+        prefsData = DataConst.ENABLE_DEFAULT_STYLE,
+        checked = ignoreAppIcon
     ) { newValue ->
-        if (newValue) { context.toast(R.string.custom_scope_message) }
+        if (newValue) {
+            context.toast(R.string.custom_scope_message)
+        }
     }
-    AnimatedVisibility(ignoreAppIcon.value) {
+    AnimatedVisibility(
+        visible = ignoreAppIcon.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 配置应用列表
         TextPreference(title = stringResource(R.string.default_style_list)) {
             navController.navigateTo(Pages.CONFIG_IGNORE_APP_ICON)
@@ -183,11 +194,18 @@ private fun HideSplashIconSettingsGroup(navController: NavController) {
     // 不显示图标
     SwitchPreference(
         title = stringResource(R.string.hide_splash_screen_icon),
-        prefsData = DataConst.ENABLE_HIDE_SPLASH_SCREEN_ICON
+        prefsData = DataConst.ENABLE_HIDE_SPLASH_SCREEN_ICON,
+        checked = hideSplashIcon
     ) { newValue ->
-        if (newValue) { context.toast(R.string.custom_scope_message) }
+        if (newValue) {
+            context.toast(R.string.custom_scope_message)
+        }
     }
-    AnimatedVisibility(hideSplashIcon.value) {
+    AnimatedVisibility(
+        visible = hideSplashIcon.value,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 配置应用列表
         TextPreference(
             title = stringResource(R.string.default_style_list),

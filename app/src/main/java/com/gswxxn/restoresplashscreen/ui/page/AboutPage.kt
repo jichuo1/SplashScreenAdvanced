@@ -2,7 +2,6 @@ package com.gswxxn.restoresplashscreen.ui.page
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 import androidx.navigation.NavController
 import com.gswxxn.restoresplashscreen.BuildConfig
 import com.gswxxn.restoresplashscreen.R
@@ -45,8 +45,10 @@ import dev.lackluster.hyperx.compose.base.IconSize
 import dev.lackluster.hyperx.compose.base.ImageIcon
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import kotlin.math.min
 
 /**
@@ -63,8 +65,6 @@ fun AboutPage(
         adjustPadding = adjustPadding,
         title = stringResource(R.string.about),
         blurEnabled = MainActivity.blurEnabled,
-        blurTintAlphaLight = MainActivity.blurTintAlphaLight,
-        blurTintAlphaDark = MainActivity.blurTintAlphaDark,
         mode = mode
     ) {
         item {
@@ -181,8 +181,8 @@ private fun AppInfoCard() {
         with(context) {
             toast(R.string.follow_me)
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("coolmarket://u/1189245")))
-            } catch (e: Exception) {
+                startActivity(Intent(Intent.ACTION_VIEW, "coolmarket://u/1189245".toUri()))
+            } catch (_: Exception) {
                 openExternalUrl("https://www.coolapk.com/u/1189245")
             }
         }
@@ -214,7 +214,10 @@ private fun AdaptiveHeaderCard(
 ) {
     Layout(
         content = {
-            Card(color = Color("#21A2EE".toColorInt())) {
+            Card(
+                colors = CardDefaults.defaultColors(Color("#21A2EE".toColorInt())),
+                pressFeedbackType = PressFeedbackType.Sink
+            ) {
                 colorCardContent()
             }
             Card {
@@ -227,13 +230,17 @@ private fun AdaptiveHeaderCard(
         }
         if (constraints.maxWidth >= 768.dp.roundToPx()) {
             val cardWidthPx = (constraints.maxWidth - 48.dp.roundToPx()) / 2
-            val infoCard = measurables[1].measure(constraints.copy(
-                minWidth = cardWidthPx, maxWidth = cardWidthPx
-            ))
-            val colorCard = measurables[0].measure(constraints.copy(
-                minWidth = cardWidthPx, maxWidth = cardWidthPx,
-                minHeight = infoCard.height, maxHeight = infoCard.height
-            ))
+            val infoCard = measurables[1].measure(
+                constraints.copy(
+                    minWidth = cardWidthPx, maxWidth = cardWidthPx
+                )
+            )
+            val colorCard = measurables[0].measure(
+                constraints.copy(
+                    minWidth = cardWidthPx, maxWidth = cardWidthPx,
+                    minHeight = infoCard.height, maxHeight = infoCard.height
+                )
+            )
             val layoutHeight = infoCard.height + 18.dp.roundToPx()
             layout(constraints.maxWidth, layoutHeight) {
                 colorCard.place(12.dp.roundToPx(), 12.dp.roundToPx())
@@ -241,14 +248,18 @@ private fun AdaptiveHeaderCard(
             }
         } else {
             val cardWidthPx = constraints.maxWidth - 24.dp.roundToPx()
-            val infoCard = measurables[1].measure(constraints.copy(
-                minWidth = cardWidthPx, maxWidth = cardWidthPx
-            ))
+            val infoCard = measurables[1].measure(
+                constraints.copy(
+                    minWidth = cardWidthPx, maxWidth = cardWidthPx
+                )
+            )
             val colorCardHeight = min(infoCard.height, cardWidthPx / 2)
-            val colorCard = measurables[0].measure(constraints.copy(
-                minWidth = cardWidthPx, maxWidth = cardWidthPx,
-                minHeight = colorCardHeight, maxHeight = colorCardHeight
-            ))
+            val colorCard = measurables[0].measure(
+                constraints.copy(
+                    minWidth = cardWidthPx, maxWidth = cardWidthPx,
+                    minHeight = colorCardHeight, maxHeight = colorCardHeight
+                )
+            )
             val layoutHeight = colorCard.height + infoCard.height + 30.dp.roundToPx()
             layout(constraints.maxWidth, layoutHeight) {
                 colorCard.place(12.dp.roundToPx(), 12.dp.roundToPx())
@@ -276,7 +287,7 @@ enum class OpenSourceReference(val author: String, val license: String, val link
  */
 private fun Context.openExternalUrl(url: String) {
     try {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (_: Exception) {
     }
 }

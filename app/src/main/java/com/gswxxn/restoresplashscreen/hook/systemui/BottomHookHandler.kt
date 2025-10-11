@@ -1,7 +1,7 @@
 package com.gswxxn.restoresplashscreen.hook.systemui
 
 import com.gswxxn.restoresplashscreen.data.DataConst
-import com.gswxxn.restoresplashscreen.hook.NewSystemUIHooker
+import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
 import com.gswxxn.restoresplashscreen.wrapper.SplashScreenViewBuilderWrapper
@@ -16,7 +16,7 @@ object BottomHookHandler: BaseHookHandler() {
         /**
          * 移除底部图片
          */
-        NewSystemUIHooker.Members.build_SplashScreenViewBuilder.addBeforeHook {
+        SystemUIHooker.Members.build_SplashScreenViewBuilder.addBeforeHook {
             val isRemoveBrandingImage = prefs.get(DataConst.REMOVE_BRANDING_IMAGE) &&
                     if (prefs.get(DataConst.IS_REMOVE_BRANDING_IMAGE_EXCEPTION_MODE))
                         GenerateHookHandler.currentPackageName !in prefs.get(DataConst.REMOVE_BRANDING_IMAGE_LIST)
@@ -25,7 +25,7 @@ object BottomHookHandler: BaseHookHandler() {
 
             if (isRemoveBrandingImage)
                 SplashScreenViewBuilderWrapper.getInstance(instance).setBrandingDrawable(null, 0, 0)
-            printLog("SplashScreenViewBuilder(): ${if (isRemoveBrandingImage) "" else "Not"} remove Branding Image")
+            printLog("SplashScreenViewBuilder():${if (isRemoveBrandingImage) "" else " not"} remove branding image")
         }
     }
 }

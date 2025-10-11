@@ -1,12 +1,11 @@
 package com.gswxxn.restoresplashscreen.hook.systemui
 
-import android.graphics.Color
 import android.graphics.drawable.Drawable
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.toArgb
 import com.gswxxn.restoresplashscreen.data.DataConst
-import com.gswxxn.restoresplashscreen.hook.NewSystemUIHooker
+import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentPackageName
 import com.gswxxn.restoresplashscreen.ui.page.data.BGColorModes
@@ -18,6 +17,7 @@ import com.gswxxn.restoresplashscreen.utils.YukiHelper.isMIUI
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
 import com.gswxxn.restoresplashscreen.wrapper.SplashScreenViewBuilderWrapper
 import com.highcapable.yukihookapi.hook.factory.current
+import androidx.core.graphics.toColorInt
 
 /**
  * 此对象用于处理 背景 Hook
@@ -34,10 +34,10 @@ object BgHookHandler: BaseHookHandler() {
 
     /** 开始 Hook */
     override fun onHook() {
-        NewSystemUIHooker.Members.getBGColorFromCache.addAfterHook {
+        SystemUIHooker.Members.getBGColorFromCache.addAfterHook {
             mTmpAttrsInstance = instance.current().field { name = "mTmpAttrs" }.any()
         }
-        NewSystemUIHooker.Members.build_SplashScreenViewBuilder.addBeforeHook {
+        SystemUIHooker.Members.build_SplashScreenViewBuilder.addBeforeHook {
             val builder = SplashScreenViewBuilderWrapper.getInstance(instance)
 
             // 设置背景颜色
@@ -71,7 +71,7 @@ object BgHookHandler: BaseHookHandler() {
 
         return if (currentPackageName in individualBgColorAppMap.keys) {
             printLog("SplashScreenViewBuilder(): set individual background color, ${individualBgColorAppMap[currentPackageName]}")
-            Color.parseColor(individualBgColorAppMap[currentPackageName])
+            individualBgColorAppMap[currentPackageName]?.toColorInt()
         } else if (!isInBGExceptList && (!isDarkMode || ignoreDarkMode))
             when (bgColorType) {
                 // 从图标取色
@@ -105,7 +105,7 @@ object BgHookHandler: BaseHookHandler() {
                 // 自定义颜色
                 ChangeBGColorTypes.FromCustom.ordinal -> {
                     printLog("SplashScreenViewBuilder(): set overall background color")
-                    Color.parseColor(prefs.get(if (isDarkMode) DataConst.OVERALL_BG_COLOR_NIGHT else DataConst.OVERALL_BG_COLOR))
+                    prefs.get(if (isDarkMode) DataConst.OVERALL_BG_COLOR_NIGHT else DataConst.OVERALL_BG_COLOR).toColorInt()
                 }
 
                 else -> {
