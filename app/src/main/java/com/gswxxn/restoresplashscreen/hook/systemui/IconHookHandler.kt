@@ -355,7 +355,7 @@ object IconHookHandler : BaseHookHandler() {
                 currentPackageName == "com.android.settings" && currentActivity == "com.android.settings.BackgroundApplicationsManager" ->
                     appContext!!.packageManager.getApplicationIcon("com.android.settings")
 
-                // ColorOS 电话拨号界面
+                // 新 ColorOS 电话拨号界面
                 currentPackageName == "com.android.contacts" && currentActivity == "com.customize.contacts.activities.ContactsTabActivity" ->
                     appContext!!.packageManager.getActivityIcon(
                         ComponentName("com.android.contacts", "com.android.contacts.DialtactsActivityAlias")

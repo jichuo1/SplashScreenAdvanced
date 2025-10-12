@@ -123,8 +123,7 @@ private fun GeneralSettingItems(
     ) {
         // 自定义背景颜色
         TextPreference(
-            title = stringResource(R.string.set_custom_bg_color),
-            summary = stringResource(R.string.set_custom_bg_color_tips)
+            title = stringResource(R.string.set_custom_bg_color)
         ) {
             navController.navigateTo("${Pages.CONFIG_COLOR_PICKER}?PkgName=${""}")
         }
