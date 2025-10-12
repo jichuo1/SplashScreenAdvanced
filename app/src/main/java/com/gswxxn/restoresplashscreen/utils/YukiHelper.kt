@@ -29,6 +29,7 @@ object YukiHelper {
      * @return [MutableMap]
      */
     fun YukiBaseHooker.getMapPrefs(p: PrefsData<MutableSet<String>>) = prefs.get(p).toMap()
+
     /**
      * 读取 MapPrefs
      *
@@ -45,7 +46,7 @@ object YukiHelper {
      * @return [Instance]
      */
     @JvmName("getFieldAny")
-    fun Any.getField(fieldName : String) = current().field { name = fieldName }.any()
+    fun Any.getField(fieldName: String) = current().field { name = fieldName }.any()
 
     /**
      * 根据名称获取实例 的 Field 实例处理类, 并转换为指定类型
@@ -54,7 +55,7 @@ object YukiHelper {
      * @param fieldName Field 名称
      * @return [Instance]
      */
-    fun <T> Any.getField(fieldName : String) = current().field { name = fieldName }.cast<T>()
+    fun <T> Any.getField(fieldName: String) = current().field { name = fieldName }.cast<T>()
 
     /**
      * 根据名称设置实例 的 Field 实例内容
@@ -63,7 +64,7 @@ object YukiHelper {
      * @param fieldName Field 名称
      * @param value 设置的实例内容
      */
-    fun Any.setField(fieldName : String, value : Any?) = current().field { name = fieldName }.set(value)
+    fun Any.setField(fieldName: String, value: Any?) = current().field { name = fieldName }.set(value)
 
     /**
      * 通过 DataChannel 发送消息，获取 Hook 信息
@@ -116,10 +117,11 @@ object YukiHelper {
         if (System.currentTimeMillis() - prefs.get(DataConst.ENABLE_LOG_TIMESTAMP) > 86400000) return
         msg.forEach { YLog.info(it) }
     }
+
     /**
-    * 当前设备是否是 MIUI 定制 Android 系统
-    * @return [Boolean] 是否符合条件
-    */
+     * 当前设备是否是 MIUI 定制 Android 系统
+     * @return [Boolean] 是否符合条件
+     */
     val isMIUI by lazy { "android.miui.R".hasClass() }
 
     /**
@@ -137,6 +139,7 @@ object YukiHelper {
             false
         }
     }
+
     /**
      * 检测 MIUI 版本是否至少为 14
      *
@@ -174,7 +177,7 @@ object YukiHelper {
      */
     inline fun <reified T> BaseHookHandler.getDevPrefs(prefsData: PrefsData<T>): T {
         if (prefs.get(DataConst.ENABLE_DEV_SETTINGS)) {
-           return prefs.get(prefsData)
+            return prefs.get(prefsData)
         }
         return prefsData.value
     }

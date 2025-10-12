@@ -48,7 +48,7 @@ fun HeaderCard(
                     fontWeight = FontWeight.SemiBold,
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 0.1f),
-                        offset = with(density) { Offset(0f, 3.dp.toPx())},
+                        offset = with(density) { Offset(0f, 3.dp.toPx()) },
                         blurRadius = with(density) { 6.dp.toPx() }
                     )
                 )
@@ -88,12 +88,16 @@ fun HeaderCard(
             val px16dp = 16.dp.roundToPx()
             val px32dp = 32.dp.roundToPx()
             val px250dp = 250.dp.roundToPx()
-            val image = measurables[0].measure(constraints.copy(
-                minHeight = px250dp, maxHeight = px250dp
-            ))
-            val text = measurables[1].measure(constraints.copy(
-                maxWidth = constraints.maxWidth - image.width - px16dp * 3
-            ))
+            val image = measurables[0].measure(
+                constraints.copy(
+                    minHeight = px250dp, maxHeight = px250dp
+                )
+            )
+            val text = measurables[1].measure(
+                constraints.copy(
+                    maxWidth = constraints.maxWidth - image.width - px16dp * 3
+                )
+            )
             val totalHeight = max(image.height, text.height) + px32dp
             layout(constraints.maxWidth, totalHeight) {
                 image.place(px16dp, (totalHeight - image.height) / 2)

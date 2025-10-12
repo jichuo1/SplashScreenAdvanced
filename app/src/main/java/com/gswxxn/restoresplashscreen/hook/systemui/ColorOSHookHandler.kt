@@ -1,12 +1,9 @@
 package com.gswxxn.restoresplashscreen.hook.systemui
 
 import android.graphics.drawable.Drawable
-import com.gswxxn.restoresplashscreen.data.StartingWindowInfo
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
-import com.gswxxn.restoresplashscreen.utils.YukiHelper.getField
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
-import com.gswxxn.restoresplashscreen.utils.YukiHelper.setField
 
 /**
  * 此对象用于处理针对 ColorOS 的 Hook

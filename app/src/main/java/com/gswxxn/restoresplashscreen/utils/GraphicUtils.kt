@@ -7,6 +7,7 @@ import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.RectF
 import android.graphics.Shader
@@ -14,7 +15,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.palette.graphics.Palette
 import com.gswxxn.restoresplashscreen.data.RoundDegree
-import android.graphics.Path
 
 /**
  * 图形工具类
@@ -27,7 +27,7 @@ object GraphicUtils {
      * @param size 生成此大小的 Bitmap
      * @return [Bitmap]
      */
-    fun drawable2Bitmap(drawable: Drawable, size : Int): Bitmap {
+    fun drawable2Bitmap(drawable: Drawable, size: Int): Bitmap {
         if (drawable is BitmapDrawable) {
             return drawable.bitmap
         }
@@ -48,7 +48,7 @@ object GraphicUtils {
      * @return [Bitmap]
      */
     fun roundBitmapByShader(bitmap: Bitmap?, roundDegree: RoundDegree, shrinkTrigger: Int = 0): Bitmap? {
-        if (bitmap == null)  return null
+        if (bitmap == null) return null
 
         val radius = when (roundDegree) {
             RoundDegree.RoundCorner -> bitmap.width / 4
@@ -65,7 +65,7 @@ object GraphicUtils {
             RectF(0F, 0F, bitmap.width.toFloat(), bitmap.width.toFloat()),
             radius.toFloat(),
             radius.toFloat(),
-            Paint().apply{
+            Paint().apply {
                 isAntiAlias = true
                 shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
             }
@@ -86,7 +86,7 @@ object GraphicUtils {
             )
             return shrankBitmap
         }
-        return  targetBitmap
+        return targetBitmap
     }
 
     /**
@@ -128,7 +128,7 @@ object GraphicUtils {
      * @param isLight 是否为浅色模式
      * @return [Int]
      */
-    fun getBgColor(bitmap: Bitmap, isLight: Boolean):Int {
+    fun getBgColor(bitmap: Bitmap, isLight: Boolean): Int {
         val hsv = FloatArray(3)
 
         val color = Palette.from(bitmap).maximumColorCount(8).generate()

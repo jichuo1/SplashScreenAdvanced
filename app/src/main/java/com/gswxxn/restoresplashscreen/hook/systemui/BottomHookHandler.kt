@@ -9,7 +9,7 @@ import com.gswxxn.restoresplashscreen.wrapper.SplashScreenViewBuilderWrapper
 /**
  * 此对象用于处理底部图片 Hook
  */
-object BottomHookHandler: BaseHookHandler() {
+object BottomHookHandler : BaseHookHandler() {
 
     /** 开始 Hook */
     override fun onHook() {

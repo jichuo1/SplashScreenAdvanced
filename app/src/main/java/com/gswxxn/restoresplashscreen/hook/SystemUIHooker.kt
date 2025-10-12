@@ -58,11 +58,11 @@ object SystemUIHooker : YukiBaseHooker() {
             "com.android.wm.shell.startingsurface.SplashscreenContentDrawer\$ColorCache\$IconColor".toClass()
                 .constructor().give()!!
         }
-        val getIcon_IconProvider = HookManager {
+        val getIcon_IconProvider = HookManager(!isColorOS) {
             "com.android.launcher3.icons.IconProvider".toClass().method {
                 name = "getIcon"
-                paramCount(1..2)
-                param { ActivityInfoClass in it || ComponentInfoClass in it }
+                paramCount(2)
+                param { IntType in it && (ActivityInfoClass in it || ComponentInfoClass in it) }
             }.give()!!
         }
         val normalizeAndWrapToAdaptiveIcon = HookManager {

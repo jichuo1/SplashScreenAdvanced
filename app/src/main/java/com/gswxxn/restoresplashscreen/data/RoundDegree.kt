@@ -1,5 +1,11 @@
 package com.gswxxn.restoresplashscreen.data
 
+import com.gswxxn.restoresplashscreen.data.RoundDegree.Circle
+import com.gswxxn.restoresplashscreen.data.RoundDegree.MIUIWidget
+import com.gswxxn.restoresplashscreen.data.RoundDegree.NotDrawRoundCorner
+import com.gswxxn.restoresplashscreen.data.RoundDegree.RoundCorner
+
+
 /**
  * 圆角程度
  *

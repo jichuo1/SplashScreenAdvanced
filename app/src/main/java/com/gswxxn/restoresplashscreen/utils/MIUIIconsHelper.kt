@@ -33,6 +33,7 @@ class MIUIIconsHelper(private val context: Context) {
             "com.miui.maml.util.LargeIconsHelper".toClass(miuiHomeContext.classLoader)
         else null
     private val appIconsHelper = "com.miui.maml.util.AppIconsHelper".toClass(miuiHomeContext.classLoader)
+
     /** 当前是否启用 MIUI 完美图标 */
     val isSupportMIUIModeIcon by lazy {
         Settings.System.getInt(context.contentResolver, "key_miui_mod_icon_enable", 0) == 1
@@ -73,7 +74,7 @@ class MIUIIconsHelper(private val context: Context) {
 
         // 由于大图标的变更通知不到系统界面, 所以只能每次都重新读取配置
         if (YukiHelper.atLeastMIUI14) {
-            "com.miui.maml.util.LargeIconsHelper".toClass( miuiHomeContext.classLoader).method {
+            "com.miui.maml.util.LargeIconsHelper".toClass(miuiHomeContext.classLoader).method {
                 name = "hasLargeIcon"
             }.hook {
                 before {
@@ -93,7 +94,7 @@ class MIUIIconsHelper(private val context: Context) {
         largeIconsHelperClazz?.method {
             name = "hasLargeIcon"
             param(StringClass, StringClass, StringClass, UserHandleClass)
-        }?.get()?.boolean (
+        }?.get()?.boolean(
             packageName,
             null,
             "desktop",
@@ -164,7 +165,7 @@ class MIUIIconsHelper(private val context: Context) {
             getCacheTime(packageName),
         )
 
-        if (drawable is AdaptiveIconDrawable && drawable.javaClass.name == "com.miui.maml.MamlAdaptiveIconDrawable"){
+        if (drawable is AdaptiveIconDrawable && drawable.javaClass.name == "com.miui.maml.MamlAdaptiveIconDrawable") {
             val layer0QuietDrawable = drawable.background.current().method { name = "getQuietDrawable" }.invoke<Drawable>()!!
             val layerFancyDrawables = drawable.current().method { name = "getLayerFancyDrawables" }.invoke<ArrayList<Drawable>>()!!
 
@@ -190,7 +191,7 @@ class MIUIIconsHelper(private val context: Context) {
      * @return 缓存时间(毫秒)。
      */
     private fun getCacheTime(packageName: String) = when (packageName) {
-        "com.miui.weather2" ->  3600000L
+        "com.miui.weather2" -> 3600000L
         "com.android.deskclock" -> 0L
         else -> 86400000L
     }

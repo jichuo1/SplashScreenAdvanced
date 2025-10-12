@@ -1,6 +1,7 @@
 package com.gswxxn.restoresplashscreen.hook.base
 
 import com.gswxxn.restoresplashscreen.hook.AndroidHooker.hook
+import com.gswxxn.restoresplashscreen.hook.base.HookManager.Companion.defaultExecCondition
 import com.highcapable.yukihookapi.hook.log.YLog
 import com.highcapable.yukihookapi.hook.param.HookParam
 import kotlinx.serialization.Serializable
@@ -36,11 +37,11 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Memb
 
     private var member: Member? = null
 
-    private val beforeHooks =  mutableListOf<HookParam.() -> Unit>()
+    private val beforeHooks = mutableListOf<HookParam.() -> Unit>()
     private val afterHooks = mutableListOf<HookParam.() -> Unit>()
     private var replaceHook: (HookParam.() -> Any?)? = null
 
-    private val hasReplaceHook get() =  replaceHook != null
+    private val hasReplaceHook get() = replaceHook != null
     private val hasBeforeHooks get() = beforeHooks.isNotEmpty()
     private val hasAfterHooks get() = afterHooks.isNotEmpty()
 
@@ -50,10 +51,11 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Memb
 
     private var isMemberFound = false
 
-    private val isAbnormal get() = createCondition && (!isMemberFound ||
-            (hasBeforeHooks && !isBeforeHookExecuted) ||
-            (hasAfterHooks && !isAfterHookExecuted) ||
-            (hasReplaceHook && !isReplaceHookExecuted))
+    private val isAbnormal
+        get() = createCondition && (!isMemberFound ||
+                (hasBeforeHooks && !isBeforeHookExecuted) ||
+                (hasAfterHooks && !isAfterHookExecuted) ||
+                (hasReplaceHook && !isReplaceHookExecuted))
 
     init {
         if (createCondition) try {
@@ -103,7 +105,7 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Memb
      * @return 当前的HookManager实例。
      */
     fun addReplaceHook(execCondition: (() -> Boolean) = defaultExecCondition, block: HookParam.() -> Any?): HookManager {
-        replaceHook = { if (execCondition()) block() else callOriginal()  }
+        replaceHook = { if (execCondition()) block() else callOriginal() }
         return this
     }
 
@@ -126,14 +128,14 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Memb
     }
 
     fun getHookInfo() = HookInfo(
-        createCondition= createCondition,
-        hasReplaceHook= hasReplaceHook,
-        hasBeforeHooks= hasBeforeHooks,
-        hasAfterHooks= hasAfterHooks,
-        isBeforeHookExecuted= isBeforeHookExecuted,
-        isAfterHookExecuted= isAfterHookExecuted,
-        isReplaceHookExecuted= isReplaceHookExecuted,
-        isMemberFound= isMemberFound,
-        isAbnormal= isAbnormal
+        createCondition = createCondition,
+        hasReplaceHook = hasReplaceHook,
+        hasBeforeHooks = hasBeforeHooks,
+        hasAfterHooks = hasAfterHooks,
+        isBeforeHookExecuted = isBeforeHookExecuted,
+        isAfterHookExecuted = isAfterHookExecuted,
+        isReplaceHookExecuted = isReplaceHookExecuted,
+        isMemberFound = isMemberFound,
+        isAbnormal = isAbnormal
     )
 }

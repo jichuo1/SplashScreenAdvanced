@@ -47,9 +47,9 @@ object IconHookHandler : BaseHookHandler() {
      *
      * null: 当前没有使用 MIUI 大图标
      *
-     * false: 当前使用 1x2 或 2x1 或 2x2 的图标
+     * true: 当前使用 1x2 或 2x1 或 2x2 的图标
      *
-     * true: 当前使用 1x1 的图标
+     * false: 当前使用 1x1 的图标
      *
      */
     private var currentUseBigMIUILagerIcon: Boolean? = null
@@ -160,7 +160,7 @@ object IconHookHandler : BaseHookHandler() {
             val isNeedDrawRoundCorner = prefs.get(DataConst.ENABLE_DRAW_ROUND_CORNER) && // 用户配置
                     "android.window.SplashScreenView\$IconAnimateListener".toClass() !in iconDrawable.javaClass.interfaces && // 不为动态图标绘制圆角
                     iconSize != 0 && // 如果没有图标 则不绘制圆角
-                    currentUseBigMIUILagerIcon == null // 如果当前使用 MIUI 大图标, 则不绘制圆角
+                    currentUseBigMIUILagerIcon == true // 如果当前使用 MIUI 大图标, 则不绘制圆角
 
             if (!isNeedDrawRoundCorner) {
                 return@addAfterHook

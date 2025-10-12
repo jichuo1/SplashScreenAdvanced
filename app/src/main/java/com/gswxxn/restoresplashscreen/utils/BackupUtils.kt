@@ -51,6 +51,7 @@ object BackupUtils {
                                             )
                                         else putString(keys, value)
                                     }
+
                                     is Boolean -> putBoolean(keys, value)
                                     is Int -> putInt(keys, value)
                                 }
@@ -70,7 +71,9 @@ object BackupUtils {
                 context.startActivity(intent)
                 exitProcess(0)
             }.start()
-        } catch (e: Throwable) { context.toast(R.string.restore_failed) }
+        } catch (e: Throwable) {
+            context.toast(R.string.restore_failed)
+        }
     }
 
     /**
@@ -93,7 +96,9 @@ object BackupUtils {
                 }
             }
             context.toast(context.getString(R.string.save_successful))
-        } catch (_: Throwable) { context.toast(R.string.save_failed) }
+        } catch (_: Throwable) {
+            context.toast(R.string.save_failed)
+        }
     }
 
     /**

@@ -43,7 +43,7 @@ object DataConst {
     val CUSTOM_SCOPE_LIST = PrefsData("custom_scope_list", mutableSetOf<String>())
     val DEFAULT_STYLE_LIST = PrefsData("default_style_list", mutableSetOf<String>()) // 忽略应用主动设置的图标 应用列表
     val HIDE_SPLASH_SCREEN_ICON_LIST = PrefsData("hide_splash_screen_icon_list", mutableSetOf<String>())
-    val BG_EXCEPT_LIST =PrefsData("bg_except_list", mutableSetOf<String>()) //自适应背景颜色排除列表
+    val BG_EXCEPT_LIST = PrefsData("bg_except_list", mutableSetOf<String>()) //自适应背景颜色排除列表
     val REMOVE_BRANDING_IMAGE_LIST = PrefsData("remove_branding_image_list", mutableSetOf<String>())
     val FORCE_SHOW_SPLASH_SCREEN_LIST = PrefsData("force_show_splash_screen_list", mutableSetOf<String>())
     val MIN_DURATION_LIST = PrefsData("min_duration_list", mutableSetOf<String>())
@@ -54,8 +54,6 @@ object DataConst {
     // 开发者设置
     val ENABLE_DEV_SETTINGS = PrefsData("enable_dev_settings", false)
     val DEV_ICON_ROUND_CORNER_RATE = PrefsData("dev_icon_round_corner", 25)
-    val HAZE_TINT_ALPHA_LIGHT = PrefsData("module_blur_tint_light", 60)
-    val HAZE_TINT_ALPHA_DARK = PrefsData("module_blur_tint_dark", 50)
 
     // 模块应用设置
     val MODULE_APP_BLUR = PrefsData("module_blur", true)

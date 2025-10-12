@@ -116,7 +116,11 @@ private fun CommonSettingsGroup() {
         prefsData = DataConst.SHRINK_ICON,
         onSelectedIndexChange = { shrinkIcon = it }
     )
-    AnimatedVisibility(shrinkIcon != ShrinkIconType.NotShrinkIcon.ordinal) {
+    AnimatedVisibility(
+        visible = shrinkIcon != ShrinkIconType.NotShrinkIcon.ordinal,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
         // 为缩小的图标添加模糊背景
         SwitchPreference(
             title = stringResource(R.string.add_icon_blur_bg),

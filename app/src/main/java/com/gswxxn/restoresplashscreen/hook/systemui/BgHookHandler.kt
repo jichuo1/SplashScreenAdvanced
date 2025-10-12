@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.toColorInt
 import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
@@ -17,12 +18,11 @@ import com.gswxxn.restoresplashscreen.utils.YukiHelper.isMIUI
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
 import com.gswxxn.restoresplashscreen.wrapper.SplashScreenViewBuilderWrapper
 import com.highcapable.yukihookapi.hook.factory.current
-import androidx.core.graphics.toColorInt
 
 /**
  * 此对象用于处理 背景 Hook
  */
-object BgHookHandler: BaseHookHandler() {
+object BgHookHandler : BaseHookHandler() {
     private var mTmpAttrsInstance: Any? = null
 
     /**
@@ -58,7 +58,8 @@ object BgHookHandler: BaseHookHandler() {
         val ignoreDarkMode = prefs.get(DataConst.IGNORE_DARK_MODE) || !isMIUI
         val individualBgColorAppMap = getMapPrefs(
             if (!isDarkMode) DataConst.INDIVIDUAL_BG_COLOR_APP_MAP
-            else DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK)
+            else DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
+        )
         val skipAppWithBgColor = bgColorType != 0 &&
                 currentPackageName !in individualBgColorAppMap.keys &&
                 prefs.get(DataConst.SKIP_APP_WITH_BG_COLOR) &&
@@ -77,8 +78,8 @@ object BgHookHandler: BaseHookHandler() {
                 // 从图标取色
                 ChangeBGColorTypes.FromIcon.ordinal -> {
                     printLog("SplashScreenViewBuilder(): get adaptive background color")
-                    IconHookHandler.currentIconDominantColor ?:
-                    mTmpAttrsInstance!!.current().field { name = "mSplashScreenIcon" }.cast<Drawable>()?.let { drawable ->
+                    IconHookHandler.currentIconDominantColor ?: mTmpAttrsInstance!!.current().field { name = "mSplashScreenIcon" }
+                        .cast<Drawable>()?.let { drawable ->
                         val bitmap = GraphicUtils.drawable2Bitmap(drawable, 100)
                         GraphicUtils.getBgColor(
                             bitmap,
@@ -112,7 +113,7 @@ object BgHookHandler: BaseHookHandler() {
                     printLog("SplashScreenViewBuilder(): not replace background color"); null
                 }
             } else {
-                printLog("SplashScreenViewBuilder(): skip set bg color cuz app in except list"); null
-            }
+            printLog("SplashScreenViewBuilder(): skip set bg color cuz app in except list"); null
+        }
     }
 }

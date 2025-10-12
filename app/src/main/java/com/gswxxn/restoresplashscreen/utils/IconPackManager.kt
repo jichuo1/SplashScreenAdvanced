@@ -131,7 +131,7 @@ class IconPackManager(private val mContext: Context, private val packageName: St
      * @param componentName 需要获取图标的组件名
      * @return [Drawable]
      */
-    fun getIconByComponentName (componentName : String?) : Drawable? {
+    fun getIconByComponentName(componentName: String?): Drawable? {
         if (!mLoaded) load()
         val drawableName = mPackagesDrawables[componentName]
         return if (drawableName != null) loadDrawable(drawableName) else null

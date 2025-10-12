@@ -96,7 +96,8 @@ object CommonUtils {
     /**
      * 是否处于深色模式
      */
-    fun isDarkMode(context: Context) = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+    fun isDarkMode(context: Context) =
+        context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
     /**
      * 将密度无关像素（dp）值转换为像素（px）值。
@@ -106,5 +107,6 @@ object CommonUtils {
      * @param dpValue 要转换的 dp 值。
      * @return 转换后的像素值（整数类型）。
      */
-    fun dp2px(context: Context, dpValue: Float): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dpValue, context.resources.displayMetrics).toInt()
+    fun dp2px(context: Context, dpValue: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dpValue, context.resources.displayMetrics).toInt()
 }

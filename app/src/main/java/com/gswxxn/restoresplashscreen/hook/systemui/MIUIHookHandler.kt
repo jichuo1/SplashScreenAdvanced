@@ -8,7 +8,7 @@ import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
 /**
  * 此对象用于处理针对 MIUI 的 Hook
  */
-object MIUIHookHandler: BaseHookHandler() {
+object MIUIHookHandler : BaseHookHandler() {
 
     /** 开始 Hook */
     override fun onHook() {
