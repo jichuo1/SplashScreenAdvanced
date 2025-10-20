@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,9 +67,11 @@ import dev.lackluster.hyperx.compose.base.HazeScaffold
 import dev.lackluster.hyperx.compose.base.IconSize
 import dev.lackluster.hyperx.compose.base.ImageIcon
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -122,6 +125,7 @@ fun AppListPage(
     var selectSystemAppRequest by remember { mutableStateOf(false) }
     var clearSelectedRequest by remember { mutableStateOf(false) }
     var queryString by remember { mutableStateOf("") }
+    var sortTrigger by remember { mutableIntStateOf(0) }
 
     // 完整应用列表
     var appInfoList by remember { mutableStateOf<List<MyAppInfo>>(emptyList()) }
@@ -153,60 +157,89 @@ fun AppListPage(
     LaunchedEffect(Unit) {
         launch {
             isLoading = true
-            delay(500)
-            val pm = context.packageManager
-            appInfoList = pm.getInstalledApplications(0).map {
-                MyAppInfo(
-                    it.loadLabel(pm).toString(),
-                    it.packageName,
-                    it.loadIcon(pm),
-                    mutableStateOf(it.packageName in tmpCheckedList),
-                    it.flags and ApplicationInfo.FLAG_SYSTEM != 0
+            // 使用 IO 调度器进行耗时操作
+            val loadedApps = withContext(Dispatchers.IO) {
+                val pm = context.packageManager
+                val installedApps = pm.getInstalledApplications(0)
+
+                // 创建应用信息列表
+                installedApps.map { appInfo ->
+                    MyAppInfo(
+                        appName = appInfo.loadLabel(pm).toString(),
+                        packageName = appInfo.packageName,
+                        icon = appInfo.loadIcon(pm),
+                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
+                        isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+                    )
+                }.sortedWith(
+                    // 按应用类别排序：已勾选的应用优先显示
+                    compareByDescending<MyAppInfo> { it.isChecked.value }
+                        .thenBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.appName }
                 )
-            }.toList()
+            }
+
+            appInfoList = loadedApps
             isLoading = false
         }
     }
 
-    if (selectSystemAppRequest) {
-        appInfoList.filter { it.isSystemApp }.forEach {
-            it.isChecked.value = true
-        }
-        appInfoFilter = appInfoList.toMutableList().apply {
-            sortBy { it.appName }
-            sortByDescending { it.isChecked.value }
-        }
-    }
-
-    if (clearSelectedRequest) {
-        appInfoList.forEach {
-            it.isChecked.value = false
-        }
-        appInfoFilter = appInfoList.toMutableList().apply {
-            sortBy { it.appName }
-            sortByDescending { it.isChecked.value }
+    LaunchedEffect(selectSystemAppRequest) {
+        if (selectSystemAppRequest) {
+            launch(Dispatchers.Default) {
+                appInfoList.filter { it.isSystemApp }.forEach {
+                    it.isChecked.value = true
+                }
+                // 触发重新过滤和排序
+                withContext(Dispatchers.Main) {
+                    sortTrigger++
+                }
+            }
         }
     }
 
-    LaunchedEffect(appInfoList, queryString) {
+    LaunchedEffect(clearSelectedRequest) {
+        if (clearSelectedRequest) {
+            launch(Dispatchers.Default) {
+                appInfoList.forEach {
+                    it.isChecked.value = false
+                }
+                // 触发重新过滤和排序
+                withContext(Dispatchers.Main) {
+                    sortTrigger++
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(appInfoList, queryString, sortTrigger) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
-        appInfoFilter = emptyList()
+
         queryJob?.cancel()
-        queryJob = launch {
-            if (queryString.isBlank()) {
-                delay(100)
-                appInfoFilter = appInfoList.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.isChecked.value }
-                }
-            } else {
+        queryJob = launch(Dispatchers.Default) {
+            if (queryString.isNotBlank()) {
                 delay(300)
-                appInfoFilter = appInfoList.filter {
-                    it.appName.contains(queryString, true) or it.packageName.contains(queryString, true)
-                }.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.isChecked.value }
+            } else {
+                delay(50)
+            }
+
+            // 在后台线程进行过滤和排序
+            val filtered = if (queryString.isBlank()) {
+                appInfoList
+            } else {
+                appInfoList.filter {
+                    it.appName.contains(queryString, true) || it.packageName.contains(queryString, true)
                 }
+            }
+
+            // 排序：已勾选的应用优先，然后按应用名称排序
+            val sorted = filtered.sortedWith(
+                compareByDescending<MyAppInfo> { it.isChecked.value }
+                    .thenBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.appName }
+            )
+
+            // 切换回主线程更新 UI
+            withContext(Dispatchers.Main) {
+                appInfoFilter = sorted
             }
         }
     }
@@ -451,7 +484,13 @@ fun AppListPage(
                             ),
                             title = item.appName,
                             summary = item.packageName,
-                            checked = item.isChecked
+                            checked = item.isChecked,
+                            onCheckedChange = {
+                                coroutineScope.launch {
+                                    delay(200)
+                                    sortTrigger++
+                                }
+                            }
                         )
                     }
                 }

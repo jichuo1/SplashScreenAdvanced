@@ -18,9 +18,9 @@ enum class ModuleStatusType(
     @get:DrawableRes val stateIconRes: Int,
     @get:StringRes val stateTextRes: Int
 ) {
-    ACTIVE_NO_NEED_RESTART(R.color.green, R.drawable.ic_success, R.string.module_is_active),
-    ACTIVE_ANDROID_RESTART(R.color.yellow, R.drawable.ic_warn, R.string.module_is_updated_restart_phone_needed),
-    ACTIVE_SYSTEM_UI_RESTART(R.color.yellow, R.drawable.ic_warn, R.string.module_is_updated_restart_phone_needed),
+    ACTIVE_NO_NEED_RESTART(R.color.topCardBackground, R.drawable.ic_success, R.string.module_is_active),
+    ACTIVE_ANDROID_RESTART(R.color.topWarningCardBackground, R.drawable.ic_warn, R.string.module_is_updated_restart_phone_needed),
+    ACTIVE_SYSTEM_UI_RESTART(R.color.topWarningCardBackground, R.drawable.ic_warn, R.string.module_is_updated_restart_phone_needed),
     INACTIVE(R.color.gray, R.drawable.ic_warn, R.string.module_is_not_active)
 }
 

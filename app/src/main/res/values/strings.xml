@@ -7,7 +7,6 @@
     <string name="module_is_active">模块已激活</string>
     <string name="module_is_not_active">模块未激活</string>
     <string name="module_is_updated_restart_phone_needed">模块已更新, 需要重启手机</string>
-    <string name="module_is_updated_restart_system_ui_needed">模块已更新, 需要重启系统界面</string>
     <string name="no_root">请授予 Root 权限</string>
 
     <string name="xposed_framework_version">Activated by %s API %d</string>
@@ -18,13 +17,11 @@
     <string name="restart_message">模块更新后需要重启系统界面才能生效。\n\n如果您 LSPosed 框架中的作用域包含系统框架，则需要重启手机</string>
     <string name="reboot">重启手机</string>
     <string name="restart_system_ui">重启系统界面</string>
-    <string name="button_okay">确定</string>
     <string name="button_cancel">取消</string>
     <string name="button_abandonment">舍弃修改</string>
     <string name="button_reedit">返回编辑</string>
 
     <string name="enable_dev_settings">开发者选项已启用</string>
-    <string name="disabled_dev_settings">开发者选项已关闭</string>
 
     <string name="basic_settings">基础设置</string>
     <string name="custom_scope_settings">作用域</string>
@@ -122,7 +119,6 @@
     <string name="force_show_splash_screen_title">应用列表</string>
     <string name="min_duration_title">最小持续时长</string>
     <string name="hide_splash_screen_icon_title"> 隐藏图标</string>
-    <string name="unavailable">Unavailable</string>
 
     <string name="select_system_apps">选中系统应用</string>
     <string name="clear_selected_apps">清除选中应用</string>
@@ -143,9 +139,6 @@
     <string name="set_min_duration">设置遮罩最小持续时长</string>
     <string name="not_set_min_duration">未设置</string>
     <string name="set_min_duration_unit">单位：毫秒</string>
-
-    <string name="default_value">默认</string>
-    <string name="mode_conflict">模式冲突，请保持应用列表与颜色选择界面相同的模式，配置未保存</string>
 
     <!--颜色配置界面-->
     <string name="please_select">长按图标取色或选择下列颜色：</string>
@@ -169,20 +162,15 @@
     <!--关于页面-->
     <string name="version">v%s</string>
     <string name="follow_me">点个关注，不迷路</string>
-    <string name="star_project">点个小星星呗~</string>
     <string name="thanks_to">感谢 %s</string>
     <string name="about">关于</string>
     <string name="developer">开发者</string>
     <string name="developer_milu">迷璐</string>
     <string name="open_source_repo">开源仓库</string>
-    <string name="icon_resource">使用图标来源</string>
     <string name="open_source_license">开放源代码许可</string>
 
 
     <!--开发者选项-->
-    <string name="dev_blur_tint_alpha_light">浅色模式着色不透明度</string>
-    <string name="dev_blur_tint_alpha_dark">深色模式着色不透明度</string>
-    <string name="dev_blur_tint_alpha_tips">不透明度应该是 0 到 100 之间的整数，值为 0 时最透明。</string>
     <string name="dev_hook_info_empty">空</string>
     <string name="dev_icon_round_corner_rate">图标圆角率</string>
 </resources>

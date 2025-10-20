@@ -54,9 +54,11 @@ import dev.lackluster.hyperx.compose.base.IconSize
 import dev.lackluster.hyperx.compose.base.ImageIcon
 import dev.lackluster.hyperx.compose.navigation.navigateTo
 import dev.lackluster.hyperx.compose.preference.PreferenceGroup
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -103,46 +105,58 @@ fun BgIndividualPage(
     LaunchedEffect(Unit) {
         launch {
             isLoading = true
-            delay(500)
-            val configMapPrefs =
-                if (deviceDarkMode) DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else DataConst.INDIVIDUAL_BG_COLOR_APP_MAP
-            val tmpCheckedList = mutableMapOf<String, String>().apply {
-                clear()
-                putAll(context.prefs().get(configMapPrefs).toMap())
+            // 使用 IO 调度器进行耗时操作
+            val loadedApps = withContext(Dispatchers.IO) {
+                val configMapPrefs =
+                    if (deviceDarkMode) DataConst.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else DataConst.INDIVIDUAL_BG_COLOR_APP_MAP
+                val tmpCheckedList = mutableMapOf<String, String>().apply {
+                    clear()
+                    putAll(context.prefs().get(configMapPrefs).toMap())
+                }
+                val pm = context.packageManager
+                val installedApps = pm.getInstalledApplications(0)
+
+                // 创建应用信息列表并按字母顺序排序
+                installedApps.map { appInfo ->
+                    MyAppInfo(
+                        appName = appInfo.loadLabel(pm).toString(),
+                        packageName = appInfo.packageName,
+                        icon = appInfo.loadIcon(pm),
+                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList.keys),
+                        isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+                    )
+                }.sortedBy { it.appName }
             }
-            val pm = context.packageManager
-            appInfoList = pm.getInstalledApplications(0).map {
-                MyAppInfo(
-                    it.loadLabel(pm).toString(),
-                    it.packageName,
-                    it.loadIcon(pm),
-                    mutableStateOf(it.packageName in tmpCheckedList.keys),
-                    it.flags and ApplicationInfo.FLAG_SYSTEM != 0
-                )
-            }.toList()
+
+            appInfoList = loadedApps
             isLoading = false
         }
     }
 
     LaunchedEffect(appInfoList, queryString) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
-        appInfoFilter = emptyList()
+
         queryJob?.cancel()
-        queryJob = launch {
-            if (queryString.isBlank()) {
-                delay(100)
-                appInfoFilter = appInfoList.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.isChecked.value }
-                }
-            } else {
+        queryJob = launch(Dispatchers.Default) {
+            // 添加防抖延迟
+            if (queryString.isNotBlank()) {
                 delay(300)
-                appInfoFilter = appInfoList.filter {
-                    it.appName.contains(queryString, true) or it.packageName.contains(queryString, true)
-                }.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.isChecked.value }
+            } else {
+                delay(50)
+            }
+
+            // 在后台线程进行过滤
+            val filtered = if (queryString.isBlank()) {
+                appInfoList
+            } else {
+                appInfoList.filter {
+                    it.appName.contains(queryString, true) || it.packageName.contains(queryString, true)
                 }
+            }
+
+            // 切换回主线程更新 UI
+            withContext(Dispatchers.Main) {
+                appInfoFilter = filtered
             }
         }
     }

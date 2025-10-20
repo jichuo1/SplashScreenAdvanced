@@ -77,6 +77,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -101,6 +102,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.BackHandler
 import top.yukonga.miuix.kmp.utils.getWindowSize
 import top.yukonga.miuix.kmp.utils.overScrollVertical
+import java.text.Collator
+import java.util.Locale
 
 /**
  * 基础设置 - 遮罩最小持续时长
@@ -125,6 +128,7 @@ fun MinDurationPage(
 
     val dialogMessage = stringResource(R.string.set_min_duration) + "\n" + stringResource(R.string.set_min_duration_unit)
     var queryString by remember { mutableStateOf("") }
+    var sortTrigger by remember { mutableIntStateOf(0) }
 
     val emptyMapString = stringResource(R.string.not_set_min_duration)
 
@@ -167,47 +171,69 @@ fun MinDurationPage(
     LaunchedEffect(Unit) {
         launch {
             isLoading = true
-            delay(500)
-            val pm = context.packageManager
-            appInfoList = pm.getInstalledApplications(0).map {
-                DurationAppInfo(
-                    it.loadLabel(pm).toString(),
-                    it.packageName,
-                    it.loadIcon(pm),
-                    mutableStateOf(it.packageName in tmpCheckedList),
-                    mutableStateOf(tmpConfigMap[it.packageName])
+            // 使用 IO 调度器进行耗时操作
+            val loadedApps = withContext(Dispatchers.IO) {
+                val pm = context.packageManager
+                val installedApps = pm.getInstalledApplications(0)
+
+                // 创建应用信息列表
+                installedApps.map { appInfo ->
+                    DurationAppInfo(
+                        appName = appInfo.loadLabel(pm).toString(),
+                        packageName = appInfo.packageName,
+                        icon = appInfo.loadIcon(pm),
+                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
+                        config = mutableStateOf(tmpConfigMap[appInfo.packageName])
+                    )
+                }.sortedWith(
+                    // 按应用类别排序：已勾选且有配置的应用优先显示
+                    compareByDescending<DurationAppInfo> { it.isChecked.value }
+                        .thenByDescending { it.config.value != null }
+                        .thenBy(Collator.getInstance(Locale.getDefault())) { it.appName }
                 )
-            }.toList()
+            }
+
+            appInfoList = loadedApps
             isLoading = false
         }
     }
 
-    LaunchedEffect(appInfoList, queryString) {
+    LaunchedEffect(appInfoList, queryString, sortTrigger) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
-        appInfoFilter = emptyList()
+
         queryJob?.cancel()
-        queryJob = launch {
-            if (queryString.isBlank()) {
-                delay(100)
-                appInfoFilter = appInfoList.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.config.value != null }
-                    sortByDescending { it.isChecked.value }
-                }
-            } else {
+        queryJob = launch(Dispatchers.Default) {
+            if (queryString.isNotBlank()) {
                 delay(300)
-                appInfoFilter = appInfoList.filter {
-                    it.appName.contains(queryString, true) or it.packageName.contains(queryString, true)
-                }.toMutableList().apply {
-                    sortBy { it.appName }
-                    sortByDescending { it.config.value != null }
-                    sortByDescending { it.isChecked.value }
+            } else {
+                delay(50)
+            }
+
+            // 在后台线程进行过滤和排序
+            val filtered = if (queryString.isBlank()) {
+                appInfoList
+            } else {
+                appInfoList.filter {
+                    it.appName.contains(queryString, true) || it.packageName.contains(queryString, true)
                 }
+            }
+
+            // 排序：已勾选的应用优先，有配置的其次，然后按应用名称排序
+            val sorted = filtered.sortedWith(
+                compareByDescending<DurationAppInfo> { it.isChecked.value }
+                    .thenByDescending { it.config.value != null }
+                    .thenBy(Collator.getInstance(Locale.getDefault())) { it.appName }
+            )
+
+            // 切换回主线程更新 UI
+            withContext(Dispatchers.Main) {
+                appInfoFilter = sorted
             }
         }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal).asPaddingValues()
+    val systemBarInsets =
+        WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal).asPaddingValues()
     val navigationIconPadding = PaddingValues.Absolute(
         left = if (mode != BasePageDefaults.Mode.SPLIT_RIGHT) systemBarInsets.calculateLeftPadding(layoutDirection) else 0.dp
     )
@@ -262,7 +288,8 @@ fun MinDurationPage(
                     start = contentPadding.calculateStartPadding(this) + 16.dp,
                     top = 12.dp,
                     end = contentPadding.calculateEndPadding(this) + 16.dp,
-                    bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + captionBarBottomPadding + 12.dp
+                    bottom = WindowInsets.navigationBars.asPaddingValues()
+                        .calculateBottomPadding() + captionBarBottomPadding + 12.dp
                 )
             }
             Surface(
@@ -421,14 +448,27 @@ fun MinDurationPage(
                             summary = item.packageName,
                             checked = item.isChecked,
                             defValue = item.config.value?.toIntOrNull() ?: 0,
-                            dialogMessage = dialogMessage
-                        ) { text, value ->
-                            if (value == 0) {
-                                item.config.value = null
-                            } else {
-                                item.config.value = text
+                            dialogMessage = dialogMessage,
+                            onCheckedChange = {
+                                // 在用户切换选中状态后，延迟触发重新排序
+                                coroutineScope.launch {
+                                    delay(200)
+                                    sortTrigger++
+                                }
+                            },
+                            onValueChange = { text, value ->
+                                if (value == 0) {
+                                    item.config.value = null
+                                } else {
+                                    item.config.value = text
+                                }
+                                // 配置变更后触发重新排序
+                                coroutineScope.launch {
+                                    delay(200)
+                                    sortTrigger++
+                                }
                             }
-                        }
+                        )
                     }
                 }
                 item {
@@ -460,6 +500,7 @@ fun MinDurationPreference(
     checked: MutableState<Boolean>,
     defValue: Int = 0,
     dialogMessage: String? = null,
+    onCheckedChange: (() -> Unit)? = null,
     onValueChange: ((String, Int) -> Unit)? = null,
 ) {
     val emptyString = stringResource(R.string.not_set_min_duration)
@@ -498,6 +539,7 @@ fun MinDurationPreference(
                 checked = checked.value,
                 onCheckedChange = { newValue ->
                     checked.value = newValue
+                    onCheckedChange?.invoke()
                 }
             )
         },

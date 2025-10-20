@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorThemeBackground">#FFFFFFFF</color>
     <color name="colorDemoBackground">#FFFFFFFF</color>
-    <color name="colorTextDark">#FF777777</color>
     <color name="colorTextGray">#FF323B42</color>
+
+    <color name="gray">#9E9E9E</color>
+    <color name="colorTextRed">#B22222</color>
 
     <color name="demoSelect">#FF69A5DA</color>
     <color name="demoNotSelect">#FFD9DCE8</color>
@@ -13,4 +14,7 @@
     <color name="demoText">#FF666666</color>
     <color name="demoIcon">#FF333333</color>
     <color name="brandColor">#FF000000</color>
+    
+    <color name="topCardBackground">#FFDFFAE4</color>
+    <color name="topWarningCardBackground">#FFF8E2E2</color>
 </resources>

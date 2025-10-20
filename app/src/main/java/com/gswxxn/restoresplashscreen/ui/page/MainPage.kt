@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +24,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.navigation.NavController
@@ -114,14 +114,15 @@ private fun TopCard() {
             .padding(horizontal = 12.dp)
             .padding(bottom = 6.dp, top = 12.dp),
         colors = CardDefaults.defaultColors(colorResource(moduleStatusTypeRes.cardBackground)),
-        pressFeedbackType = PressFeedbackType.Sink
+        pressFeedbackType = PressFeedbackType.Sink,
+        onLongPress = {
+            // todo: 目前 execShell 并没有能力判断命令执行成功与否, 在未获取到 root 时, 卡片仍为可点击状态但没有任何提示
+            if (moduleStatusTypeRes != ModuleStatusType.INACTIVE) {
+                execShell("am broadcast -a android.telephony.action.SECRET_CODE -d android_secret_code://5776733 android")
+            }
+        }
     ) {
         Row(
-            // todo: 目前 execShell 并没有能力判断命令执行成功与否,
-            //  在未获取到root时, 卡片仍为可点击状态但没有任何提示
-//            modifier = Modifier.clickable {
-//                execShell("am broadcast -a android.telephony.action.SECRET_CODE -d android_secret_code://5776733 android")
-//            },
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
@@ -129,7 +130,7 @@ private fun TopCard() {
                     .padding(16.dp)
                     .size(28.dp),
                 painter = painterResource(moduleStatusTypeRes.stateIconRes),
-                colorFilter = ColorFilter.tint(Color.White),
+                colorFilter = ColorFilter.tint(color = MiuixTheme.colorScheme.onBackground),
                 contentDescription = null
             )
             Column(
@@ -141,13 +142,14 @@ private fun TopCard() {
                     modifier = Modifier.padding(top = 16.dp),
                     text = stringResource(moduleStatusTypeRes.stateTextRes),
                     fontSize = MiuixTheme.textStyles.title3.fontSize,
-                    color = Color.White
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.onBackground
                 )
                 Text(
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = 2.dp),
                     text = stringResource(R.string.module_version, BuildConfig.VERSION_NAME),
                     fontSize = MiuixTheme.textStyles.body1.fontSize,
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 )
                 Crossfade(moduleActive.value, label = "moduleActive") { isActive ->
                     if (isActive) {
@@ -159,7 +161,7 @@ private fun TopCard() {
                                 Executor.apiLevel
                             ),
                             fontSize = MiuixTheme.textStyles.body2.fontSize,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                         )
                     } else {
                         Spacer(Modifier.height(8.dp))
@@ -229,7 +231,8 @@ private fun PopUpMenu(
         onClick = {
             showTopPopup.value = true
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+        },
+        holdDownState = showTopPopup.value
     ) {
         Icon(
             imageVector = MiuixIcons.Useful.ImmersionMore,
