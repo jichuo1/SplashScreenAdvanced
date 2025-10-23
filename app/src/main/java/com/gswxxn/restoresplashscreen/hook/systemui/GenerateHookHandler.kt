@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
  */
 object GenerateHookHandler : BaseHookHandler() {
     var currentPackageName = ""
+    var currentComponentName = ""
     var currentActivity = ""
     var exceptCurrentApp = false
     var isHooking = false
@@ -26,6 +27,7 @@ object GenerateHookHandler : BaseHookHandler() {
      */
     private fun resetCache() {
         currentPackageName = ""
+        currentComponentName = ""
         currentActivity = ""
         isHooking = false
         exceptCurrentApp = false
@@ -53,6 +55,7 @@ object GenerateHookHandler : BaseHookHandler() {
 
             isHooking = true
             currentPackageName = activityInfo.packageName
+            currentComponentName = activityInfo.name
             currentActivity = activityInfo.targetActivity ?: "unknown activity"
             exceptCurrentApp = isExcept()
 

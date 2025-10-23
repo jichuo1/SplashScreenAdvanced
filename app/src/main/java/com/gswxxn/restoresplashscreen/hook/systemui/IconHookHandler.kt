@@ -18,6 +18,7 @@ import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentActivity
+import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentComponentName
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentPackageName
 import com.gswxxn.restoresplashscreen.ui.page.data.BGColorModes
 import com.gswxxn.restoresplashscreen.ui.page.data.ShrinkIconType
@@ -340,26 +341,11 @@ object IconHookHandler : BaseHookHandler() {
         if (prefs.get(DataConst.ENABLE_REPLACE_ICON) || currentPackageName == "com.android.settings") {
             printLog("getIcon(): replace way of getting icon")
             return when {
-
-                // MIUI/HyperOS/ColorOS 电话拨号界面
-                currentPackageName == "com.android.contacts" && currentActivity == "com.android.contacts.activities.PeopleActivity" ->
-                    if (isColorOS) {
-                        appContext!!.packageManager.getActivityIcon(
-                            ComponentName("com.android.contacts", "com.android.contacts.DialtactsActivityAlias")
-                        )
-                    } else appContext!!.packageManager.getActivityIcon(
-                        ComponentName("com.android.contacts", "com.android.contacts.activities.TwelveKeyDialer")
-                    )
-
-                // 小米平板 设置界面
-                currentPackageName == "com.android.settings" && currentActivity == "com.android.settings.BackgroundApplicationsManager" ->
-                    appContext!!.packageManager.getApplicationIcon("com.android.settings")
-
-                // 新 ColorOS 电话拨号界面
-                currentPackageName == "com.android.contacts" && currentActivity == "com.customize.contacts.activities.ContactsTabActivity" ->
-                    appContext!!.packageManager.getActivityIcon(
-                        ComponentName("com.android.contacts", "com.android.contacts.DialtactsActivityAlias")
-                    )
+                // 如果存在 ComponentName 则优先使用 ComponentName 获取图标
+                currentComponentName != "" ->
+                    appContext?.packageManager?.getActivityIcon(
+                        ComponentName(currentPackageName, currentComponentName)
+                    ) ?: appContext!!.packageManager.getApplicationIcon(currentPackageName)
 
 //                isMIUI && miuiIcons.isSupportMIUIModeIcon && currentPackageName != "com.android.fileexplorer" -> { // 在 MIUI 上优先获取完美图标
 //                    miuiIcons.getFancyIconDrawable(currentPackageName) ?:
