@@ -1,6 +1,7 @@
 package com.gswxxn.restoresplashscreen.hook.systemui
 
 import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.data.StartingWindowInfo
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
@@ -19,6 +20,7 @@ object GenerateHookHandler : BaseHookHandler() {
     var currentPackageName = ""
     var currentComponentName = ""
     var currentActivity = ""
+    var currentApplicationInfo = null as ApplicationInfo?
     var exceptCurrentApp = false
     var isHooking = false
 
@@ -29,6 +31,7 @@ object GenerateHookHandler : BaseHookHandler() {
         currentPackageName = ""
         currentComponentName = ""
         currentActivity = ""
+        currentApplicationInfo = null
         isHooking = false
         exceptCurrentApp = false
 
@@ -57,6 +60,7 @@ object GenerateHookHandler : BaseHookHandler() {
             currentPackageName = activityInfo.packageName
             currentComponentName = activityInfo.name
             currentActivity = activityInfo.targetActivity ?: "unknown activity"
+            currentApplicationInfo = activityInfo.applicationInfo
             exceptCurrentApp = isExcept()
 
             printLog(

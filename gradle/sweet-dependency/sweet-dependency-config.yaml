@@ -24,13 +24,13 @@ plugins:
   com.android.application:
     version: 8.13.0
   com.google.devtools.ksp:
-    version: 2.2.20-2.0.4
+    version: 2.3.0
   org.jetbrains.kotlin.android:
-    version: 2.2.20
+    version: 2.2.21
   org.jetbrains.kotlin.plugin.compose:
-    version: 2.2.20
+    version: 2.2.21
   org.jetbrains.kotlin.plugin.serialization:
-    version: 2.2.20
+    version: 2.2.21
 
 libraries:
   de.robv.android.xposed:
