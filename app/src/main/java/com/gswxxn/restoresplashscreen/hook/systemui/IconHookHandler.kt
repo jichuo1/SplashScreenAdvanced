@@ -344,7 +344,21 @@ object IconHookHandler : BaseHookHandler() {
             printLog("getIcon(): replace way of getting icon")
             return when {
 
-                // 在 MIUI 上优先获取完美图标
+                // MIUI/HyperOS 电话拨号界面
+                currentPackageName == "com.android.contacts" && currentActivity == "com.android.contacts.activities.PeopleActivity" ->
+                    if (isMIUI) {
+                        appContext!!.packageManager.getActivityIcon(
+                            ComponentName("com.android.contacts", "com.android.contacts.activities.TwelveKeyDialer")
+                        )
+                    } else if (currentComponentName != "") {
+                        appContext?.packageManager?.getActivityIcon(
+                            ComponentName(currentPackageName, currentComponentName)
+                        ) ?: appContext!!.packageManager.getApplicationIcon(currentPackageName)
+                    } else {
+                        appContext!!.packageManager.getApplicationIcon(currentPackageName)
+                    }
+
+                // 在 MIUI/HyperOS 上优先获取完美图标
                 isMIUI && miuiIcons.isSupportMIUIModeIcon && currentPackageName != "com.android.fileexplorer" -> {
                     miuiIcons.getFancyIconDrawable(
                         currentPackageName,
