@@ -6,7 +6,10 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.provider.Settings
+import com.gswxxn.restoresplashscreen.hook.AndroidHooker.appContext
 import com.gswxxn.restoresplashscreen.hook.AndroidHooker.hook
+import com.gswxxn.restoresplashscreen.hook.systemui.IconHookHandler.getActivityIconOrApp
+import com.gswxxn.restoresplashscreen.utils.YukiHelper.isMIUI
 import com.highcapable.yukihookapi.hook.factory.current
 import com.highcapable.yukihookapi.hook.factory.field
 import com.highcapable.yukihookapi.hook.factory.method
@@ -81,7 +84,7 @@ class MIUIIconsHelper(private val context: Context, private val classLoader: Cla
 
     /** 当前是否启用 MIUI 完美图标 */
     val isSupportMIUIModeIcon by lazy {
-        Settings.System.getInt(context.contentResolver, "key_miui_mod_icon_enable", 0) == 1 || getFancyChildOrSelf != null
+        isMIUI && Settings.System.getInt(context.contentResolver, "key_miui_mod_icon_enable", 0) == 1 || getFancyChildOrSelf != null
     }
 
     init {
@@ -199,25 +202,24 @@ class MIUIIconsHelper(private val context: Context, private val classLoader: Cla
      * @param packageName 要获取图标的应用程序包的包名。
      * @param userId 应用程序的用户 ID。
      * @param applicationInfo 应用程序的 ApplicationInfo 对象。
-     * @param packageManager 用于获取应用程序信息的 PackageManager 实例。
-     * @return 如果成功获取到完美图标，则返回一个 BitmapDrawable；如果发生错误，则返回 null。
+     * @return 如果成功获取到完美图标，则返回一个 BitmapDrawable；如果发生错误，则回退到默认方式获取。
      */
     fun getFancyIconDrawable(
         packageName: String,
         userId: Int,
-        applicationInfo: ApplicationInfo?,
-        packageManager: PackageManager?
+        applicationInfo: ApplicationInfo?
     ) = try {
+        val pm = appContext!!.packageManager
         loadAppIcon.invoke(
             appIconsManager,
             packageName,
             userId,
             applicationInfo,
-            packageManager
+            pm
         )
-    } catch (e: Throwable) {
-        YLog.error(msg = "Failed to get FancyIconDrawable with package: $packageName", e = e)
-        null
+    } catch (_: Throwable) {
+        val pm = appContext!!.packageManager
+        getActivityIconOrApp(pm)
     } as Drawable?
 
     /**

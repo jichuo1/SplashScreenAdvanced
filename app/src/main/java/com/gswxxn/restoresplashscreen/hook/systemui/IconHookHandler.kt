@@ -1,6 +1,7 @@
 package com.gswxxn.restoresplashscreen.hook.systemui
 
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.RectF
@@ -17,7 +18,6 @@ import androidx.core.graphics.drawable.toDrawable
 import com.gswxxn.restoresplashscreen.data.DataConst
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
 import com.gswxxn.restoresplashscreen.hook.base.BaseHookHandler
-import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentActivity
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentApplicationInfo
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentComponentName
 import com.gswxxn.restoresplashscreen.hook.systemui.GenerateHookHandler.currentPackageName
@@ -30,8 +30,6 @@ import com.gswxxn.restoresplashscreen.utils.IconPackManager
 import com.gswxxn.restoresplashscreen.utils.MIUIIconsHelper
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.atLeastMIUI14
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.getDevPrefs
-import com.gswxxn.restoresplashscreen.utils.YukiHelper.isColorOS
-import com.gswxxn.restoresplashscreen.utils.YukiHelper.isMIUI
 import com.gswxxn.restoresplashscreen.utils.YukiHelper.printLog
 import com.gswxxn.restoresplashscreen.wrapper.TransparentAdaptiveIconDrawable
 import com.highcapable.yukihookapi.hook.factory.current
@@ -324,9 +322,12 @@ object IconHookHandler : BaseHookHandler() {
         if (prefs.get(DataConst.ICON_PACK_PACKAGE_NAME) != "None") {
             printLog("getIcon(): use Icon Pack")
             return when {
-                currentPackageName == "com.android.contacts" && currentActivity == "com.android.contacts.activities.PeopleActivity" ->
-                    if (isColorOS) iconPackManager.getIconByComponentName("ComponentInfo{com.android.contacts/com.android.contacts.DialtactsActivityAlias}")
-                    else iconPackManager.getIconByComponentName("ComponentInfo{com.android.contacts/com.android.contacts.activities.TwelveKeyDialer}")
+                currentPackageName == "com.android.contacts" && currentComponentName != "" ->
+                    iconPackManager.getIconByComponentName("ComponentInfo{com.android.contacts/$currentComponentName}")
+
+                currentComponentName != "" ->
+                    iconPackManager.getIconByComponentName("ComponentInfo{$currentPackageName/$currentComponentName}")
+                        ?: iconPackManager.getIconByPackageName(currentPackageName)
 
                 else -> iconPackManager.getIconByPackageName(currentPackageName)
             }
@@ -340,46 +341,48 @@ object IconHookHandler : BaseHookHandler() {
      * 使用 Context.packageManager.getApplicationIcon() 的方式获取图标
      */
     private fun replaceWayOfGetIcons(): Drawable? {
-        if (prefs.get(DataConst.ENABLE_REPLACE_ICON) || currentPackageName == "com.android.settings") {
+        if (prefs.get(DataConst.ENABLE_REPLACE_ICON)) {
             printLog("getIcon(): replace way of getting icon")
+            val pm = appContext!!.packageManager
             return when {
+                // 1、优先处理电话拨号界面
+                currentPackageName == "com.android.contacts" && currentComponentName != "" -> getActivityIconOrApp(pm)
 
-                // MIUI/HyperOS 电话拨号界面
-                currentPackageName == "com.android.contacts" && currentActivity == "com.android.contacts.activities.PeopleActivity" ->
-                    if (isMIUI) {
-                        appContext!!.packageManager.getActivityIcon(
-                            ComponentName("com.android.contacts", "com.android.contacts.activities.TwelveKeyDialer")
-                        )
-                    } else if (currentComponentName != "") {
-                        appContext?.packageManager?.getActivityIcon(
-                            ComponentName(currentPackageName, currentComponentName)
-                        ) ?: appContext!!.packageManager.getApplicationIcon(currentPackageName)
-                    } else {
-                        appContext!!.packageManager.getApplicationIcon(currentPackageName)
-                    }
+                // 2、在 MIUI/HyperOS 上尝试获取完美图标
+                miuiIcons.isSupportMIUIModeIcon -> miuiIcons.getFancyIconDrawable(currentPackageName, appUserId, currentApplicationInfo)
 
-                // 在 MIUI/HyperOS 上优先获取完美图标
-                isMIUI && miuiIcons.isSupportMIUIModeIcon && currentPackageName != "com.android.fileexplorer" -> {
-                    miuiIcons.getFancyIconDrawable(
-                        currentPackageName,
-                        appUserId,
-                        currentApplicationInfo,
-                        appContext!!.packageManager
-                    ) ?: appContext?.packageManager?.getActivityIcon(
-                        ComponentName(currentPackageName, currentComponentName)
-                    ) ?: appContext!!.packageManager.getApplicationIcon(currentPackageName)
-                }
+                // 3、如果存在 ComponentName 则优先使用 ComponentName 获取图标
+                currentComponentName.isNotEmpty() -> getActivityIconOrApp(pm)
 
-                // 如果存在 ComponentName 则优先使用 ComponentName 获取图标
-                currentComponentName != "" ->
-                    appContext?.packageManager?.getActivityIcon(
-                        ComponentName(currentPackageName, currentComponentName)
-                    ) ?: appContext!!.packageManager.getApplicationIcon(currentPackageName)
-
-
-                else -> appContext!!.packageManager.getApplicationIcon(currentPackageName)
+                // 4、最后使用包名直接获取图标
+                else -> pm.getApplicationIcon(currentPackageName)
             }
         }
         return null
+    }
+
+    /**
+     * 使用 ComponentName 获取 Activity 图标
+     *
+     * 获取失败时回退到使用 Application 图标
+     * */
+    fun getActivityIconOrApp(pm: PackageManager): Drawable? {
+        return if (currentComponentName.isNotEmpty()) {
+            try {
+                pm.getActivityIcon(ComponentName(currentPackageName, currentComponentName))
+            } catch (_: Exception) {
+                try {
+                    pm.getApplicationIcon(currentPackageName)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        } else {
+            try {
+                pm.getApplicationIcon(currentPackageName)
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 }
