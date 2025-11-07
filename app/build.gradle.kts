@@ -11,6 +11,8 @@ plugins {
 android {
     namespace = property.project.namespace
     compileSdk = property.project.compileSdk
+    compileSdkMinor = 1
+    buildToolsVersion = "36.1.0"
 
     defaultConfig {
         applicationId = property.project.applicationId

@@ -97,6 +97,7 @@ import com.gswxxn.restoresplashscreen.utils.CommonUtils.toast
 import com.gswxxn.restoresplashscreen.utils.GraphicUtils.getBgColor
 import com.gswxxn.restoresplashscreen.utils.IconPackManager
 import com.highcapable.yukihookapi.hook.factory.prefs
+import com.kyant.capsule.ContinuousRoundedRectangle
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.lackluster.hyperx.compose.base.AlertDialog
@@ -118,19 +119,18 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderColors
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.extra.SpinnerEntry
-import top.yukonga.miuix.kmp.extra.SpinnerMode
 import top.yukonga.miuix.kmp.extra.SuperArrow
 import top.yukonga.miuix.kmp.extra.SuperSpinner
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.icons.useful.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.G2RoundedCornerShape
 import top.yukonga.miuix.kmp.utils.getWindowSize
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import kotlin.math.pow
@@ -524,8 +524,7 @@ private fun InputColor(
             SpinnerEntry(title = stringResource(R.string.target_color_mode_dark))
         ),
         selectedIndex = if (darkMode.value) 1 else 0,
-        mode = SpinnerMode.AlwaysOnRight,
-        showValue = true
+        showValue = true,
     ) {
         if (appColorConfig.getDefaultBGColor(darkMode.value) != pickedColor.colorInt) {
             dropdownDialogVisibility.value = true
@@ -568,7 +567,7 @@ private fun RGBPreference(pickedColor: PickedColor) {
     IntColorSeekBar(
         title = stringResource(R.string.rgb_r),
         value = pickedColor.r,
-        colors = SliderColors(
+        colors = SliderDefaults.sliderColors(
             foregroundColor = Color(0xFFF36060),
             disabledForegroundColor = Color(0x7FF36060),
             backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
@@ -578,7 +577,7 @@ private fun RGBPreference(pickedColor: PickedColor) {
     IntColorSeekBar(
         title = stringResource(R.string.rgb_g),
         value = pickedColor.g,
-        colors = SliderColors(
+        colors = SliderDefaults.sliderColors(
             foregroundColor = Color(0xFF5FF25F),
             disabledForegroundColor = Color(0x7F5FF25F),
             backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
@@ -588,7 +587,7 @@ private fun RGBPreference(pickedColor: PickedColor) {
     IntColorSeekBar(
         title = stringResource(R.string.rgb_b),
         value = pickedColor.b,
-        colors = SliderColors(
+        colors = SliderDefaults.sliderColors(
             foregroundColor = Color(0xFF5F5FF3),
             disabledForegroundColor = Color(0x7F5F5FF3),
             backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
@@ -846,12 +845,13 @@ private fun IntColorSeekBar(
         )
         Slider(
             modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 16.dp),
-            progress = value.toFloat(),
-            minValue = 0f,
-            maxValue = 255f,
+            value = value.toFloat(),
+            valueRange = 0f..255f,
             height = 28.dp,
             colors = colors,
-            onProgressChange = { onValueChange?.invoke(it.toInt()) }
+            onValueChange = { newValue: Float ->
+                onValueChange?.invoke(newValue.toInt())
+            }
         )
     }
 }
@@ -919,7 +919,7 @@ private fun HueSeekBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(28.dp)
-                    .clip(G2RoundedCornerShape(28.dp))
+                    .clip(ContinuousRoundedRectangle(28.dp))
                     .drawBehind {
                         val barHeight = size.height
                         val barWidth = size.width
@@ -984,11 +984,12 @@ private fun FloatColorSeekBar(
         )
         Slider(
             modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 16.dp),
-            progress = value,
-            minValue = 0.0f,
-            maxValue = 1.0f,
+            value = value,
+            valueRange = 0.0f..1.0f,
             height = 28.dp,
-            onProgressChange = { onValueChange?.invoke(it) }
+            onValueChange = { newValue: Float ->
+                onValueChange?.invoke(newValue)
+            }
         )
     }
 }

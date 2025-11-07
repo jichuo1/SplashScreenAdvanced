@@ -10,7 +10,6 @@ import com.highcapable.yukihookapi.YukiHookAPI
 import com.highcapable.yukihookapi.hook.factory.prefs
 import com.highcapable.yukihookapi.hook.xposed.prefs.data.PrefsData
 import top.yukonga.miuix.kmp.extra.SpinnerEntry
-import top.yukonga.miuix.kmp.extra.SpinnerMode
 import top.yukonga.miuix.kmp.extra.SuperSpinner
 
 
@@ -39,7 +38,6 @@ fun DropDownPreference(
         summary = summary,
         items = entries,
         selectedIndex = currentSelectedIndex.intValue,
-        mode = SpinnerMode.Normal,
         showValue = showValue,
     ) { newValue ->
         if (!YukiHookAPI.Status.isXposedModuleActive) {

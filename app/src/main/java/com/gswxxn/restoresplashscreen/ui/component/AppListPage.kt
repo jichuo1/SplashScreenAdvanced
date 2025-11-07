@@ -58,6 +58,7 @@ import com.gswxxn.restoresplashscreen.ui.MainActivity
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.notEqualsTo
 import com.highcapable.yukihookapi.hook.factory.prefs
 import com.highcapable.yukihookapi.hook.xposed.prefs.data.PrefsData
+import com.kyant.capsule.ContinuousRoundedRectangle
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.lackluster.hyperx.compose.base.AlertDialog
@@ -98,7 +99,6 @@ import top.yukonga.miuix.kmp.icon.icons.useful.ImmersionMore
 import top.yukonga.miuix.kmp.icon.icons.useful.Info
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.BackHandler
-import top.yukonga.miuix.kmp.utils.G2RoundedCornerShape
 import top.yukonga.miuix.kmp.utils.getWindowSize
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -525,7 +525,7 @@ fun SpliceCard(
         if (topCornerRadius == 0.dp && bottomCornerRadius == 0.dp)
             RectangleShape
         else
-            G2RoundedCornerShape(
+            ContinuousRoundedRectangle(
                 topStart = topCornerRadius, topEnd = topCornerRadius,
                 bottomStart = bottomCornerRadius, bottomEnd = bottomCornerRadius
             )
