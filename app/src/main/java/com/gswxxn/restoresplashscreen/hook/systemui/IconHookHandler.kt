@@ -118,7 +118,7 @@ object IconHookHandler : BaseHookHandler() {
                 ?: return@addAfterHook
 
             val iconSize = (appResources!!.getDimensionPixelSize(
-                "com.android.internal.R\$dimen".toClass().field { name = "starting_surface_icon_size" }.get().int()
+                $$"com.android.internal.R$dimen".toClass().field { name = "starting_surface_icon_size" }.get().int()
             ) / 1.5).toInt()
             val bgIconSize = iconSize * 4
 
@@ -159,7 +159,7 @@ object IconHookHandler : BaseHookHandler() {
             val iconDrawable = instance.current().field { name = "mIconDrawable" }.cast<Drawable>()
                 ?: return@addAfterHook
             val isNeedDrawRoundCorner = prefs.get(DataConst.ENABLE_DRAW_ROUND_CORNER) && // 用户配置
-                    "android.window.SplashScreenView\$IconAnimateListener".toClass() !in iconDrawable.javaClass.interfaces && // 不为动态图标绘制圆角
+                    $$"android.window.SplashScreenView$IconAnimateListener".toClass() !in iconDrawable.javaClass.interfaces && // 不为动态图标绘制圆角
                     iconSize != 0 && // 如果没有图标 则不绘制圆角
                     currentUseBigMIUILagerIcon == true // 如果当前使用 MIUI 大图标, 则不绘制圆角
 
@@ -289,7 +289,7 @@ object IconHookHandler : BaseHookHandler() {
      */
     private fun getIconSize(drawable: Drawable): Int {
         val mIconSize = appResources!!.getDimensionPixelSize(
-            "com.android.internal.R\$dimen".toClass().field { name = "starting_surface_icon_size" }.get().int()
+            $$"com.android.internal.R$dimen".toClass().field { name = "starting_surface_icon_size" }.get().int()
         )
 
         return if (drawable is AdaptiveIconDrawable) (mIconSize * 1.2 + 0.5).toInt()
@@ -322,10 +322,10 @@ object IconHookHandler : BaseHookHandler() {
         if (prefs.get(DataConst.ICON_PACK_PACKAGE_NAME) != "None") {
             printLog("getIcon(): use Icon Pack")
             return when {
-                currentPackageName == "com.android.contacts" && currentComponentName != "" ->
+                currentPackageName == "com.android.contacts" && currentComponentName.isNotEmpty() ->
                     iconPackManager.getIconByComponentName("ComponentInfo{com.android.contacts/$currentComponentName}")
 
-                currentComponentName != "" ->
+                currentComponentName.isNotEmpty() ->
                     iconPackManager.getIconByComponentName("ComponentInfo{$currentPackageName/$currentComponentName}")
                         ?: iconPackManager.getIconByPackageName(currentPackageName)
 
@@ -346,7 +346,7 @@ object IconHookHandler : BaseHookHandler() {
             val pm = appContext!!.packageManager
             return when {
                 // 1、优先处理电话拨号界面
-                currentPackageName == "com.android.contacts" && currentComponentName != "" -> getActivityIconOrApp(pm)
+                currentPackageName == "com.android.contacts" && currentComponentName.isNotEmpty() -> getActivityIconOrApp(pm)
 
                 // 2、在 MIUI/HyperOS 上尝试获取完美图标
                 miuiIcons.isSupportMIUIModeIcon -> miuiIcons.getFancyIconDrawable(currentPackageName, appUserId, currentApplicationInfo)
@@ -371,18 +371,10 @@ object IconHookHandler : BaseHookHandler() {
             try {
                 pm.getActivityIcon(ComponentName(currentPackageName, currentComponentName))
             } catch (_: Exception) {
-                try {
-                    pm.getApplicationIcon(currentPackageName)
-                } catch (_: Exception) {
-                    null
-                }
+                pm.getApplicationIcon(currentPackageName)
             }
         } else {
-            try {
-                pm.getApplicationIcon(currentPackageName)
-            } catch (_: Exception) {
-                null
-            }
+            pm.getApplicationIcon(currentPackageName)
         }
     }
 }
