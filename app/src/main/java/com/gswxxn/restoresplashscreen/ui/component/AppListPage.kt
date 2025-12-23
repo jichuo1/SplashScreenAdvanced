@@ -356,11 +356,11 @@ fun AppListPage(
             )
             val buttonPaddingValues = with(LocalLayoutDirection.current) {
                 PaddingValues(
-                    start = contentPadding.calculateStartPadding(this) + 16.dp,
-                    top = 12.dp,
-                    end = contentPadding.calculateEndPadding(this) + 16.dp,
+                    start = contentPadding.calculateStartPadding(this) + 28.dp,
+                    top = 23.dp,
+                    end = contentPadding.calculateEndPadding(this) + 28.dp,
                     bottom = WindowInsets.navigationBars.asPaddingValues()
-                        .calculateBottomPadding() + captionBarBottomPadding + 12.dp
+                        .calculateBottomPadding() + captionBarBottomPadding + 28.dp
                 )
             }
             Surface(
