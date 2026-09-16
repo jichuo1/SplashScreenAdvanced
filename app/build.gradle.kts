@@ -75,7 +75,7 @@ if (hasAnyReleaseSigningValue && !hasCompleteReleaseSigningValues) {
 /**
  * 发布流水线传入的 versionName 覆盖值
  *
- * gradle.properties 里记录的是稳定版基线（如 4.0.0），Alpha 构建需要打成 4.0.1-alpha.1 这种
+ * gradle.properties 里记录的是稳定版基线（如 1.0.0），Alpha 构建需要打成 1.0.1-alpha.1 这种
  * 带预发布后缀的版本。发布工作流用 -PsplashScreen.releaseVersionName 传入，
  * 并在产物校验阶段比对 APK 里的实际 versionName，确保二者一致。
  */
