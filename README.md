@@ -1,79 +1,77 @@
-<img src="https://raw.githubusercontent.com/GSWXXN/RestoreSplashScreen/master/doc/icon.svg" width="160" alt="icon">
+# SplashScreenAdvanced
 
-# 启动遮罩进化
+为 Android 的 Splash Screen（启动遮罩）提供自定义选项的 Xposed 模块。
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/ffbf5a0bdf954416a2e1d4347b1ea797)](https://app.codacy.com/gh/GSWXXN/RestoreSplashScreen?utm_source=github.com&utm_medium=referral&utm_content=GSWXXN/RestoreSplashScreen&utm_campaign=Badge_Grade)
-[![Xposed](https://img.shields.io/badge/-Xposed-green?style=flat&logo=Android&logoColor=white)](https://github.com/Xposed-Modules-Repo/com.gswxxn.restoresplashscreen/)
-[![GitHub](https://img.shields.io/github/license/GSWXXN/RestoreSplashScreen)](https://github.com/GSWXXN/RestoreSplashScreen/blob/master/LICENSE)
-[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/GSWXXN/RestoreSplashScreen?label=version)](https://github.com/Xposed-Modules-Repo/com.gswxxn.restoresplashscreen/releases)
-[![GitHub all releases](https://img.shields.io/github/downloads/Xposed-Modules-Repo/com.gswxxn.restoresplashscreen/total?label=Downloads)](https://github.com/Xposed-Modules-Repo/com.gswxxn.restoresplashscreen/releases)
-[![Telegram CI](https://img.shields.io/badge/CI%20builds-Telegram-blue.svg?logo=telegram)](https://t.me/GSWXXN_Channel)
-[![Telegram](https://img.shields.io/badge/discussion-Telegram-blue.svg?logo=telegram)](https://t.me/GSWXXN_Chat)
+[![License](https://img.shields.io/github/license/jichuo1/SplashScreenAdvanced)](LICENSE)
+[![Xposed](https://img.shields.io/badge/-Xposed-green?style=flat&logo=Android&logoColor=white)](https://github.com/libxposed)
 
-~~尝试恢复被MIUI阉割的SplashScreen~~  
-~~自定义MIUI的Splash Screen~~  
-为 Splash Screen 添加自定义选项
+> [!NOTE]
+> 本项目是 [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) 的修改版，
+> 以 AGPL-3.0 继续分发。详见下方[出处与许可](#出处与许可)。
 
-模块适配大部分安卓系统, 但目前还是以运行在高通 SoC 的 MIUI/HyperOS 为主, 如果在其他系统中使用遇到问题也欢迎反馈  
+## 功能
 
-## 测试环境
+- 为所有应用显示原生 Splash Screen 界面
+- 对主动适配 Splash Screen 的应用改用默认静态图标
+- 替换图标获取方式，使 Splash Screen 图标与桌面图标一致（可配合图标包与主题）
+- 从图标取色、莫奈取色或自定义颜色来替换背景
+- 逐应用单独配置背景颜色、最小持续时长、是否移除底部 Branding Image
+- 彻底关闭 Splash Screen
 
-> 小米12 Ultra  
-> Android 14  
-> HyperOS 1.0
+## 要求
 
-## 模块功能
+| 项 | 要求 |
+|---|---|
+| Android | 14 及以上（`minSdk 34`） |
+| Xposed 框架 | 实现 [libxposed](https://github.com/libxposed) API 102 的框架，如较新版本的 LSPosed |
+| 适配重点 | MIUI / HyperOS 与 ColorOS 有专门分支，其余系统走 AOSP 通用路径 |
 
-1. 为所有应用显示原生 Splash Screen 界面
-2. 对于主动适配 Splash Screen 的应用使用默认静态图标
-3. 替换获取图标方式, 使 Splash Screen 的图标与桌面图标一致(多用于主题)
-4. 根据图标自适应 Splash Screen 背景颜色
-5. 彻底关闭 Splash Screen 特性
+## 使用
 
-## 使用方法
+1. 在 Xposed 管理器中激活模块
+2. 作用域勾选 **系统界面**（`com.android.systemui`）；若要使用「强制显示遮罩」「彻底关闭 Splash Screen」「热启动遮罩」，还需勾选 **系统框架**（`android`）
+3. 重启系统界面；勾选了系统框架的需要重启手机
 
-1. 在 Xposed 管理器 (LSPosed) 中激活模块
-2. 作用域勾选: 系统界面(`com.android.systemui`) 和 系统框架(`android`)
-3. 重启手机
+模块支持热重载，多数设置改完立即生效，无需重启。
 
-## 已知问题
+## 构建
 
-- ~~微信、QQ、支付宝的Splash Screen只能在MIUI内测22.4.25后显示~~ (v1.9 已支持)
+```bash
+git clone https://github.com/jichuo1/SplashScreenAdvanced.git
+cd SplashScreenAdvanced
+./gradlew :app:assembleDebug
+```
 
-- 开启模块后出现启动应用卡顿可能与调度模块同时开启有关，这个我也在想办法优化 (v2.0 优化过，反馈似乎还不错)
+需要 JDK 21 与 Android SDK Platform 37。签名发布走 CI，见 `.github/workflows/`。
 
-- ~~部分机型 (如Redmi Note 10 Pro、小米12Pro) 的系统版本 (如稳定版、开发版) 可能无法使用本模块，
-请等待系统更新~~ (v1.9 已支持)
+## 反馈
 
-## 常见问题解答
+提交 [Issue](https://github.com/jichuo1/SplashScreenAdvanced/issues) 时请附上：
 
-[点击跳转](https://gswxxn.coding.net/public/restoresplashscreen/faq/git)
+- Android 版本、ROM 及版本号、Xposed 框架及版本
+- 复现步骤
+- 模块日志（设置内开启「启用日志」后复现，日志 24 小时自动关闭）与 Xposed 框架日志
 
-## 无法使用
+## 出处与许可
 
-请先检查模块是否正常激活，并且作用域是否勾选。如果排查后仍有错误，请提交 issue，并附上 LSPosed 的日志，如有能力提取
-SystemUI, 最好一并提交。  
-也可以联系酷安 [@迷璐](http://www.coolapk.com/u/1189245)
+本项目基于 [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen)（作者 GSWXXN）修改而来，
+原作品以 GNU Affero General Public License v3.0 授权。
 
-## 捐赠支持
+本仓库同样以 [AGPL-3.0](LICENSE) 授权，并已对原作品作出修改，包括但不限于：
 
-点个 **Star** 也是对我的支持。
+- 更换模块包名与项目身份为 `com.SplashScreenAdvanced.xposedmodule`
+- Hook 层的异常隔离、反射缓存、内存泄漏与线程安全修复
+- 模块设置界面的重组开销与图标加载优化
+- 替换发布流水线
 
-如果你想捐赠，觉得这个模块好用的不得了，我会非常感谢你的！！！如果这个模块对你来说只要还差一点点意思，就不要捐赠啦
-
-<img
-    src="https://raw.githubusercontent.com/GSWXXN/RestoreSplashScreen/master/doc/donate.png"
-    width = "250"
-    alt="donate"
-/>
+原作者的个人品牌素材、社区链接与捐赠信息已移除，因为它们指向的是原作者本人而非本项目。
 
 ## 致谢
 
-使用 [Yuki Hook API](https://github.com/fankes/YukiHookAPI) 构建模块  
-UI界面改自 [MIUI 原生通知图标](https://github.com/fankes/MIUINativeNotifyIcon)  
-使用 [BlockMIUI](https://github.com/Block-Network/blockmiui) 的部分资源构建UI  
-获取应用列表方式参考 [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist)  
-曾使用 [libsu](https://github.com/topjohnwu/libsu) 执行Shell命令  
-参考 [MIUIHomeR](https://github.com/qqlittleice/MiuiHome_R) 优化部分代码  
-使用 [Sweet Dependency](https://github.com/HighCapable/SweetDependency) 自动装配和管理依赖  
-使用 [Sweet Property](https://github.com/HighCapable/SweetProperty) 管理项目属性
+- [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) —— 本项目的上游
+- [libxposed](https://github.com/libxposed) —— 模块 API 与服务
+- [KavaRef](https://github.com/HighCapable/KavaRef) —— 运行期反射定位
+- [miuix](https://github.com/miuix-kotlin-multiplatform/miuix) 与 [hyperx-compose](https://github.com/YuKongA/hyperx-compose) —— 设置界面
+- [Koin](https://github.com/InsertKoinIO/koin) —— 依赖注入
+- 获取应用列表的思路参考 [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist)
+- 备份恢复逻辑改自 [MiuiHome_R](https://github.com/qqlittleice/MiuiHome_R)

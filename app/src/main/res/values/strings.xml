@@ -10,7 +10,7 @@
     <string name="module_is_updated_restart_phone_needed">模块已更新，需重载或重启</string>
     <string name="no_root">请授予 Root 权限</string>
 
-    <string name="xposed_framework_version">Activated by %s API %d</string>
+    <string name="xposed_framework_version">Activated by %1$s API %2$d</string>
     <string name="main_activity_hint">做出任何设置前，请确保模块已激活。\n修改设置后立即生效，无需重启。</string>
 
     <string name="restart_title">重启提示</string>
@@ -31,8 +31,6 @@
     <string name="display_settings">显示</string>
     <string name="dev_settings">开发者选项</string>
 
-    <string name="faq">常见问题</string>
-    <string name="faq_url">https://gswxxn.coding.net/public/restoresplashscreen/faq/git</string>
 
     <!--Sub Settings-->
     <string name="make_sure_active">请确保模块已激活再进行配置</string>
@@ -50,6 +48,7 @@
     <string name="save_failed">保存失败</string>
     <string name="restore_failed">恢复失败</string>
     <string name="restore_successful">恢复成功</string>
+    <string name="no_browser">未找到可以打开该链接的应用</string>
     <string name="custom_scope">自定义模块作用域</string>
     <string name="custom_scope_message">记得配置应用列表 ^_^</string>
     <string name="exception_mode">排除模式</string>
@@ -158,12 +157,11 @@
 
     <!--关于页面-->
     <string name="version">v%s</string>
-    <string name="follow_me">点个关注，不迷路</string>
     <string name="thanks_to">感谢 %s</string>
     <string name="about">关于</string>
-    <string name="developer">开发者</string>
-    <string name="developer_milu">迷璐</string>
     <string name="open_source_repo">开源仓库</string>
+    <string name="upstream_project">上游项目</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
     <string name="open_source_license">开放源代码许可</string>
 
     <!--开发者选项-->

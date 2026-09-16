@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hyperx_hint_bg">#33277af7</color>
+    <color name="hyperx_hint_fg">#ff277af7</color>
+    <color name="hyperx_error_bg">#33d70015</color>
+    <color name="hyperx_error_fg">#ffd70015</color>
+</resources>

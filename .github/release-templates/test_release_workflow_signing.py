@@ -1,0 +1,93 @@
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW_DIRECTORY = REPOSITORY_ROOT / ".github" / "workflows"
+
+
+class ReleaseWorkflowSigningTest(unittest.TestCase):
+    def test_release_workflows_publish_only_fixed_signed_release_apks(self) -> None:
+        for workflow_name in ("alpha-release.yml", "stable-release.yml"):
+            with self.subTest(workflow=workflow_name):
+                content = (WORKFLOW_DIRECTORY / workflow_name).read_text(encoding="utf-8")
+                self.assertIn("assembleRelease", content)
+                self.assertIn("app/build/outputs/apk/release/app-release.apk", content)
+                self.assertIn("verify_release_apk.py", content)
+                self.assertIn("apk_build_type=release", content)
+                self.assertIn("apk_debuggable=false", content)
+                self.assertIn("apk_signer_certificate_sha256", content)
+                self.assertIn("minifyReleaseWithR8", content)
+                self.assertIn("app/build/outputs/mapping/release/mapping.txt", content)
+                self.assertIn("r8_mapping_id=", content)
+                self.assertIn("r8_mapping_sha256=", content)
+                self.assertIn("release-symbols", content)
+                self.assertIn("actions/upload-artifact@v6", content)
+                self.assertNotIn("app-debug.apk", content)
+                publish_block = content.split("- name: Create GitHub", 1)[1].split(
+                    "- name: Read back", 1
+                )[0]
+                self.assertNotIn("release-symbols", publish_block)
+                self.assertNotIn("mapping-", publish_block)
+                for secret_name in (
+                    "ANDROID_SIGNING_KEY_BASE64",
+                    "ANDROID_SIGNING_STORE_PASSWORD",
+                    "ANDROID_SIGNING_KEY_ALIAS",
+                    "ANDROID_SIGNING_KEY_PASSWORD",
+                    "ANDROID_SIGNING_CERT_SHA256",
+                ):
+                    self.assertIn(f"secrets.{secret_name}", content)
+
+    def test_workflows_use_node_24_action_generations(self) -> None:
+        for workflow_name in ("alpha-release.yml", "stable-release.yml"):
+            with self.subTest(workflow=workflow_name):
+                content = (WORKFLOW_DIRECTORY / workflow_name).read_text(encoding="utf-8")
+                self.assertIn("actions/checkout@v5", content)
+                self.assertIn("android-actions/setup-android@v4", content)
+                self.assertNotIn("actions/checkout@v4", content)
+                self.assertNotIn("actions/setup-java@v4", content)
+                self.assertNotIn("android-actions/setup-android@v3", content)
+                self.assertNotIn("actions/upload-artifact@v4", content)
+
+        for workflow_name in ("alpha-release.yml", "stable-release.yml"):
+            with self.subTest(release_workflow=workflow_name):
+                content = (WORKFLOW_DIRECTORY / workflow_name).read_text(encoding="utf-8")
+                self.assertIn("actions/setup-java@v5", content)
+                self.assertIn("actions/upload-artifact@v6", content)
+
+    def test_gradle_keeps_default_release_apk_filename(self) -> None:
+        gradle_script = (
+            REPOSITORY_ROOT / "app" / "build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("outputFileName", gradle_script)
+
+    def test_alpha_does_not_cancel_in_progress_manual_publish(self) -> None:
+        content = (WORKFLOW_DIRECTORY / "alpha-release.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}",
+            content,
+        )
+        self.assertIn("github.event_name }}-${{ github.ref }}", content)
+        self.assertIn("lint-reports-", content)
+        self.assertIn("--continue", content)
+
+    def test_stable_verify_uploads_lint_reports_on_failure(self) -> None:
+        content = (WORKFLOW_DIRECTORY / "stable-release.yml").read_text(encoding="utf-8")
+        self.assertIn("lint-reports-", content)
+        self.assertIn("--continue", content)
+        self.assertIn("timeout-minutes: 45", content)
+
+    def test_gradle_release_packaging_fails_without_complete_signing_identity(self) -> None:
+        gradle_script = (
+            REPOSITORY_ROOT / "app" / "build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('signingConfigs.create("fixedRelease")', gradle_script)
+        self.assertIn("isDebuggable = false", gradle_script)
+        self.assertIn("Release packaging requires the fixed signing identity", gradle_script)
+        self.assertIn("SPLASH_SIGNING_STORE_FILE", gradle_script)
+        self.assertIn('task.name.equals("packageRelease", ignoreCase = true)', gradle_script)
+        self.assertNotIn("(assemble|bundle|package|sign)", gradle_script)
+
+
+if __name__ == "__main__":
+    unittest.main()

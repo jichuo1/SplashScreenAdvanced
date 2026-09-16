@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="button_cancel">取消</string>
+    <string name="button_ok">确认</string>
+    <string name="slider_dialog_message_decimal">默认: %1$d 最小: %2$d 最大: %3$d</string>
+    <string name="slider_dialog_message_float">默认: %1$.2f 最小: %2$.2f 最大: %3$.2f</string>
+    <string name="loading_dialog_processing">处理中…</string>
+</resources>
