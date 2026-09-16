@@ -176,18 +176,6 @@ kotlin {
     }
 }
 
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            (output as? com.android.build.api.variant.impl.VariantOutputImpl)?.outputFileName?.set(
-                output.versionName.map { versionName ->
-                    "SplashScreenAdvanced_${versionName}${if (variant.buildType == "debug") "_debug" else ""}.apk"
-                }
-            )
-        }
-    }
-}
-
 dependencies {
     implementation(projects.hyperxCompose)
 

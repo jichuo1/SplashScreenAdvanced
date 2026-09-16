@@ -55,6 +55,28 @@ class ReleaseWorkflowSigningTest(unittest.TestCase):
                 self.assertIn("actions/setup-java@v5", content)
                 self.assertIn("actions/upload-artifact@v6", content)
 
+    def test_gradle_keeps_default_release_apk_filename(self) -> None:
+        gradle_script = (
+            REPOSITORY_ROOT / "app" / "build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("outputFileName", gradle_script)
+
+    def test_alpha_does_not_cancel_in_progress_manual_publish(self) -> None:
+        content = (WORKFLOW_DIRECTORY / "alpha-release.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}",
+            content,
+        )
+        self.assertIn("github.event_name }}-${{ github.ref }}", content)
+        self.assertIn("lint-reports-", content)
+        self.assertIn("--continue", content)
+
+    def test_stable_verify_uploads_lint_reports_on_failure(self) -> None:
+        content = (WORKFLOW_DIRECTORY / "stable-release.yml").read_text(encoding="utf-8")
+        self.assertIn("lint-reports-", content)
+        self.assertIn("--continue", content)
+        self.assertIn("timeout-minutes: 45", content)
+
     def test_gradle_release_packaging_fails_without_complete_signing_identity(self) -> None:
         gradle_script = (
             REPOSITORY_ROOT / "app" / "build.gradle.kts"
