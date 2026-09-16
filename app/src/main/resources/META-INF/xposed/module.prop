@@ -1,4 +1,6 @@
-minApiVersion=101
+# 热重载、autoHotReload、HookedTarget 都是 API 102。
+# 声明 101 会被 XposedNewApi lint 判失败，也和 README 的框架要求不一致。
+minApiVersion=102
 targetApiVersion=102
 staticScope=false
 autoHotReload=true
