@@ -190,6 +190,8 @@ dependencies {
     // BetterAndroid: 只引入 system-extension。ui-extension 的 toPx/toDp 与 Compose 重名,
     // ui-component 面向 ViewBinding Activity, 都和当前 HyperX Compose 页面不兼容。
     implementation(libs.betterandroid.system.extension)
+    implementation(libs.dexkit)
+    implementation(libs.androidx.profileinstaller)
 }
 
 // getGitHeadRefsSuffix 随 CI flavor 一起移除：它唯一的用途是把 git sha 拼进 CI flavor 的

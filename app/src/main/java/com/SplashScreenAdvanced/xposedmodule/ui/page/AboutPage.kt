@@ -258,7 +258,8 @@ enum class OpenSourceReference(val author: String, val license: String, val link
     `Hide-My-Applist`("Dr-TSNG", "AGPL-3.0", "https://github.com/Dr-TSNG/Hide-My-Applist"),
     YukiHookAPI("fankes", "Apache-2.0", "https://github.com/fankes/YukiHookAPI"),
     HyperCompose("HowieHChen", "Apache-2.0", "https://github.com/HowieHChen/hyperx-compose"),
-    Miuix("miuix-kotlin-multiplatform", "Apache-2.0", "https://github.com/miuix-kotlin-multiplatform/miuix")
+    Miuix("miuix-kotlin-multiplatform", "Apache-2.0", "https://github.com/miuix-kotlin-multiplatform/miuix"),
+    DexKit("LuckyPray", "LGPL-3.0", "https://github.com/LuckyPray/DexKit")
 }
 
 /**
