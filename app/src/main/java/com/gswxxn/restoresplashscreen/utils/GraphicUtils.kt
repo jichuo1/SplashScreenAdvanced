@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -21,18 +22,25 @@ object GraphicUtils {
     /**
      * Drawable 图标转 Bitmap
      *
+     * 返回值始终是**新建的、[size] x [size] 的独立 Bitmap**。
+     *
+     * 这里刻意不再为 [BitmapDrawable] 走"直接返回 `drawable.bitmap`"的捷径:
+     * 那个 Bitmap 是宿主 Drawable (很可能来自 PackageManager 的图标缓存) 内部持有的实例,
+     * 而调用方 (如替换 `BaseIconFactory.createIconBitmap` 的返回值) 会按"独占新建"的语义
+     * 去使用甚至 recycle 它; 而且它的尺寸也未必等于请求的 [size]。
+     *
      * @param drawable 待转换的 Drawable 图标
      * @param size 生成此大小的 Bitmap
      * @return [Bitmap]
      */
     fun drawable2Bitmap(drawable: Drawable, size: Int): Bitmap {
-        if (drawable is BitmapDrawable) {
-            return drawable.bitmap
-        }
         val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
+        // drawable 是共享实例, setBounds 会影响宿主后续的绘制, 画完必须还原
+        val originalBounds = Rect(drawable.bounds)
         drawable.setBounds(0, 0, size, size)
         drawable.draw(canvas)
+        drawable.bounds = originalBounds
         canvas.setBitmap(null)
         return bitmap
     }
@@ -62,6 +70,9 @@ object GraphicUtils {
             hsv[1] = hsv[1] - 0.2f // 减小饱和度
             hsv[2] = hsv[2] - 0.7f // 减小明度
         }
+        // 上面的加减会越界 (如饱和度减到负数), 依赖 Skia 内部 pin 属于未言明的实现细节, 这里显式收敛
+        hsv[1] = hsv[1].coerceIn(0f, 1f)
+        hsv[2] = hsv[2].coerceIn(0f, 1f)
         return Color.HSVToColor(hsv)
     }
 
@@ -99,8 +110,11 @@ object GraphicUtils {
                 )
             }
         )
+        // 同 drawable2Bitmap: 传进来的是宿主共享 Drawable, 画完还原 bounds
+        val originalBounds = Rect(drawable.bounds)
         drawable.setBounds(0, 0, scaledSize, scaledSize)
         drawable.draw(canvas)
+        drawable.bounds = originalBounds
         canvas.restoreToCount(checkpoint)
 
         return shadowBitmap.toDrawable(context.resources)

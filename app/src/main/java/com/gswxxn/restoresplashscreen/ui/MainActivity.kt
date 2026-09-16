@@ -48,7 +48,9 @@ import dev.lackluster.hyperx.ui.layout.HyperXAppLayout
 import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
 import androidx.lifecycle.lifecycleScope
 import io.github.libxposed.service.XposedService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -109,11 +111,17 @@ class MainActivity : HyperXActivity() {
 
     /**
      * 刷新被 Hook 进程是否需要重启的状态
+     *
+     * [XposedServiceManager.queryRestartState] 内部是对 Xposed 框架服务的同步 binder 调用,
+     * 而本方法在 [onResume] 里也会被调到, 框架侧慢一点就会直接卡住主线程, 所以放到 IO 线程执行,
+     * 只把结果切回主线程写状态
      */
     private fun refreshRestartState() {
-        val state = xposedServiceManager.queryRestartState()
-        systemUIRestartNeeded.value = state?.systemUI ?: false
-        androidRestartNeeded.value = state?.android
+        lifecycleScope.launch {
+            val state = withContext(Dispatchers.IO) { xposedServiceManager.queryRestartState() }
+            systemUIRestartNeeded.value = state?.systemUI ?: false
+            androidRestartNeeded.value = state?.android
+        }
     }
 
     @Composable

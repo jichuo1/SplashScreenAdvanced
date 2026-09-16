@@ -24,32 +24,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.Route
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
 import com.gswxxn.restoresplashscreen.ui.component.MyAppInfo
+import com.gswxxn.restoresplashscreen.ui.component.rememberAppIcon
 import com.gswxxn.restoresplashscreen.ui.component.SpliceCard
 import com.gswxxn.restoresplashscreen.ui.component.TextPreference
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toMap
 import com.gswxxn.restoresplashscreen.utils.RemotePreferenceStore
 import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.ui.component.IconSize
-import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.layout.HyperXScaffold
 import dev.lackluster.hyperx.ui.layout.LocalHyperXLayoutConfig
 import dev.lackluster.hyperx.ui.layout.LocalLayoutPadding
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -103,7 +99,6 @@ fun BgIndividualPage() {
     // 在列表中的条目
     var appInfoFilter by remember { mutableStateOf<List<MyAppInfo>>(emptyList()) }
 
-    var queryJob: Job? = null
     var isLoading by remember { mutableStateOf(true) }
     val deviceDarkMode = isSystemInDarkTheme()
 
@@ -123,10 +118,10 @@ fun BgIndividualPage() {
 
                 // 创建应用信息列表并按字母顺序排序
                 installedApps.map { appInfo ->
+                    // 图标改由行组合时经 rememberAppIcon 按需加载, 这里不再全量 loadIcon()
                     MyAppInfo(
                         appName = appInfo.loadLabel(pm).toString(),
                         packageName = appInfo.packageName,
-                        icon = appInfo.loadIcon(pm),
                         isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList.keys),
                         isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
                     )
@@ -138,31 +133,23 @@ fun BgIndividualPage() {
         }
     }
 
+    // LaunchedEffect 在 key 变化时本就会取消上一次协程, 原先那个 queryJob 是 composable 局部变量,
+    // 每次重组都被重置为 null, cancel() 永远是空操作
     LaunchedEffect(appInfoList, queryString) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
 
-        queryJob?.cancel()
-        queryJob = launch(Dispatchers.Default) {
-            // 添加防抖延迟
-            if (queryString.isNotBlank()) {
-                delay(300.milliseconds)
-            } else {
-                delay(50.milliseconds)
-            }
+        // 添加防抖延迟
+        delay(if (queryString.isNotBlank()) 300.milliseconds else 50.milliseconds)
 
-            // 在后台线程进行过滤
-            val filtered = if (queryString.isBlank()) {
+        // 在后台线程进行过滤
+        appInfoFilter = withContext(Dispatchers.Default) {
+            if (queryString.isBlank()) {
                 appInfoList
             } else {
                 appInfoList.filter {
                     it.appName.contains(queryString, true) || it.packageName.contains(queryString, true) ||
                             HanziToPinyin.toPinyin(it.appName).contains(queryString, true)
                 }
-            }
-
-            // 切换回主线程更新 UI
-            withContext(Dispatchers.Main) {
-                appInfoFilter = filtered
             }
         }
     }
@@ -261,9 +248,8 @@ fun BgIndividualPage() {
                     )
                 }
             } else {
-                itemsIndexed(appInfoFilter, key = { index, item ->
-                    item.packageName + item.isChecked + index + appInfoFilter.size
-                }) { index, item ->
+                // key 只用包名: 把 index / 列表长度拼进 key 会让排序一变就重建全部 item
+                itemsIndexed(appInfoFilter, key = { _, item -> item.packageName }) { index, item ->
                     val topCornerRadius = if (index == 0) CardDefaults.CornerRadius else 0.dp
                     val bottomCornerRadius = if (index == appInfoFilter.size - 1) CardDefaults.CornerRadius else 0.dp
                     SpliceCard(
@@ -271,10 +257,7 @@ fun BgIndividualPage() {
                         bottomCornerRadius
                     ) {
                         TextPreference(
-                            icon = ImageIcon(
-                                bitmap = item.icon.toBitmap().asImageBitmap(),
-                                size = IconSize.App
-                            ),
+                            icon = rememberAppIcon(item.packageName),
                             title = item.appName,
                             summary = item.packageName
                         ) {

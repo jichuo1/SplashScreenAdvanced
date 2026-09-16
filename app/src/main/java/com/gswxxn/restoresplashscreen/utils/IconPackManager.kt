@@ -29,6 +29,12 @@ class IconPackManager(private val mContext: Context, private val packageName: St
 
     @SuppressLint("DiscouragedApi")
     private fun load() {
+        // 先置位再加载: 这是"已尝试加载", 不是"加载成功"。
+        // 原先只在成功路径末尾置 true, 图标包被卸载时 getResourcesForApplication 抛
+        // NameNotFoundException, mLoaded 永远是 false —— 于是每次应用启动都会在启动关键路径上
+        // 重跑一次 binder 查询并再抛一次异常。失败同样需要被缓存
+        mLoaded = true
+
         // load appfilter.xml from the icon pack package
         val pm = mContext.packageManager
         try {
@@ -72,7 +78,6 @@ class IconPackManager(private val mContext: Context, private val packageName: St
                     eventType = xpp.next()
                 }
             }
-            mLoaded = true
         } catch (_: PackageManager.NameNotFoundException) {
             //XMLog.d { "Cannot load icon pack" }
         } catch (_: XmlPullParserException) {
@@ -84,9 +89,10 @@ class IconPackManager(private val mContext: Context, private val packageName: St
 
     @SuppressLint("DiscouragedApi")
     private fun loadDrawable(drawableName: String): Drawable? {
-        val id = iconPackRes!!.getIdentifier(drawableName, "drawable", packageName)
+        val res = iconPackRes ?: return null
+        val id = res.getIdentifier(drawableName, "drawable", packageName)
         if (id > 0) {
-            return ResourcesCompat.getDrawable(iconPackRes!!, id, mContext.theme)
+            return ResourcesCompat.getDrawable(res, id, mContext.theme)
         }
         return null
     }
@@ -100,12 +106,13 @@ class IconPackManager(private val mContext: Context, private val packageName: St
     @SuppressLint("DiscouragedApi")
     fun getIconByPackageName(appPackageName: String?): Drawable? {
         if (!mLoaded) load()
-        if (iconPackRes == null) return null
+        val res = iconPackRes ?: return null
+        if (appPackageName == null) return null
+
         val pm = mContext.packageManager
-        val launchIntent = pm.getLaunchIntentForPackage(appPackageName!!)
-        var componentName: String? = null
-        if (launchIntent != null) componentName = pm.getLaunchIntentForPackage(appPackageName)!!
-            .component.toString()
+        // getLaunchIntentForPackage 是 binder 调用, 原先连着调了两次, 这里只取一次
+        val componentName = pm.getLaunchIntentForPackage(appPackageName)?.component?.toString()
+
         var drawableName = mPackagesDrawables[componentName]
         if (drawableName != null) {
             return loadDrawable(drawableName)
@@ -118,12 +125,8 @@ class IconPackManager(private val mContext: Context, private val packageName: St
                     drawableName =
                         componentName.substring(start, end).lowercase(Locale.getDefault())
                             .replace(".", "_").replace("/", "_")
-                    if (iconPackRes!!.getIdentifier(
-                            drawableName,
-                            "drawable",
-                            packageName
-                        ) > 0
-                    ) return loadDrawable(drawableName)
+                    if (res.getIdentifier(drawableName, "drawable", packageName) > 0)
+                        return loadDrawable(drawableName)
                 }
             }
         }

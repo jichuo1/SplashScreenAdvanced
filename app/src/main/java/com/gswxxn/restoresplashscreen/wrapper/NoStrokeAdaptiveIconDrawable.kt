@@ -24,16 +24,28 @@ class NoStrokeAdaptiveIconDrawable private constructor(
             super.draw(canvas)
             return
         }
-        val previous = runCatching { getter.invoke(null) as Boolean }.getOrDefault(true)
-        try {
-            runCatching { setter.invoke(null, false) }
-            super.draw(canvas)
-        } finally {
-            runCatching { setter.invoke(null, previous) }
+        // IconCustomizer.setIsIconStroke 改的是 miui framework 里的**进程级全局开关**。
+        // 多个线程同时绘制自适应图标时,"读旧值 -> 关 -> 绘制 -> 还原"三步会相互穿插:
+        // 后进来的线程可能把已被改成 false 的值当成 previous 存下来, 还原后描边就被永久关掉了。
+        // 这里把这段串行化——启动遮罩图标的绘制频次很低, 排队代价可以接受
+        synchronized(strokeToggleLock) {
+            val previous = runCatching { getter.invoke(null) as Boolean }.getOrDefault(true)
+            try {
+                runCatching { setter.invoke(null, false) }
+                drawSuper(canvas)
+            } finally {
+                runCatching { setter.invoke(null, previous) }
+            }
         }
     }
 
+    /** super.draw 的转发, 避免在 lambda 里直接写 super 调用 */
+    private fun drawSuper(canvas: Canvas) = super.draw(canvas)
+
     companion object {
+        /** 保护 IconCustomizer 全局描边开关的「读-改-写-还原」序列 */
+        private val strokeToggleLock = Any()
+
         private val iconCustomizerClass by lazy {
             "miui.content.res.IconCustomizer".toClassOrNull()
         }

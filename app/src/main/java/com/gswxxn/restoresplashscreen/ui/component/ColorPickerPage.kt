@@ -153,7 +153,11 @@ fun ColorPickerPage(pkgName: String) {
 
     // 已选颜色的状态, app 已保存的信息
     val store = koinInject<RemotePreferenceStore>()
-    val appColorConfig = AppColorConfig(pkgName, LocalContext.current, store)
+    val context = LocalContext.current
+    // 必须 remember: AppColorConfig 的构造函数里有 PackageManager binder 调用、
+    // 新建 IconPackManager (会完整解析一遍图标包的 appfilter.xml) 和图标光栅化。
+    // 不 remember 的话拖动 Slider / 改 HSV 时每一帧重组都会在主线程把这套重跑一遍
+    val appColorConfig = remember(pkgName) { AppColorConfig(pkgName, context, store) }
     val currentDarkMode = isSystemInDarkTheme().let { remember { mutableStateOf(it) } }
     val defaultColor = appColorConfig.getDefaultBGColor(currentDarkMode.value)
     val pickedColor = PickedColor(

@@ -1,7 +1,6 @@
 package com.gswxxn.restoresplashscreen.ui.component
 
 import android.content.pm.ApplicationInfo
-import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -44,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -52,7 +50,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.notEqualsTo
 import com.gswxxn.restoresplashscreen.utils.RemotePreferenceStore
@@ -60,8 +57,6 @@ import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
 import org.koin.compose.koinInject
-import dev.lackluster.hyperx.ui.component.IconSize
-import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.dialog.AlertDialog
 import dev.lackluster.hyperx.ui.dialog.AlertDialogMode
 import dev.lackluster.hyperx.ui.layout.HyperXScaffold
@@ -69,7 +64,6 @@ import dev.lackluster.hyperx.ui.layout.LocalHyperXLayoutConfig
 import dev.lackluster.hyperx.ui.layout.LocalLayoutPadding
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -139,14 +133,13 @@ fun AppListPage(
     // 在列表中的条目
     var appInfoFilter by remember { mutableStateOf<List<MyAppInfo>>(emptyList()) }
 
-    // 保存前的配置
-    val tmpCheckedList = mutableSetOf<String>().apply {
-        clear()
-        addAll(store.get(checkedListKey))
+    // 保存前的配置。必须 remember: 这是"进入页面时的基线", 用来判断有没有未保存的改动,
+    // 不 remember 的话每次重组都会重新读一遍远程 prefs 并重建 Set
+    val tmpCheckedList = remember(checkedListKey) {
+        mutableSetOf<String>().apply { addAll(store.get(checkedListKey)) }
     }
 
     val coroutineScope = rememberCoroutineScope()
-    var queryJob: Job? = null
     var isLoading by remember { mutableStateOf(true) }
 
     BackHandler(true) {
@@ -170,10 +163,11 @@ fun AppListPage(
 
                 // 创建应用信息列表
                 installedApps.map { appInfo ->
+                    // 这里不再 loadIcon(): 图标改由行组合时经 rememberAppIcon 按需加载,
+                    // 避免几百个 Drawable 随列表常驻内存
                     MyAppInfo(
                         appName = appInfo.loadLabel(pm).toString(),
                         packageName = appInfo.packageName,
-                        icon = appInfo.loadIcon(pm),
                         isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
                         isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
                     )
@@ -217,18 +211,16 @@ fun AppListPage(
         }
     }
 
+    // 防抖 + 过滤排序。LaunchedEffect 在 key 变化时本就会取消上一次协程,
+    // 原先那个 queryJob 是 composable 的局部变量, 每次重组都被重置为 null,
+    // queryJob?.cancel() 永远是空操作, 属于误导性的死代码
     LaunchedEffect(appInfoList, queryString, sortTrigger) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
 
-        queryJob?.cancel()
-        queryJob = launch(Dispatchers.Default) {
-            if (queryString.isNotBlank()) {
-                delay(300)
-            } else {
-                delay(50)
-            }
+        delay(if (queryString.isNotBlank()) 300 else 50)
 
-            // 在后台线程进行过滤和排序
+        // 在后台线程进行过滤和排序
+        val sorted = withContext(Dispatchers.Default) {
             val filtered = if (queryString.isBlank()) {
                 appInfoList
             } else {
@@ -239,16 +231,13 @@ fun AppListPage(
             }
 
             // 排序：已勾选的应用优先，然后按应用名称排序
-            val sorted = filtered.sortedWith(
+            filtered.sortedWith(
                 compareByDescending<MyAppInfo> { it.isChecked.value }
                     .thenBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.appName }
             )
-
-            // 切换回主线程更新 UI
-            withContext(Dispatchers.Main) {
-                appInfoFilter = sorted
-            }
         }
+
+        appInfoFilter = sorted
     }
 
     HyperXScaffold(
@@ -462,9 +451,9 @@ fun AppListPage(
                     )
                 }
             } else {
-                itemsIndexed(appInfoFilter, key = { index, item ->
-                    item.packageName + item.isChecked + index + appInfoFilter.size
-                }) { index, item ->
+                // key 只用包名: 原先把 index、列表长度和勾选状态都拼进了 key,
+                // 排序一变 key 就全变, LazyColumn 会丢弃并重建所有 item, 复用完全失效
+                itemsIndexed(appInfoFilter, key = { _, item -> item.packageName }) { index, item ->
                     val topCornerRadius = if (index == 0) CardDefaults.CornerRadius else 0.dp
                     val bottomCornerRadius = if (index == appInfoFilter.size - 1) CardDefaults.CornerRadius else 0.dp
                     SpliceCard(
@@ -472,10 +461,7 @@ fun AppListPage(
                         bottomCornerRadius
                     ) {
                         SwitchPreference(
-                            icon = ImageIcon(
-                                bitmap = item.icon.toBitmap().asImageBitmap(),
-                                size = IconSize.App
-                            ),
+                            icon = rememberAppIcon(item.packageName),
                             title = item.appName,
                             summary = item.packageName,
                             checked = item.isChecked,
@@ -549,7 +535,6 @@ fun SpliceCard(
 data class MyAppInfo(
     val appName: String,
     val packageName: String,
-    val icon: Drawable,
     // 该 isChecked 用于存储应用是否被勾选, 0 为未勾选, 1 为勾选
     var isChecked: MutableState<Boolean>,
     val isSystemApp: Boolean

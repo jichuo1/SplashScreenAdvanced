@@ -18,34 +18,47 @@ object ReflectCache {
     private val fieldCache = ConcurrentHashMap<FieldKey, Field>()
     private val methodCache = ConcurrentHashMap<MethodKey, Method>()
 
+    // 负缓存: 记录"查过且确实不存在"的成员。
+    // 宿主成员在进程内是否存在同样是恒定的, 不缓存 miss 的话每次调用都要沿整条继承链重新查一遍——
+    // 字段路径上每层还要构造并捕获一个 NoSuchFieldException (fillInStackTrace 是这里最贵的部分),
+    // 而这些调用就落在应用启动的关键路径上 (如 targetActivityInfo 在部分 ROM 上本就不存在)
+    private val fieldMisses = ConcurrentHashMap.newKeySet<FieldKey>()
+    private val methodMisses = ConcurrentHashMap.newKeySet<MethodKey>()
+
     /** 解析 [clazz] (含父类) 中名为 [name] 的字段并缓存; 找不到返回 null */
     private fun resolveField(clazz: Class<*>, name: String): Field? {
-        fieldCache[FieldKey(clazz, name)]?.let { return it }
+        val key = FieldKey(clazz, name)
+        fieldCache[key]?.let { return it }
+        if (key in fieldMisses) return null
         var current: Class<*>? = clazz
         while (current != null) {
             try {
                 return current.getDeclaredField(name)
                     .apply { makeAccessible() }
-                    .also { fieldCache[FieldKey(clazz, name)] = it }
+                    .also { fieldCache[key] = it }
             } catch (_: NoSuchFieldException) {
                 current = current.superclass
             }
         }
+        fieldMisses += key
         return null
     }
 
     /** 解析 [clazz] (含父类) 中名为 [name]、参数个数为 [paramCount] 的首个方法并缓存; 找不到返回 null */
     private fun resolveMethod(clazz: Class<*>, name: String, paramCount: Int): Method? {
-        methodCache[MethodKey(clazz, name, paramCount)]?.let { return it }
+        val key = MethodKey(clazz, name, paramCount)
+        methodCache[key]?.let { return it }
+        if (key in methodMisses) return null
         var current: Class<*>? = clazz
         while (current != null) {
             current.declaredMethods.firstOrNull { it.name == name && it.parameterCount == paramCount }?.let {
                 it.makeAccessible()
-                methodCache[MethodKey(clazz, name, paramCount)] = it
+                methodCache[key] = it
                 return it
             }
             current = current.superclass
         }
+        methodMisses += key
         return null
     }
 

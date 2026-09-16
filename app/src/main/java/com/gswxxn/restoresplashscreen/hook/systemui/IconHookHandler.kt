@@ -68,7 +68,22 @@ object IconHookHandler : BaseHookHandler() {
             .firstField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)!!
     }
 
-    private val iconPackManager by lazy { IconPackManager(appContext!!, prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME)) }
+    /**
+     * 图标包管理器
+     *
+     * 图标包包名在 [IconPackManager] 构造时就固定了, 所以**不能**用 `by lazy` 一次性固化:
+     * 那样用户在设置里换了图标包也要等 SystemUI 重启才生效。这里改为可失效的缓存,
+     * 由 [onHook] 中对 `ICON_PACK_PACKAGE_NAME` 的 observe 负责置空重建
+     */
+    @Volatile
+    private var iconPackManagerCache: IconPackManager? = null
+
+    private val iconPackManager: IconPackManager?
+        get() = iconPackManagerCache ?: appContext?.let { ctx ->
+            IconPackManager(ctx, prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME))
+                .also { iconPackManagerCache = it }
+        }
+
     private val miuiIcons by lazy { XiaomiIconsHelper(appContext!!, appClassLoader) }
 
     /**
@@ -95,7 +110,10 @@ object IconHookHandler : BaseHookHandler() {
     /** 开始 Hook */
     override fun onHook() {
         // 图标来源相关配置变更时清空主色缓存
-        Preferences.Icon.ICON_PACK_PACKAGE_NAME.observe(fireImmediately = false) { clearDominantColorCache() }
+        Preferences.Icon.ICON_PACK_PACKAGE_NAME.observe(fireImmediately = false) {
+            clearDominantColorCache()
+            iconPackManagerCache = null  // 图标包换了, 下次取图标时按新包名重建
+        }
         Preferences.Icon.ENABLE_USE_MIUI_LARGE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
         Preferences.Icon.ENABLE_REPLACE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
 
@@ -250,6 +268,13 @@ object IconHookHandler : BaseHookHandler() {
         }
 
         SystemUIHooker.Members.createIconBitmap_BaseIconFactory.addBeforeHook {
+            // 必须和 normalizeAndWrapToAdaptiveIcon 一样用 ThreadLocal 精确圈定作用域。
+            // 默认条件 isHooking 从 makeSplashScreenContentView 一直持续到 removeStartingWindow
+            // (开了最小持续时长可达数百毫秒), 这段时间内 SystemUI 里通知图标 / Recents / QS
+            // 对 createIconBitmap 的调用也会被一并替换掉——而本替换忽略了入参 scale,
+            // 尺寸也强制用 starting_surface_icon_size, 会污染这些无关路径
+            if (isInMakeSplashScreenContentView.get() != true) return@addBeforeHook
+
             (args(0).any() as? Drawable)?.let { drawable ->
                 printLog { "createIconBitmap_BaseIconFactory(): avoid shrink icon by system ui" }
                 result = GraphicUtils.drawable2Bitmap(drawable, getIconSize(drawable))
@@ -364,20 +389,20 @@ object IconHookHandler : BaseHookHandler() {
 
     /** 使用图标包 */
     private fun getIconFromIconPack(): Drawable? {
-        if (prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME) != "None") {
-            printLog { "getIcon(): use Icon Pack" }
-            return when {
-                currentPackageName == "com.android.contacts" && currentComponentName.isNotEmpty() ->
-                    iconPackManager.getIconByComponentName("ComponentInfo{com.android.contacts/$currentComponentName}")
+        if (prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME) == "None") return null
+        val manager = iconPackManager ?: return null
 
-                currentComponentName.isNotEmpty() ->
-                    iconPackManager.getIconByComponentName("ComponentInfo{$currentPackageName/$currentComponentName}")
-                        ?: iconPackManager.getIconByPackageName(currentPackageName)
+        printLog { "getIcon(): use Icon Pack" }
+        return when {
+            currentPackageName == "com.android.contacts" && currentComponentName.isNotEmpty() ->
+                manager.getIconByComponentName("ComponentInfo{com.android.contacts/$currentComponentName}")
 
-                else -> iconPackManager.getIconByPackageName(currentPackageName)
-            }
+            currentComponentName.isNotEmpty() ->
+                manager.getIconByComponentName("ComponentInfo{$currentPackageName/$currentComponentName}")
+                    ?: manager.getIconByPackageName(currentPackageName)
+
+            else -> manager.getIconByPackageName(currentPackageName)
         }
-        return null
     }
 
     /**

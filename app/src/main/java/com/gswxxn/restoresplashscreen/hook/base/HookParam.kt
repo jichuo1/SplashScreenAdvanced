@@ -39,8 +39,17 @@ class HookParam internal constructor(private val chain: XposedInterface.Chain) {
     fun resultFalse() { result = false }
     fun resultNull() { result = null }
 
+    /**
+     * 原方法是否已被调用过
+     *
+     * 供 [HookManager] 在 replace 回调抛异常时判断能否安全补调原方法，避免副作用被执行两次
+     */
+    internal var originalCalled: Boolean = false
+        private set
+
     /** 调用原方法（replace 场景使用）。会带上可能被修改过的 [args] */
     fun callOriginal(): Any? {
+        originalCalled = true
         val a = mutableArgs
         return if (a != null) chain.proceed(a) else chain.proceed()
     }
