@@ -4,7 +4,7 @@
 
 # SplashScreenAdvanced
 
-**启动遮罩进化**
+**启动遮罩进化A**
 
 自定义 Android 原生 Splash Screen 的 [libxposed](https://github.com/libxposed) 模块
 
@@ -103,7 +103,7 @@ flowchart TD
   B --> C{要用强制显示、热启动<br>或彻底关闭？}
   C -->|否| D[重启系统界面]
   C -->|是| E[再勾选系统框架 android 并重启手机]
-  D --> F[打开「启动遮罩进化」调整选项]
+  D --> F[打开「启动遮罩进化A」调整选项]
   E --> F
   F --> G[多数设置立即生效；API 102 还可热重载模块更新]
 ```

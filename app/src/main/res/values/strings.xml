@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">启动遮罩进化</string>
+    <string name="app_name">启动遮罩进化A</string>
     <string name="xposed_desc">自定义 Splash Screen, 使用现代 libxposed</string>
 
     <!--主页-->
