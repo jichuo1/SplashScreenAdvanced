@@ -47,25 +47,25 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Require the latest Compose source
+      - name: Require the latest main source
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" != "refs/heads/Compose" ]]; then
-            echo "Stable builds must be triggered from Compose; selected ref is $GITHUB_REF"
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Stable builds must be triggered from main; selected ref is $GITHUB_REF"
             exit 1
           fi
 
           checked_out_sha="$(git rev-parse HEAD)"
-          git fetch --no-tags origin "+refs/heads/Compose:refs/remotes/origin/Compose"
-          remote_head_sha="$(git rev-parse refs/remotes/origin/Compose)"
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          remote_head_sha="$(git rev-parse refs/remotes/origin/main)"
           if [[ "$checked_out_sha" != "$GITHUB_SHA" ]]; then
             echo "Checked-out commit $checked_out_sha does not match event commit $GITHUB_SHA"
             exit 1
           fi
           if [[ "$remote_head_sha" != "$GITHUB_SHA" ]]; then
-            echo "Refusing stale build: event commit is $GITHUB_SHA but remote Compose is $remote_head_sha"
-            echo "Push the intended source and trigger the latest Compose commit again."
+            echo "Refusing stale build: event commit is $GITHUB_SHA but remote main is $remote_head_sha"
+            echo "Push the intended source and trigger the latest main commit again."
             exit 1
           fi
 
@@ -202,11 +202,11 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --force --tags origin
-          git fetch --no-tags origin "+refs/heads/Compose:refs/remotes/origin/Compose"
-          remote_head_sha="$(git rev-parse refs/remotes/origin/Compose)"
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          remote_head_sha="$(git rev-parse refs/remotes/origin/main)"
           if [[ "$remote_head_sha" != "$GITHUB_SHA" ]]; then
-            echo "Refusing stale publish: verified commit is $GITHUB_SHA but remote Compose is $remote_head_sha"
-            echo "Run the workflow again from the latest Compose commit."
+            echo "Refusing stale publish: verified commit is $GITHUB_SHA but remote main is $remote_head_sha"
+            echo "Run the workflow again from the latest main commit."
             exit 1
           fi
           if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
