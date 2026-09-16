@@ -31,3 +31,6 @@
 # kotlinx.serialization
 -keepattributes *Annotation*, Signature
 -keepnames class org.koin.** { *; }
+
+# DexKit JNI / query models are used from SystemUI and system_server
+-keep class org.luckypray.dexkit.** { *; }

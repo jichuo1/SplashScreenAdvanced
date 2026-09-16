@@ -4,6 +4,7 @@ import android.content.Context
 import com.SplashScreenAdvanced.xposedmodule.data.Scope
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
@@ -51,6 +52,7 @@ class HookEntry : XposedModule() {
      * 返回 `true` 放行后，框架会冻结旧代码、捕获旧 Hook 句柄并载入新一代
      */
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
+        HostDexLookup.closeBridge()
         val state = runCatching {
             when {
                 isSystemServer -> AndroidHooker.classLoader?.let { arrayOf<Any?>(it) }
