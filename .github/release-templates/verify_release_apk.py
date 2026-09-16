@@ -14,8 +14,12 @@ from typing import Sequence
 PACKAGE_PATTERN = re.compile(
     r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'"
 )
-SIGNER_PATTERN = re.compile(
-    r"Signer #(\d+) certificate SHA-256 digest:\s*([0-9A-Fa-f:\s]+)"
+# build-tools ≤36: "Signer #1 certificate SHA-256 digest:"
+# build-tools 37+: "V2 Signer: certificate SHA-256 digest:" / "V3.0 Signer: ..."
+# 公钥行也含 "SHA-256 digest:"，不能一起收。
+CERTIFICATE_SHA256_PATTERN = re.compile(
+    r"certificate SHA-256 digest:\s*([0-9A-Fa-f:\s]+)\s*$",
+    re.IGNORECASE,
 )
 
 
@@ -67,20 +71,20 @@ def parse_aapt_badging(output: str) -> ApkIdentity:
 def parse_single_signer_sha256(output: str) -> str:
     """Return the only signer certificate digest reported by ``apksigner``."""
 
-    signers: dict[int, str] = {}
-    for signer_number, digest in SIGNER_PATTERN.findall(output):
-        normalized = normalize_sha256(digest)
-        number = int(signer_number)
-        previous = signers.setdefault(number, normalized)
-        if previous != normalized:
-            raise ReleaseApkValidationError(
-                f"Signer #{number} reports conflicting certificate digests"
-            )
-    if len(signers) != 1:
+    digests: set[str] = set()
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if "public key" in line.lower():
+            continue
+        match = CERTIFICATE_SHA256_PATTERN.search(line)
+        if match is None:
+            continue
+        digests.add(normalize_sha256(match.group(1)))
+    if len(digests) != 1:
         raise ReleaseApkValidationError(
-            f"Expected exactly one APK signer, found {len(signers)}"
+            f"Expected exactly one APK signer certificate, found {len(digests)}\n{output}"
         )
-    return next(iter(signers.values()))
+    return next(iter(digests))
 
 
 def validate_release_identity(

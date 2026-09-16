@@ -53,12 +53,22 @@ class VerifyReleaseApkTest(unittest.TestCase):
         )
         self.assertEqual(CERTIFICATE_SHA256, parse_single_signer_sha256(output))
 
+    def test_parses_build_tools_37_scheme_labels(self) -> None:
+        output = (
+            f"V2 Signer: certificate SHA-256 digest: {CERTIFICATE_SHA256}\n"
+            f"V3.0 Signer: certificate SHA-256 digest: {CERTIFICATE_SHA256}\n"
+            f"V2 Signer: public key SHA-256 digest: {'a' * 64}\n"
+        )
+        self.assertEqual(CERTIFICATE_SHA256, parse_single_signer_sha256(output))
+
     def test_rejects_multiple_signers(self) -> None:
         output = (
             f"Signer #1 certificate SHA-256 digest: {CERTIFICATE_SHA256}\n"
             f"Signer #2 certificate SHA-256 digest: {'f' * 64}\n"
         )
-        with self.assertRaisesRegex(ReleaseApkValidationError, "exactly one APK signer"):
+        with self.assertRaisesRegex(
+            ReleaseApkValidationError, "exactly one APK signer certificate"
+        ):
             parse_single_signer_sha256(output)
 
     def test_validates_release_identity(self) -> None:
