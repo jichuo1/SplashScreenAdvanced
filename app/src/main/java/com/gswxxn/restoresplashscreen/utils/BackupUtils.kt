@@ -10,8 +10,8 @@ import com.gswxxn.restoresplashscreen.utils.CommonUtils.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent
 import kotlin.system.exitProcess
 
@@ -39,15 +39,15 @@ object BackupUtils {
             val result = repository.importBackup(uri)
             if (result.isSuccess) {
                 context.toast(R.string.restore_successful)
-                withContext(Dispatchers.IO) {
-                    Thread.sleep(500)
-                    val intent =
-                        Intent(context, MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    context.startActivity(intent)
-                    exitProcess(0)
-                }
+                // 留一点时间让 Toast 显示出来, 再重启进程。
+                // 这里在协程里, 用 delay 挂起即可, 不需要 Thread.sleep 占住一个线程
+                delay(500)
+                val intent =
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                context.startActivity(intent)
+                exitProcess(0)
             } else {
                 context.toast(R.string.restore_failed)
             }

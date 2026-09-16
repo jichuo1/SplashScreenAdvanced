@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
@@ -43,6 +44,10 @@ import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -217,6 +222,22 @@ private fun RestartDialog(
     show: MutableState<Boolean>
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    /**
+     * 执行 su 命令, 稍等片刻后如果本进程还活着, 说明没拿到 root, 提示用户
+     *
+     * 原先是在 onClick 里直接 [execShell] + `Thread.sleep(300)`: 前者要 fork `su` 进程并写管道,
+     * 后者是硬阻塞, 两者都跑在主线程上, 点一下就是数百毫秒的卡顿
+     */
+    fun runRestartCommand(command: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) { execShell(command) }
+            delay(300)
+            context.toast(R.string.no_root)
+        }
+    }
+
     OverlayDialog(
         title = stringResource(R.string.restart_title),
         summary = stringResource(R.string.restart_message),
@@ -228,11 +249,7 @@ private fun RestartDialog(
             TextButton(
                 modifier = Modifier.fillMaxWidth(),
                 text = stringResource(R.string.reboot),
-                onClick = {
-                    execShell("reboot")
-                    Thread.sleep(300)
-                    context.toast(R.string.no_root)
-                }
+                onClick = { runRestartCommand("reboot") }
             )
             Spacer(Modifier.height(12.dp))
 
@@ -241,9 +258,7 @@ private fun RestartDialog(
                 modifier = Modifier.fillMaxWidth(),
                 text = stringResource(R.string.restart_system_ui),
                 onClick = {
-                    execShell("pkill -f com.android.systemui && pkill -f com.gswxxn.restoresplashscreen")
-                    Thread.sleep(300)
-                    context.toast(R.string.no_root)
+                    runRestartCommand("pkill -f com.android.systemui && pkill -f com.gswxxn.restoresplashscreen")
                 }
             )
             Spacer(Modifier.height(12.dp))

@@ -73,6 +73,21 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
         return this
     }
 
+    /**
+     * 执行单个 before/after 回调并吞掉其异常
+     *
+     * libxposed 会把 [XposedInterface.Hooker.intercept] 抛出的异常原样送回宿主被 Hook 方法的调用处，
+     * 落在 `build()` / `makeSplashScreenContentView()` 这类成员上足以让启动遮罩创建失败乃至 SystemUI 崩溃。
+     * 单个回调失败只应让该功能失效，不应影响宿主与其它回调。
+     */
+    private fun invokeIsolated(hook: HookParam.() -> Unit, param: HookParam) {
+        try {
+            hook(param)
+        } catch (e: Throwable) {
+            XMLog.e(e)
+        }
+    }
+
     fun startHook(module: XposedModule) {
         synchronized(installLock) {
             if (hookHandle != null) return  // 幂等：已安装则跳过，避免叠加 trampoline
@@ -88,22 +103,36 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
                         // ReplaceHook 优先且独占
                         if (hasReplaceHook) {
                             param.phase = HookParam.Phase.REPLACE
-                            return replaceHook!!.invoke(param)
+                            return try {
+                                replaceHook!!.invoke(param)
+                            } catch (e: Throwable) {
+                                XMLog.e(e)
+                                // 回调失败不能把异常抛回宿主：原方法还没跑过就补一次，
+                                // 跑过了就沿用其结果，避免副作用重复执行
+                                if (param.originalCalled) param.result else param.callOriginal()
+                            }
                         }
 
-                        // before：依次执行（任一拦截则跳过原方法）
+                        // before：依次执行；任一回调拦截后即短路，剩余 before 不再执行
                         param.phase = HookParam.Phase.BEFORE
-                        beforeHooks.forEach { it(param) }
+                        for (hook in beforeHooks) {
+                            invokeIsolated(hook, param)
+                            if (param.intercepted) break
+                        }
                         val skipOriginal = param.intercepted
 
                         // 原方法（除非被 before 拦截）
                         param.phase = HookParam.Phase.AFTER
-                        if (!skipOriginal) {
-                            param.result = param.proceedOriginal()
+                        try {
+                            if (!skipOriginal) {
+                                param.result = param.proceedOriginal()
+                            }
+                        } finally {
+                            // after：依次执行（可读写 result）。放在 finally 里是因为原方法抛异常时
+                            // 也必须执行——有 after 回调负责复位状态（如 ThreadLocal 清理），
+                            // 漏执行会导致该线程上的状态永久残留
+                            for (hook in afterHooks) invokeIsolated(hook, param)
                         }
-
-                        // after：依次执行（可读写 result）
-                        afterHooks.forEach { it(param) }
 
                         return param.result
                     }

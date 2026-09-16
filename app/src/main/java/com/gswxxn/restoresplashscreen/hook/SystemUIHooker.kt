@@ -46,32 +46,49 @@ object SystemUIHooker {
 
     @Keep
     object Members {
-        val makeSplashScreenContentView = HookManager {
+        // 宿主类在进程内恒定, 这里解析一次复用。
+        // 原先每个成员各自 toClassOrNull 一遍, SplashscreenContentDrawer 被查了 5 次、
+        // BaseIconFactory 2 次, 而 A14 的 Builder 回退每次都要先吃一个 ClassNotFoundException——
+        // 这些都发生在 SystemUI attachBaseContext 的启动关键路径上。
+        // 注意: 必须声明在下面各 HookManager 之前, 对象初始化按声明顺序执行
+        private val splashscreenContentDrawerClass by lazy {
             "com.android.wm.shell.startingsurface.SplashscreenContentDrawer".toClassOrNull(loader = classLoader)
+        }
+
+        /** A15+ 为 StartingWindowViewBuilder, A14 为 SplashViewBuilder */
+        private val startingWindowViewBuilderClass by lazy {
+            $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$StartingWindowViewBuilder".toClassOrNull(loader = classLoader)
+                ?: $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$SplashViewBuilder".toClassOrNull(loader = classLoader)
+        }
+
+        private val baseIconFactoryClass by lazy {
+            "com.android.launcher3.icons.BaseIconFactory".toClassOrNull(loader = classLoader)
+        }
+
+        val makeSplashScreenContentView = HookManager {
+            splashscreenContentDrawerClass
                 ?.resolve()?.optional()?.firstMethodOrNull { name = "makeSplashScreenContentView" }?.self
         }
         val getWindowAttrs = HookManager {
-            "com.android.wm.shell.startingsurface.SplashscreenContentDrawer".toClassOrNull(loader = classLoader)
+            splashscreenContentDrawerClass
                 ?.resolve()?.optional()?.firstMethodOrNull {
                     name = "getWindowAttrs"
                     parameterCount = 2
                 }?.self
         }
         val getBGColorFromCache = HookManager {
-            "com.android.wm.shell.startingsurface.SplashscreenContentDrawer".toClassOrNull(loader = classLoader)
+            splashscreenContentDrawerClass
                 ?.resolve()?.optional()?.firstMethodOrNull {
                     name = "getBGColorFromCache"
                     parameterCount = 2
                 }?.self
         }
         val startingWindowViewBuilderConstructor = HookManager {
-            ($$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$StartingWindowViewBuilder".toClassOrNull(loader = classLoader)
-                ?: $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$SplashViewBuilder".toClassOrNull(loader = classLoader)) // Android 14
+            startingWindowViewBuilderClass
                 ?.resolve()?.optional()?.firstConstructorOrNull { parameterCount { it in 2..3 } }?.self
         }
         val createIconDrawable = HookManager {
-            ($$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$StartingWindowViewBuilder".toClassOrNull(loader = classLoader)
-                ?: $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$SplashViewBuilder".toClassOrNull(loader = classLoader)) // Android 14
+            startingWindowViewBuilderClass
                 ?.resolve()?.optional()?.firstMethodOrNull { name = "createIconDrawable" }?.self
         }
         val iconColor_constructor = HookManager {
@@ -89,12 +106,12 @@ object SystemUIHooker {
             }?.self
         }
         val normalizeAndWrapToAdaptiveIcon = HookManager {
-            "com.android.launcher3.icons.BaseIconFactory".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            baseIconFactoryClass?.resolve()?.optional()?.firstMethodOrNull {
                 name = "normalizeAndWrapToAdaptiveIcon"
             }?.self
         }
         val createIconBitmap_BaseIconFactory = HookManager {
-            "com.android.launcher3.icons.BaseIconFactory".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            baseIconFactoryClass?.resolve()?.optional()?.firstMethodOrNull {
                 name = "createIconBitmap"
                 parameters(android.graphics.drawable.Drawable::class, Float::class, Int::class)
             }?.self

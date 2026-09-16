@@ -2,6 +2,7 @@ package com.gswxxn.restoresplashscreen.hook.systemui
 
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.os.SystemClock
 import com.gswxxn.restoresplashscreen.data.StartingWindowInfo
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
 import com.gswxxn.restoresplashscreen.hook.SystemUIHooker
@@ -25,13 +26,47 @@ import kotlin.time.Duration.Companion.milliseconds
  * 此对象用于处理 基础设置 和 实验功能 中的 Hook
  */
 object GenerateHookHandler : BaseHookHandler() {
+    // 以下状态由 makeSplashScreenContentView (shell 的启动遮罩线程) 写入,
+    // 由 removeStartingWindow / build() 等可能位于其它线程的 hook 读取,
+    // 必须 @Volatile, 否则跨线程可见性没有保证
+    @Volatile
     var currentPackageName = ""
+
+    @Volatile
     var currentComponentName = ""
+
+    @Volatile
     var currentActivity = ""
+
+    @Volatile
     var currentApplicationInfo = null as ApplicationInfo?
+
+    @Volatile
     var currentActivityInfo = null as ActivityInfo?
+
+    @Volatile
     var exceptCurrentApp = false
-    var isHooking = false
+
+    /** 本次启动遮罩流程的开始时刻 (uptime, ms); 0 表示当前不在流程中 */
+    @Volatile
+    private var hookingStartedAt = 0L
+
+    /**
+     * 是否正处于一次启动遮罩构建流程中
+     *
+     * 带超时兜底: 正常由 `removeStartingWindow` 复位, 但宿主若因异常中断或走了别的移除路径而没能调到那里,
+     * 原先的纯布尔标志会永久停在 true, 使所有依赖 `defaultExecCondition` 的 hook 在整个 SystemUI
+     * 生命周期内常开。[HOOKING_TIMEOUT_MS] 取得足够宽松 (远超任何正常冷启动 + 最小持续时长),
+     * 只用于兜住这种已经异常的状态, 不会影响正常流程
+     */
+    var isHooking: Boolean
+        get() = hookingStartedAt != 0L &&
+                SystemClock.uptimeMillis() - hookingStartedAt < HOOKING_TIMEOUT_MS
+        set(value) {
+            hookingStartedAt = if (value) SystemClock.uptimeMillis() else 0L
+        }
+
+    private const val HOOKING_TIMEOUT_MS = 60_000L
 
     /** 延迟调用 removeStartingWindow 原方法 */
     private val delayScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

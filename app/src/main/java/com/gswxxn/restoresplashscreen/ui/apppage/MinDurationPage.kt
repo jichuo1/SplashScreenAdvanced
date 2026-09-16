@@ -1,6 +1,5 @@
 package com.gswxxn.restoresplashscreen.ui.apppage
 
-import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -43,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -54,17 +52,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
 import com.gswxxn.restoresplashscreen.ui.component.SpliceCard
+import com.gswxxn.restoresplashscreen.ui.component.rememberAppIcon
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.notEqualsTo
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toMap
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toSet
 import com.gswxxn.restoresplashscreen.utils.RemotePreferenceStore
 import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.component.PreferenceIconSlot
 import dev.lackluster.hyperx.ui.dialog.AlertDialog
@@ -79,7 +76,6 @@ import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import dev.lackluster.hyperx.ui.preference.ValuePosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -148,18 +144,18 @@ fun MinDurationPage() {
     // 在列表中的条目
     var appInfoFilter by remember { mutableStateOf<List<DurationAppInfo>>(emptyList()) }
 
-    // 保存前的配置
-    val tmpCheckedList = mutableSetOf<String>().apply {
-        clear()
-        addAll(store.get(Preferences.AppList.MIN_DURATION_LIST))
+    // 保存前的配置。必须 remember: 这是"进入页面时的基线", 用来判断有没有未保存的改动,
+    // 不 remember 的话每次重组都会重新读一遍远程 prefs 并重建集合
+    val tmpCheckedList = remember {
+        mutableSetOf<String>().apply { addAll(store.get(Preferences.AppList.MIN_DURATION_LIST)) }
     }
-    val tmpConfigMap = mutableMapOf<String, String>().apply {
-        clear()
-        putAll(store.get(Preferences.AppList.MIN_DURATION_CONFIG_MAP).toMap())
+    val tmpConfigMap = remember {
+        mutableMapOf<String, String>().apply {
+            putAll(store.get(Preferences.AppList.MIN_DURATION_CONFIG_MAP).toMap())
+        }
     }
 
     val coroutineScope = rememberCoroutineScope()
-    var queryJob: Job? = null
     var isLoading by remember { mutableStateOf(true) }
 
     BackHandler(true) {
@@ -188,10 +184,10 @@ fun MinDurationPage() {
 
                 // 创建应用信息列表
                 installedApps.map { appInfo ->
+                    // 图标改由行组合时经 rememberAppIcon 按需加载, 这里不再全量 loadIcon()
                     DurationAppInfo(
                         appName = appInfo.loadLabel(pm).toString(),
                         packageName = appInfo.packageName,
-                        icon = appInfo.loadIcon(pm),
                         isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
                         config = mutableStateOf(tmpConfigMap[appInfo.packageName])
                     )
@@ -208,18 +204,15 @@ fun MinDurationPage() {
         }
     }
 
+    // LaunchedEffect 在 key 变化时本就会取消上一次协程, 原先那个 queryJob 是 composable 局部变量,
+    // 每次重组都被重置为 null, cancel() 永远是空操作
     LaunchedEffect(appInfoList, queryString, sortTrigger) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
 
-        queryJob?.cancel()
-        queryJob = launch(Dispatchers.Default) {
-            if (queryString.isNotBlank()) {
-                delay(300.milliseconds)
-            } else {
-                delay(50.milliseconds)
-            }
+        delay(if (queryString.isNotBlank()) 300.milliseconds else 50.milliseconds)
 
-            // 在后台线程进行过滤和排序
+        // 在后台线程进行过滤和排序
+        appInfoFilter = withContext(Dispatchers.Default) {
             val filtered = if (queryString.isBlank()) {
                 appInfoList
             } else {
@@ -230,16 +223,11 @@ fun MinDurationPage() {
             }
 
             // 排序：已勾选的应用优先，有配置的其次，然后按应用名称排序
-            val sorted = filtered.sortedWith(
+            filtered.sortedWith(
                 compareByDescending<DurationAppInfo> { it.isChecked.value }
                     .thenByDescending { it.config.value != null }
                     .thenBy(Collator.getInstance(Locale.getDefault())) { it.appName }
             )
-
-            // 切换回主线程更新 UI
-            withContext(Dispatchers.Main) {
-                appInfoFilter = sorted
-            }
         }
     }
 
@@ -438,9 +426,8 @@ fun MinDurationPage() {
                         textColor = MiuixTheme.colorScheme.onBackgroundVariant
                     )
                 }
-                itemsIndexed(appInfoFilter, key = { index, item ->
-                    item.packageName + item.isChecked + index + appInfoFilter.size
-                }) { index, item ->
+                // key 只用包名: 把 index / 列表长度 / 勾选状态拼进 key 会让排序一变就重建全部 item
+                itemsIndexed(appInfoFilter, key = { _, item -> item.packageName }) { index, item ->
                     val topCornerRadius = if (index == 0) CardDefaults.CornerRadius else 0.dp
                     val bottomCornerRadius = if (index == appInfoFilter.size - 1) CardDefaults.CornerRadius else 0.dp
                     val skipTopPadding = index == 0
@@ -450,10 +437,7 @@ fun MinDurationPage() {
                         skipTopPadding
                     ) {
                         MinDurationPreference(
-                            icon = ImageIcon(
-                                bitmap = item.icon.toBitmap().asImageBitmap(),
-                                size = IconSize.App
-                            ),
+                            icon = rememberAppIcon(item.packageName),
                             title = item.appName,
                             summary = item.packageName,
                             checked = item.isChecked,
@@ -610,7 +594,6 @@ private fun DurationBadge(
 data class DurationAppInfo(
     val appName: String,
     val packageName: String,
-    val icon: Drawable,
     // 该 isChecked 用于存储应用是否被勾选, 0 为未勾选, 1 为勾选
     var isChecked: MutableState<Boolean>,
     var config: MutableState<String?>,

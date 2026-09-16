@@ -33,7 +33,7 @@ object BgHookHandler : BaseHookHandler() {
     /** 开始 Hook */
     override fun onHook() {
         SystemUIHooker.Members.getBGColorFromCache.addAfterHook {
-            mTmpAttrsInstance = ReflectCache.getField<Any>(instance!!, "mTmpAttrs")
+            mTmpAttrsInstance = instance?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
         }
         SystemUIHooker.Members.build_SplashScreenViewBuilder.addBeforeHook {
             val builder = SplashScreenViewBuilderWrapper.getInstance(instance!!)
@@ -49,7 +49,8 @@ object BgHookHandler : BaseHookHandler() {
      * - 单独配置应用背景颜色
      */
     private fun getColor(): Int? {
-        val isDarkMode = isDarkMode(appContext!!)
+        val context = appContext ?: return null
+        val isDarkMode = isDarkMode(context)
         val bgColorMode = prefs.get(Preferences.Background.BG_COLOR_MODE)
         val bgColorType = prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE)
         val isInBGExceptList = currentPackageName in prefs.get(Preferences.AppList.BG_EXCEPT_LIST)
@@ -59,10 +60,16 @@ object BgHookHandler : BaseHookHandler() {
             else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
         )
         val individualColor = individualBgColorAppMap[currentPackageName]
+
+        // mTmpAttrs 由 getBGColorFromCache 的 after hook 填充, 但该成员在部分 ROM 上解析不到
+        // (hook 根本没装), ColorOS 等分支也可能走不到那条路径, 且 resetCache() 会把它清回 null。
+        // 原先这里直接 !!, 一旦为空就会把 NPE 抛回宿主的 build(), 让启动遮罩创建失败
+        val tmpAttrs = mTmpAttrsInstance
         val skipAppWithBgColor = bgColorType != 0 &&
                 individualColor == null &&
                 prefs.get(Preferences.Background.SKIP_APP_WITH_BG_COLOR) &&
-                (ReflectCache.getField<Int>(mTmpAttrsInstance!!, "mWindowBgColor") ?: 0) != 0
+                tmpAttrs != null &&
+                (ReflectCache.getField<Int>(tmpAttrs, "mWindowBgColor") ?: 0) != 0
 
         if (skipAppWithBgColor) {
             printLog { "SplashScreenViewBuilder(): skip set bg color cuz app has been set bg color" }
@@ -78,7 +85,7 @@ object BgHookHandler : BaseHookHandler() {
                 ChangeBGColorTypes.FromIcon.ordinal -> {
                     printLog { "SplashScreenViewBuilder(): get adaptive background color" }
                     IconHookHandler.currentIconDominantColor
-                        ?: ReflectCache.getField<Drawable>(mTmpAttrsInstance!!, "mSplashScreenIcon")
+                        ?: tmpAttrs?.let { ReflectCache.getField<Drawable>(it, "mSplashScreenIcon") }
                             ?.let { drawable ->
                                 val bitmap = GraphicUtils.drawable2Bitmap(drawable, 100)
                                 GraphicUtils.getBgColor(
@@ -95,12 +102,12 @@ object BgHookHandler : BaseHookHandler() {
                 ChangeBGColorTypes.FromMonet.ordinal -> {
                     printLog { "SplashScreenViewBuilder(): get monet background color" }
                     when (bgColorMode) {
-                        BGColorModes.LightColor.ordinal -> monetLightPrimaryContainer(appContext!!)
-                        BGColorModes.DarkColor.ordinal -> monetDarkSurface(appContext!!)
+                        BGColorModes.LightColor.ordinal -> monetLightPrimaryContainer(context)
+                        BGColorModes.DarkColor.ordinal -> monetDarkSurface(context)
                         else -> if (!isDarkMode)
-                            monetLightPrimaryContainer(appContext!!)
+                            monetLightPrimaryContainer(context)
                         else
-                            monetDarkSurface(appContext!!)
+                            monetDarkSurface(context)
                     }
                 }
                 // 自定义颜色
