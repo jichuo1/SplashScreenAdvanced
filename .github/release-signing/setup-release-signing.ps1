@@ -136,7 +136,8 @@ try {
     $keyStoreDirectory = Split-Path $resolvedKeyStorePath -Parent
     $null = New-Item -ItemType Directory -Path $keyStoreDirectory -Force
 
-    if (-not (Test-Path -LiteralPath $resolvedKeyStorePath -PathType Leaf)) {
+    $createdThisRun = -not (Test-Path -LiteralPath $resolvedKeyStorePath -PathType Leaf)
+    if ($createdThisRun) {
         & keytool `
             -genkeypair `
             -alias $KeyAlias `
@@ -156,7 +157,10 @@ try {
         Write-Host "已在仓库外生成新的发布密钥库：$resolvedKeyStorePath"
     }
     else {
+        $existingCreatedAt = (Get-Item -LiteralPath $resolvedKeyStorePath).LastWriteTime
         Write-Host "将复用现有发布密钥库，不会覆盖：$resolvedKeyStorePath"
+        Write-Host "  该文件创建于 $($existingCreatedAt.ToString('yyyy-MM-dd HH:mm:ss'))，"
+        Write-Host "  请输入当时设定的密码，而不是新密码。"
     }
 
     # 回读一次：确认这套密码和别名真的能打开密钥库，别等到 CI 里才发现填错
@@ -167,7 +171,30 @@ try {
         -keystore $resolvedKeyStorePath `
         -storepass:env $passwordEnvironmentName | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "无法使用指定密码和别名读取发布密钥库。"
+        # 这里分两种情况，处置方式完全不同，不要笼统地报一句"读取失败"
+        if ($createdThisRun) {
+            throw (
+                "刚生成的密钥库无法回读，说明 keytool 环境本身有问题，而不是密码写错。" +
+                [Environment]::NewLine + "请把上方 keytool 的原始报错一并反馈。"
+            )
+        }
+
+        $existingCreatedAt = (Get-Item -LiteralPath $resolvedKeyStorePath).LastWriteTime
+        throw (
+            "无法用刚才输入的密码和别名 '$KeyAlias' 打开已存在的密钥库：" +
+            [Environment]::NewLine + "  $resolvedKeyStorePath" +
+            [Environment]::NewLine + "  （创建于 $($existingCreatedAt.ToString('yyyy-MM-dd HH:mm:ss'))）" +
+            [Environment]::NewLine +
+            [Environment]::NewLine + "上方 keytool 的原始报错说明了具体原因：" +
+            [Environment]::NewLine + "  'keystore password was incorrect'  -> 密码不是当初设的那个" +
+            [Environment]::NewLine + "  '别名 ... 不存在' / 'Alias ... does not exist' -> 密码对，但别名不是 '$KeyAlias'，用 -KeyAlias 指定正确的别名" +
+            [Environment]::NewLine +
+            [Environment]::NewLine + "想查看这个密钥库里实际有哪些别名，手工运行（会提示你输密码）：" +
+            [Environment]::NewLine + "  keytool -list -keystore `"$resolvedKeyStorePath`" -storetype PKCS12" +
+            [Environment]::NewLine +
+            [Environment]::NewLine + "注意：不要为了绕开这个错误去删除或重新生成密钥库。" +
+            [Environment]::NewLine + "证书指纹一旦变化，已安装用户将无法覆盖升级，只能卸载重装并丢失全部配置。"
+        )
     }
 
     & keytool `
