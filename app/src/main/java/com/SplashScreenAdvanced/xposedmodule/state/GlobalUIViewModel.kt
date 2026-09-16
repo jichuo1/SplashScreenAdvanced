@@ -80,8 +80,7 @@ class GlobalUIViewModel(
     private fun isModuleActivated(service: XposedService?): Boolean {
         if (service == null) return false
         val cap = service.frameworkProperties
-        return service.apiVersion >= XposedService.API_102 &&
-            (cap and XposedService.PROP_CAP_SYSTEM != 0L) &&
+        return (cap and XposedService.PROP_CAP_SYSTEM != 0L) &&
             (cap and XposedService.PROP_CAP_REMOTE != 0L)
     }
 }

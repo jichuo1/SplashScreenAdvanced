@@ -12,7 +12,7 @@
 
 [![License](https://img.shields.io/github/license/jichuo1/SplashScreenAdvanced?style=flat-square&color=a32d2a)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-14%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#要求)
-[![libxposed](https://img.shields.io/badge/libxposed-API%20102-6DB33F?style=flat-square&logo=android&logoColor=white)](https://github.com/libxposed)
+[![libxposed](https://img.shields.io/badge/libxposed-API%20101%2B-6DB33F?style=flat-square&logo=android&logoColor=white)](https://github.com/libxposed)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Release](https://img.shields.io/github/v/release/jichuo1/SplashScreenAdvanced?include_prereleases&style=flat-square&label=release)](https://github.com/jichuo1/SplashScreenAdvanced/releases)
 [![Issues](https://img.shields.io/github/issues/jichuo1/SplashScreenAdvanced?style=flat-square)](https://github.com/jichuo1/SplashScreenAdvanced/issues)
@@ -86,12 +86,12 @@ MIUI / HyperOS 与 ColorOS 走专门分支，其余系统走 AOSP 通用路径�
 | 项 | 说明 |
 |:---|:---|
 | **系统** | Android 14 及以上（`minSdk 34`） |
-| **框架** | 实现 [libxposed](https://github.com/libxposed) **API 102** 的框架，例如较新的 LSPosed |
+| **框架** | 实现 [libxposed](https://github.com/libxposed) **API 101** 的框架即可；**API 102** 额外支持热重载 |
 | **作用域** | 至少勾选 **系统界面**（`com.android.systemui`） |
 | **适配** | 重点覆盖 MIUI / HyperOS、ColorOS；其余 ROM 走通用路径 |
 
-> [!IMPORTANT]
-> 声明或使用低于 102 的 libxposed API 无法通过模块检查。请先确认框架版本，再激活模块。
+> [!NOTE]
+> 框架只有 API 101 时，Hook 与设置热更新仍然可用，但模块 APK 更新后需要重启系统界面（勾了系统框架则重启手机）。API 102 会自动热重载，一般不必重启。
 
 ---
 
@@ -105,14 +105,14 @@ flowchart TD
   C -->|是| E[再勾选系统框架 android 并重启手机]
   D --> F[打开「启动遮罩进化」调整选项]
   E --> F
-  F --> G[多数设置热重载，立即生效]
+  F --> G[多数设置立即生效；API 102 还可热重载模块更新]
 ```
 
 ### 作用域对照
 
 | 功能 | 系统界面 | 系统框架 | 生效方式 |
 |:---|:---:|:---:|:---|
-| 图标 / 背景 / 时长 / 作用域等常规项 | 需要 | — | 重启系统界面后，改设置即时生效 |
+| 图标 / 背景 / 时长 / 作用域等常规项 | 需要 | — | 改设置即时生效；API 101 下更新模块后需重启系统界面 |
 | 强制显示遮罩 | 需要 | 需要 | 重启手机 |
 | 热启动遮罩 | 需要 | 需要 | 须同时开启「强制开启启动遮罩」，并重启手机 |
 | 彻底关闭 Splash Screen | — | 需要 | 重启手机；开启后模块内其余选项不再起作用 |
@@ -150,7 +150,7 @@ cd SplashScreenAdvanced
 请先到 [Releases](https://github.com/jichuo1/SplashScreenAdvanced/releases) 确认已是最新版本，再提交 [Issue](https://github.com/jichuo1/SplashScreenAdvanced/issues)，并附上：
 
 1. Android 版本、ROM 及版本号
-2. Xposed 框架名称与版本（须支持 API 102）
+2. Xposed 框架名称与版本（API 101 或 102）
 3. 复现步骤，以及是否勾选了系统框架
 4. 模块日志与框架日志：在设置中打开「启用日志」后复现（日志会在 24 小时后自动关闭）
 

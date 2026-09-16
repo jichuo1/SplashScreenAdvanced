@@ -22,17 +22,18 @@ def read_module_prop(path: Path) -> dict[str, str]:
 
 
 class ModulePropTest(unittest.TestCase):
-    def test_autohotreload_requires_api_102(self) -> None:
+    def test_min_api_101_targets_102(self) -> None:
         properties = read_module_prop(MODULE_PROP)
         min_api = int(properties["minApiVersion"])
         target_api = int(properties["targetApiVersion"])
         self.assertGreaterEqual(target_api, min_api)
+        self.assertGreaterEqual(min_api, 101)
+        self.assertGreaterEqual(target_api, 102)
         if properties.get("autoHotReload", "").lower() == "true":
             self.assertGreaterEqual(
-                min_api,
+                target_api,
                 102,
-                "autoHotReload is an API 102 feature; minApiVersion must be >= 102 "
-                "or XposedNewApi lint fails the CI gate",
+                "autoHotReload is an API 102 feature; targetApiVersion must be >= 102",
             )
 
 
