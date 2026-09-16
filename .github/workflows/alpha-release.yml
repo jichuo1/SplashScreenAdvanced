@@ -25,7 +25,7 @@ on:
         type: boolean
         default: false
       release_tag:
-        description: Alpha tag; use the next patch after the stable base, for example 4.0.0 -> v4.0.1-alpha.1
+        description: Alpha tag; use the next patch after the stable base, for example 1.0.0 -> v1.0.1-alpha.1
         required: true
         type: string
 
