@@ -31,8 +31,6 @@
     <string name="display_settings">显示</string>
     <string name="dev_settings">开发者选项</string>
 
-    <string name="faq">常见问题</string>
-    <string name="faq_url">https://gswxxn.coding.net/public/restoresplashscreen/faq/git</string>
 
     <!--Sub Settings-->
     <string name="make_sure_active">请确保模块已激活再进行配置</string>
@@ -159,12 +157,11 @@
 
     <!--关于页面-->
     <string name="version">v%s</string>
-    <string name="follow_me">点个关注，不迷路</string>
     <string name="thanks_to">感谢 %s</string>
     <string name="about">关于</string>
-    <string name="developer">开发者</string>
-    <string name="developer_milu">迷璐</string>
     <string name="open_source_repo">开源仓库</string>
+    <string name="upstream_project">上游项目</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
     <string name="open_source_license">开放源代码许可</string>
 
     <!--开发者选项-->

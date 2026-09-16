@@ -1,6 +1,5 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.page
 
-import android.content.Intent
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Pages
@@ -204,20 +202,6 @@ private fun SettingItems(
     }
 
     PreferenceGroup {
-        val context = LocalContext.current
-        ModuleSettingPreference(ModulePreferenceRes.FAQ) {
-            with(context) {
-                // 设备上没有能处理该链接的应用时会抛 ActivityNotFoundException,
-                // 与 AboutPage 里的同类调用保持一致, 加上保护
-                try {
-                    startActivity(
-                        Intent(Intent.ACTION_VIEW, getString(R.string.faq_url).toUri())
-                    )
-                } catch (_: Exception) {
-                    toast(R.string.no_browser)
-                }
-            }
-        }
         ModuleSettingPreference(ModulePreferenceRes.About, navigator)
     }
 }
