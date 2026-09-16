@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_ok">OK</string>
+    <string name="slider_dialog_message_decimal">Default: %1$d Min: %2$d Max: %3$d</string>
+    <string name="slider_dialog_message_float">Default: %1$.2f Min: %2$.2f Max: %3$.2f</string>
+    <string name="loading_dialog_processing">Processing…</string>
+</resources>
