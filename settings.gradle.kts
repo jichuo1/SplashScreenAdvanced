@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RestoreSplashScreen"
+rootProject.name = "SplashScreenAdvanced"
 include(":app", ":hyperx-compose")

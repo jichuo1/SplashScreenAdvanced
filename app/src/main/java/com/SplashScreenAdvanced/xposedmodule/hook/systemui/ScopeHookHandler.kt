@@ -1,0 +1,78 @@
+package com.SplashScreenAdvanced.xposedmodule.hook.systemui
+
+import android.content.Context
+import com.SplashScreenAdvanced.xposedmodule.data.StartingWindowInfo
+import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
+import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
+import com.SplashScreenAdvanced.xposedmodule.hook.base.BaseHookHandler
+import com.SplashScreenAdvanced.xposedmodule.hook.base.HookManager
+import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler.exceptCurrentApp
+import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler.isHooking
+import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
+
+/**
+ * 此对象用于处理作用域 Hook
+ */
+object ScopeHookHandler : BaseHookHandler() {
+
+    /** 开始 Hook */
+    override fun onHook() {
+        /**
+         * 设置后续 Hooks 的默认执行条件, 只有 [currentPackageName] 在作用域内,
+         * 并且当前 [isHooking] 才执行后续 Hooks
+         */
+        HookManager.defaultExecCondition = { isHooking && !exceptCurrentApp }
+
+        // 将作用域外的应用替换为空白启动遮罩
+        SystemUIHooker.Members.makeSplashScreenContentView.addBeforeHook({ true }) {
+            val isReplaceToEmptySplashScreen = prefs.get(Preferences.Icon.REPLACE_TO_EMPTY_SPLASH_SCREEN)
+
+            if (isReplaceToEmptySplashScreen && exceptCurrentApp) {
+                args(args.indexOfFirst { it is Int }).set(StartingWindowInfo.STARTING_WINDOW_TYPE_LEGACY_SPLASH_SCREEN)
+            }
+            printLog { "makeSplashScreenContentView(): ${if (isReplaceToEmptySplashScreen && exceptCurrentApp) "set mSuggestType to 4;" else "not"} replace to empty splash screen" }
+        }
+
+        /**
+         * 绕过部分厂商为非主动适配 splash screen 的应用进行额外操作
+         *
+         * 原理为将 mIconBgColor 设置为一个固定值, 骗过厂商的额外判断, 后续再恢复成默认值
+         *
+         * 此操作在原生系统为非必要操作, 尤其在某些类原生系统执行此 Hook 会造成额外错误,
+         * 所以这里手动指定为只在 MIUI 系统上执行该 Hook, 后续如有返回其他厂商系统需要类似操作, 再手动添加
+         */
+        // 下面这些字段/外部类引用都是宿主私有实现, 在不同 ROM 与 Android 版本上未必同名
+        // (例如 A14 的内部类是 SplashViewBuilder, this$0 的合成字段名也可能不同)。
+        // 取不到时只让本功能失效并留日志, 不要抛异常 —— 这些落点在启动遮罩构建链路上
+        if (isHyperOS) {
+            SystemUIHooker.Members.getBGColorFromCache.addAfterHook {
+                val mTmpAttrs = instance?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
+                if (mTmpAttrs == null) {
+                    printLog { "getBGColorFromCache(): mTmpAttrs not found, skip" }
+                    return@addAfterHook
+                }
+                ReflectCache.setField(mTmpAttrs, "mIconBgColor", 1)
+                printLog { "getBGColorFromCache(): Set mIconBgColor to 1" }
+            }
+
+            // 重置因实现自定义作用域而影响到的 mTmpAttrs
+            SystemUIHooker.Members.startingWindowViewBuilderConstructor.addAfterHook {
+                val mSplashscreenContentDrawer =
+                    instance?.let { ReflectCache.getField<Any>(it, "this$0") }
+                val mTmpAttrs = mSplashscreenContentDrawer
+                    ?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
+                // firstOrNull: 参数里没有 Context 时 first 会抛 NoSuchElementException
+                val context = args.firstOrNull { it is Context }
+
+                if (mSplashscreenContentDrawer == null || mTmpAttrs == null || context == null) {
+                    printLog { "StartingWindowViewBuilder(): missing this\$0 / mTmpAttrs / Context, skip reset" }
+                    return@addAfterHook
+                }
+
+                ReflectCache.invokeMethod<Any>(mSplashscreenContentDrawer, "getWindowAttrs", context, mTmpAttrs)
+            }
+        }
+    }
+}

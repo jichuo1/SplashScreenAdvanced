@@ -19,7 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
--keep class com.gswxxn.restoresplashscreen.ui.MainActivity
+-keep class com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
 
 # libxposed
 -dontwarn io.github.libxposed.annotation.**
