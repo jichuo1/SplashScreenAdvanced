@@ -155,29 +155,13 @@ private fun HeaderBrandCard() {
 }
 
 /**
- * 模块信息组 (作者信息及仓库)
+ * 模块信息组 (本仓库及上游出处)
+ *
+ * 上游条目不是可选的装饰: 本项目以 AGPL-3.0 分发, 必须保留对原作品的出处说明
  */
 @Composable
 private fun AppInfoCard() {
     val context = LocalContext.current
-    TextPreference(
-        icon = ImageIcon(
-            resId = R.mipmap.img_developer,
-            size = IconSize.App,
-            cornerRadius = 40.dp
-        ),
-        title = stringResource(R.string.developer_milu),
-        summary = stringResource(R.string.developer)
-    ) {
-        with(context) {
-            toast(R.string.follow_me)
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, "coolmarket://u/1189245".toUri()))
-            } catch (_: Exception) {
-                openExternalUrl("https://www.coolapk.com/u/1189245")
-            }
-        }
-    }
     TextPreference(
         icon = ImageIcon(
             resId = R.drawable.img_github,
@@ -185,6 +169,12 @@ private fun AppInfoCard() {
         ),
         title = "GitHub",
         summary = stringResource(R.string.open_source_repo)
+    ) {
+        context.openExternalUrl("https://github.com/jichuo1/SplashScreenAdvanced")
+    }
+    TextPreference(
+        title = stringResource(R.string.upstream_project),
+        summary = stringResource(R.string.upstream_project_summary)
     ) {
         context.openExternalUrl("https://github.com/GSWXXN/RestoreSplashScreen")
     }
@@ -278,5 +268,7 @@ private fun Context.openExternalUrl(url: String) {
     try {
         startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (_: Exception) {
+        // 原先是静默失败, 用户点了没反应也不知道为什么
+        toast(R.string.no_browser)
     }
 }

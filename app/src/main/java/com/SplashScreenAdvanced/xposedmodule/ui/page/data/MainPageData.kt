@@ -44,6 +44,6 @@ enum class ModulePreferenceRes(
     BackgroundSettings(R.drawable.ic_color, R.string.background_settings, Pages.BACKGROUND_SETTINGS),
     DisplaySettings(R.drawable.ic_monitor, R.string.display_settings, Pages.DISPLAY_SETTINGS),
     DevSettings(R.drawable.ic_lab, R.string.dev_settings, Pages.DEVELOPER_SETTINGS),
-    FAQ(R.drawable.ic_help, R.string.faq),
+    // FAQ 项已移除: 原先指向原作者自建的 FAQ 站点, 本项目没有对应内容
     About(R.drawable.ic_info, R.string.about, Pages.ABOUT)
 }
