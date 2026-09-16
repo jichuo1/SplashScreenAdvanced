@@ -59,6 +59,9 @@ class GlobalPreferencesRepository(
     }
 
     private fun initAndCheck() {
+        // 全新安装 / 重置设置之后 sp_version 不在 prefs 里, 这里补写, 保证导出的备份带版本号
+        prefStore.ensureVersionStamped()
+
         XMLog.isDebugEnabled = prefStore.get(Preferences.Log.ENABLE_LOG)
 
         _uiConfigFlow.value = HyperXLayoutConfig(
@@ -99,9 +102,12 @@ class GlobalPreferencesRepository(
                 when (value) {
                     is Int -> jsonObject.put(key, "#i#$value")
                     is Float -> jsonObject.put(key, "#f#$value")
+                    // Long 同样带前缀写成字符串。原先写成 JSON 数字, 而 JSONObject.get 会按数值大小
+                    // 返回 Integer 或 Long, 类型在往返中会丢失, 恢复时可能把 Long 键写成 Int,
+                    // 之后 getLong 读取就是 ClassCastException
+                    is Long -> jsonObject.put(key, "#l#$value")
                     is String -> jsonObject.put(key, value)
                     is Boolean -> jsonObject.put(key, value)
-                    is Long -> jsonObject.put(key, value)
                     is Set<*> -> jsonObject.put(key, value.joinToString(",", "[", "]"))
                     else -> jsonObject.put(key, value)
                 }
@@ -127,14 +133,19 @@ class GlobalPreferencesRepository(
             for (key in jsonObject.keys()) {
                 if (key in Preferences.BACKUP_BLACKLIST) continue
                 when (val value = jsonObject.get(key)) {
-                    is Boolean, is Int, is Float -> kvs[key] = value
+                    // is Long 是给旧版备份文件的兜底: 那时 Long 直接写成 JSON 数字。
+                    // 原先这里既没有 is Long 也没有 else 分支, Long 类型的偏好会被静默丢弃
+                    is Boolean, is Int, is Long, is Float -> kvs[key] = value
                     is String -> {
                         if (value.startsWith("[") && value.endsWith("]")) {
-                            val stringList = value.removeSurrounding("[", "]").replace(" ", "").split(",")
-                            val stringSet = HashSet(stringList)
-                            kvs[key] = stringSet
+                            // 空集合导出后是 "[]", 去掉方括号就是空串。
+                            // 原先直接 split(",") 会得到 listOf("")，让每个空列表都凭空多出一个空字符串条目
+                            val inner = value.removeSurrounding("[", "]").replace(" ", "")
+                            kvs[key] = inner.split(",").filter { it.isNotEmpty() }.toHashSet()
                         } else if (value.startsWith("#i#")) {
                             kvs[key] = value.removePrefix("#i#").toInt()
+                        } else if (value.startsWith("#l#")) {
+                            kvs[key] = value.removePrefix("#l#").toLong()
                         } else if (value.startsWith("#f#")) {
                             kvs[key] = value.removePrefix("#f#").toFloat()
                         } else {

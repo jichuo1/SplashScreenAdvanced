@@ -6,12 +6,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.content.res.Resources
+import android.content.res.XmlResourceParser
 import android.graphics.drawable.Drawable
 import androidx.core.content.res.ResourcesCompat
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.IOException
+import java.io.InputStream
 import java.util.Locale
 
 /**
@@ -24,7 +26,6 @@ class IconPackManager(private val mContext: Context, private val packageName: St
 
     private var mLoaded = false
     private val mPackagesDrawables = HashMap<String?, String?>()
-    private var totalIcons = 0
     private var iconPackRes: Resources? = null
 
     @SuppressLint("DiscouragedApi")
@@ -37,22 +38,28 @@ class IconPackManager(private val mContext: Context, private val packageName: St
 
         // load appfilter.xml from the icon pack package
         val pm = mContext.packageManager
+        // 解析完必须释放: XmlResourceParser 与 assets 流都持有原生资源,
+        // 而本类在常驻的 SystemUI 进程里使用, 漏掉就是一直挂着
+        var parser: XmlResourceParser? = null
+        var appFilterStream: InputStream? = null
         try {
-            var xpp: XmlPullParser? = null
-            iconPackRes = pm.getResourcesForApplication(packageName!!)
-            val appFilterID = iconPackRes!!.getIdentifier("appfilter", "xml", packageName)
+            val xpp: XmlPullParser?
+            val res = pm.getResourcesForApplication(packageName!!)
+            iconPackRes = res
+            val appFilterID = res.getIdentifier("appfilter", "xml", packageName)
             if (appFilterID > 0) {
-                xpp = iconPackRes!!.getXml(appFilterID)
+                parser = res.getXml(appFilterID)
+                xpp = parser
             } else {
                 // no resource found, try to open it from assests folder
-                try {
-                    val appFilterStream = iconPackRes!!.assets.open("appfilter.xml")
+                xpp = try {
+                    appFilterStream = res.assets.open("appfilter.xml")
                     val factory = XmlPullParserFactory.newInstance()
                     factory.isNamespaceAware = true
-                    xpp = factory.newPullParser()
-                    xpp.setInput(appFilterStream, "utf-8")
+                    factory.newPullParser().apply { setInput(appFilterStream, "utf-8") }
                 } catch (_: IOException) {
                     //XMLog.d { "No appfilter.xml file" }
+                    null
                 }
             }
             if (xpp != null) {
@@ -71,7 +78,6 @@ class IconPackManager(private val mContext: Context, private val packageName: St
                             }
                             if (!mPackagesDrawables.containsKey(componentName)) {
                                 mPackagesDrawables[componentName] = drawableName
-                                totalIcons += 1
                             }
                         }
                     }
@@ -84,6 +90,9 @@ class IconPackManager(private val mContext: Context, private val packageName: St
             //XMLog.d { "Cannot parse icon pack appfilter.xml" }
         } catch (e: IOException) {
             e.printStackTrace()
+        } finally {
+            runCatching { parser?.close() }
+            runCatching { appFilterStream?.close() }
         }
     }
 

@@ -13,7 +13,6 @@ import androidx.compose.ui.res.stringResource
 import com.gswxxn.restoresplashscreen.BuildConfig
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
-import com.gswxxn.restoresplashscreen.ui.MainActivity
 import com.gswxxn.restoresplashscreen.ui.component.HeaderCard
 import com.gswxxn.restoresplashscreen.ui.component.SwitchPreference
 import com.gswxxn.restoresplashscreen.ui.component.TextPreference
@@ -97,18 +96,19 @@ private fun ModuleAppSettings() {
             PackageManager.DONT_KILL_APP
         )
     }
-    // 模糊效果
+    // 模糊效果。
+    // 这两项不需要 onCheckedChange 再手动同步一份状态: key 的写入会经
+    // GlobalPreferencesRepository.update 落到 uiConfigFlow, 各页面统一从
+    // LocalHyperXLayoutConfig 读取
     SwitchPreference(
         title = stringResource(R.string.blur),
-        key = Preferences.Module.MODULE_APP_BLUR,
-        onCheckedChange = { MainActivity.blurEnabled.value = it }
+        key = Preferences.Module.MODULE_APP_BLUR
     )
     // 自适应布局
     SwitchPreference(
         title = stringResource(R.string.split_view),
         summary = stringResource(R.string.split_view_tips),
-        key = Preferences.Module.SPLIT_VIEW,
-        onCheckedChange = { MainActivity.splitEnabled.value = it }
+        key = Preferences.Module.SPLIT_VIEW
     )
 }
 

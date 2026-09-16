@@ -126,51 +126,64 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         largeIconsHelperClazz.resolve().optional().firstFieldOrNull { name = "sManagerList" }
     }
 
+    @Volatile
     private var hooksInstalled = false
 
+    /** 保护 [ensureHooksInstalled] 的「检查 - 安装」序列 */
+    private val installLock = Any()
+
+    /**
+     * 安装依赖小米桌面的辅助 Hook (仅首次调用时执行)
+     *
+     * 必须加锁: hasLargeIcon / getLargeIconSize / getLargeIconDrawable 可能被并发调用, 而这里
+     * 每次都会 new 一批 [HookManager]。单纯的 `if (flag) return; flag = true` 在并发下会重复
+     * 安装 trampoline, 且这些 HookManager 是局部变量, 装上之后没有句柄可以卸载
+     */
     @SuppressLint("DiscouragedApi")
     private fun ensureHooksInstalled() {
-        if (hooksInstalled) return
-        hooksInstalled = true
-        try {
-            // 防止获取到 System UI 的 Resources
-            HookManager(true) {
-                "miuix.pickerwidget.date.CalendarFormatSymbols".toClassOrNull(loader = miuiHomeContext.classLoader)
-                    ?.resolve()?.optional()?.firstMethodOrNull { name = "getWeekDays" }?.self
-            }.addReplaceHook({ true }) {
-                val resources = miuiHomeContext.resources
-                val id = resources.getIdentifier("week_days", "array", "com.miui.home")
-                resources.getStringArray(id)
-            }.startHook(SystemUIHooker.module)
+        synchronized(installLock) {
+            if (hooksInstalled) return
+            hooksInstalled = true
+            try {
+                // 防止获取到 System UI 的 Resources
+                HookManager(true) {
+                    "miuix.pickerwidget.date.CalendarFormatSymbols".toClassOrNull(loader = miuiHomeContext.classLoader)
+                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getWeekDays" }?.self
+                }.addReplaceHook({ true }) {
+                    val resources = miuiHomeContext.resources
+                    val id = resources.getIdentifier("week_days", "array", "com.miui.home")
+                    resources.getStringArray(id)
+                }.startHook(SystemUIHooker.module)
 
-            // 为获取完美图标时设置一个缓存时间, 避免获取费时图标(如天气)时, 经常显示不出数据的问题 原调用为固定值 0.
-            HookManager(true) {
-                "com.miui.maml.util.AppIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
-                    ?.resolve()?.optional()?.firstMethodOrNull { name = "getFancyIconDrawable" }?.self
-            }.addBeforeHook({ true }) {
-                val packageName = args(args.indexOfFirst { it is String }).string()
-                val cacheTimeIndex = args.indexOfFirst { it is Long }
-                args(cacheTimeIndex).set(getCacheTime(packageName))
-            }.startHook(SystemUIHooker.module)
+                // 为获取完美图标时设置一个缓存时间, 避免获取费时图标(如天气)时, 经常显示不出数据的问题 原调用为固定值 0.
+                HookManager(true) {
+                    "com.miui.maml.util.AppIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
+                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getFancyIconDrawable" }?.self
+                }.addBeforeHook({ true }) {
+                    val packageName = args(args.indexOfFirst { it is String }).string()
+                    val cacheTimeIndex = args.indexOfFirst { it is Long }
+                    args(cacheTimeIndex).set(getCacheTime(packageName))
+                }.startHook(SystemUIHooker.module)
 
-            // 只获取本地天气数据, 不获取网络数据; 参考 https://zhuti.designer.xiaomi.com/docs/blog/weatherApi.html
-            HookManager(true) {
-                "com.miui.maml.data.ContentProviderBinder".toClassOrNull(loader = miuiHomeContext.classLoader)
-                    ?.resolve()?.optional()?.firstMethodOrNull { name = "getUriText" }?.self
-            }.addAfterHook({ true }) {
-                if (result == "content://weather/actualWeatherData/1")
-                    result = "content://weather/actualWeatherData/2"
-            }.startHook(SystemUIHooker.module)
+                // 只获取本地天气数据, 不获取网络数据; 参考 https://zhuti.designer.xiaomi.com/docs/blog/weatherApi.html
+                HookManager(true) {
+                    "com.miui.maml.data.ContentProviderBinder".toClassOrNull(loader = miuiHomeContext.classLoader)
+                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getUriText" }?.self
+                }.addAfterHook({ true }) {
+                    if (result == "content://weather/actualWeatherData/1")
+                        result = "content://weather/actualWeatherData/2"
+                }.startHook(SystemUIHooker.module)
 
-            // 由于大图标的变更通知不到系统界面, 所以只能每次都重新读取配置
-            HookManager(true) {
-                "com.miui.maml.util.LargeIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
-                    ?.resolve()?.optional()?.firstMethodOrNull { name = "hasLargeIcon" }?.self
-            }.addBeforeHook({ true }) {
-                sManagerListField?.setValueTo(null, null)
-            }.startHook(SystemUIHooker.module)
-        } catch (t: Throwable) {
-            XMLog.e(t, "MIUIIconsHelper")
+                // 由于大图标的变更通知不到系统界面, 所以只能每次都重新读取配置
+                HookManager(true) {
+                    "com.miui.maml.util.LargeIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
+                        ?.resolve()?.optional()?.firstMethodOrNull { name = "hasLargeIcon" }?.self
+                }.addBeforeHook({ true }) {
+                    sManagerListField?.setValueTo(null, null)
+                }.startHook(SystemUIHooker.module)
+            } catch (t: Throwable) {
+                XMLog.e(t, "MIUIIconsHelper")
+            }
         }
     }
 

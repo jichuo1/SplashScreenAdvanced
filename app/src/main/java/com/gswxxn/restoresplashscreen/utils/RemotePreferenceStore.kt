@@ -46,7 +46,9 @@ class RemotePreferenceStore(
             is Int -> prefs.getInt(key.name, key.default as Int) as T
             is Long -> prefs.getLong(key.name, key.default as Long) as T
             is Float -> prefs.getFloat(key.name, key.default as Float) as T
-            is String -> prefs.getString(key.name, key.default as String) as T
+            // 显式兜 null: getString 在存了 null 值时会返回 null, 直接 as T 会炸。
+            // Hook 端的 RemotePreferences.getPref 本来就是这么写的, 两边保持一致
+            is String -> (prefs.getString(key.name, key.default as String) ?: key.default) as T
             is Set<*> -> {
                 val defSet = (key.default as? Set<String>)?.toMutableSet() ?: mutableSetOf()
                 prefs.getStringSet(key.name, defSet) as T
@@ -86,7 +88,23 @@ class RemotePreferenceStore(
                     }
                 }
             }
+            // 顺带把当前 schema 版本写进去, 放在循环之后以覆盖备份文件里带来的旧版本号:
+            // 数据已经通过 checkBackupFileValid 的兼容性检查, 此刻就该按本版本的语义看待。
+            // 这一项必须真的落盘, 否则 getAll() 里没有它, 导出的备份就不带版本号,
+            // checkBackupFileValid 会因为 !has(versionKey) 永远返回 true, 整个校验形同虚设
+            putInt(Preferences.Module.SP_VERSION.name, Preferences.VERSION)
         }
+    }
+
+    /**
+     * 确保 schema 版本已落盘
+     *
+     * 覆盖全新安装与「重置设置」之后的场景 —— 这两种情况不会走 [setAll]
+     */
+    fun ensureVersionStamped() {
+        val prefs = remotePrefs ?: return
+        if (prefs.getInt(Preferences.Module.SP_VERSION.name, -1) == Preferences.VERSION) return
+        prefs.edit { putInt(Preferences.Module.SP_VERSION.name, Preferences.VERSION) }
     }
 
     fun getAll(): Map<String, *>? = remotePrefs?.all
