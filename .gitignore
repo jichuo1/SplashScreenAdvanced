@@ -19,3 +19,10 @@ local.properties
 # Python (发布工具链的测试产物)
 __pycache__/
 *.py[cod]
+
+# 签名材料兜底 —— 脚本本身已拒绝把密钥库写进仓库，这里是第二道防线
+*.p12
+*.jks
+*.keystore
+*.cer
+keystore-base64.txt
