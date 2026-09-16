@@ -6,8 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.SplashScreenAdvanced.xposedmodule.R
@@ -16,14 +14,13 @@ import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.component.HeaderCard
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import org.koin.compose.koinInject
 import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 
 /**
  * 底部 界面
@@ -34,13 +31,15 @@ fun BottomPage() {
     HyperXPage(
         title = stringResource(R.string.bottom_settings),
     ) {
-        item {
+        item(key = "header") {
             HeaderCard(
                 imageResID = R.drawable.demo_branding,
                 title = "BRANDING\nIMAGE",
                 maxLines = 2
             )
-            PreferenceGroup(position = ItemPosition.Last) { RemoveBrandingImageSettingsGroup(navigator) }
+        }
+        itemPreferenceGroup(key = "branding", position = ItemPosition.Last) {
+            RemoveBrandingImageSettingsGroup(navigator)
         }
     }
 }
@@ -51,14 +50,11 @@ fun BottomPage() {
 @Composable
 private fun RemoveBrandingImageSettingsGroup(navigator: Navigator) {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
-    val removeBrandingImage = remember { mutableStateOf(store.get(Preferences.Display.REMOVE_BRANDING_IMAGE)) }
+    val removeBrandingImage = rememberPreferenceState(Preferences.Display.REMOVE_BRANDING_IMAGE)
 
-    // 移除底部图片
     SwitchPreference(
         title = stringResource(R.string.remove_branding_image),
         summary = stringResource(R.string.remove_branding_image_tips),
-        key = Preferences.Display.REMOVE_BRANDING_IMAGE,
         checked = removeBrandingImage
     ) { newValue ->
         if (newValue) {
@@ -70,7 +66,6 @@ private fun RemoveBrandingImageSettingsGroup(navigator: Navigator) {
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        // 配置移除列表
         TextPreference(title = stringResource(R.string.remove_branding_image_list)) {
             navigator.push(Route.RemoveBranding)
         }

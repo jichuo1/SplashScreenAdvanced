@@ -2,13 +2,16 @@ package com.SplashScreenAdvanced.xposedmodule.hook
 
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.hook.base.HookManager
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.DexHostQueries
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getField
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.toTyped
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
+import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import com.highcapable.kavaref.KavaRef.Companion.resolve
-import com.highcapable.kavaref.extension.toClass
 import io.github.libxposed.api.XposedModule
+import java.io.File
 
 /**
  * Android 系统相关 Hook
@@ -21,8 +24,27 @@ object AndroidHooker {
 
     fun init(module: XposedModule, classLoader: ClassLoader) {
         this.classLoader = classLoader
+        val servicesJar = sequenceOf(
+            "/system/framework/services.jar",
+            "/system_ext/framework/services.jar",
+        ).firstOrNull { File(it).isFile }
+        HostDexLookup.attach(classLoader, cacheDir = null, apkPath = servicesJar)
+        try {
+            installHooks(module)
+        } finally {
+            HostDexLookup.closeBridge()
+        }
+    }
 
-        val activityRecordClass = "com.android.server.wm.ActivityRecord".toClass(loader = classLoader)
+    private fun installHooks(module: XposedModule) {
+        val activityRecordClass = HostDexLookup.findClass(
+            "com.android.server.wm.ActivityRecord",
+            query = DexHostQueries.activityRecord,
+        )
+        if (activityRecordClass == null) {
+            XMLog.e { "[Android] ActivityRecord not found, skip system_server hooks" }
+            return
+        }
 
         // launchedFromSystemSurface 进程内恒定, 解析一次复用; 下方 hook 每次 activity 启动都会执行,
         // 不能在 hook 体内做全表反射扫描
