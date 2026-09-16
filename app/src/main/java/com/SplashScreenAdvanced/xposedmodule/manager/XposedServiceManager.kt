@@ -51,22 +51,14 @@ class XposedServiceManager : XposedServiceHelper.OnServiceListener {
         val service = currentService ?: return null
         if (service.apiVersion < XposedService.API_102) return null
         val targets = runCatching { service.runningTargets }.getOrNull() ?: return null
+        fun List<HookedTarget>.staleOrFailed(processName: String): Boolean? =
+            firstOrNull { it.processName == processName }
+                ?.let { it.state == HookedTarget.State.STALE || it.state == HookedTarget.State.FAILED }
         return RestartState(
-            systemUI = targets.needRestart(Scope.SYSTEM_UI) ?: false,
-            android = targets.needRestart(SYSTEM_SERVER_PROCESS)
+            systemUI = targets.staleOrFailed(Scope.SYSTEM_UI) ?: false,
+            android = targets.staleOrFailed(SYSTEM_SERVER_PROCESS)
         )
     }
-
-    /**
-     * 在运行中的 Hook 目标里查找指定进程，返回其是否需要重启。
-     *
-     * - [HookedTarget.State.STALE] / [HookedTarget.State.FAILED] → 进程内为旧代码，需重启
-     * - [HookedTarget.State.UP_TO_DATE] / [HookedTarget.State.RELOADING] → 无需重启
-     * - 未找到该进程 → null（语义：未获取到）
-     */
-    private fun List<HookedTarget>.needRestart(processName: String): Boolean? =
-        firstOrNull { it.processName == processName }
-            ?.let { it.state == HookedTarget.State.STALE || it.state == HookedTarget.State.FAILED }
 
     companion object {
         /** system_server 的进程名（注意区别于 libxposed 作用域关键字 [Scope.SYSTEM]） */

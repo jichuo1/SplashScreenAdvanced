@@ -8,6 +8,7 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
+import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 
@@ -52,6 +53,7 @@ class HookEntry : XposedModule() {
      * 返回 `true` 放行后，框架会冻结旧代码、捕获旧 Hook 句柄并载入新一代
      */
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
+        if (apiVersion < XposedInterface.API_102) return false
         HostDexLookup.closeBridge()
         val state = runCatching {
             when {
@@ -75,6 +77,7 @@ class HookEntry : XposedModule() {
      * Hook，再用上一代交接的宿主 classLoader / Context 重新安装本代 Hook。
      */
     override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
+        if (apiVersion < XposedInterface.API_102) return
         param.oldHookHandles.forEach { it.unhook() }
 
         initModule(param.processName, param.isSystemServer)

@@ -1,6 +1,6 @@
-# 热重载、autoHotReload、HookedTarget 都是 API 102。
-# 声明 101 会被 XposedNewApi lint 判失败，也和 README 的框架要求不一致。
-minApiVersion=102
+# 101 即可加载 Hook；102 才有热重载 / autoHotReload / HookedTarget。
+# 代码里所有 @SinceApi(102) 调用都要有 apiVersion 守卫，否则 XposedNewApi lint 会失败。
+minApiVersion=101
 targetApiVersion=102
 staticScope=false
 autoHotReload=true
