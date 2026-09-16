@@ -6,9 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.SplashScreenAdvanced.xposedmodule.R
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
+import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.ui.component.ImageIcon
+import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
 import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
 import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
 import dev.lackluster.hyperx.ui.preference.SwitchPreference as HyperXSwitchPreference
@@ -27,7 +28,9 @@ fun SwitchPreference(
     onCheckedChange: ((Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val boundState = key?.let { rememberPreferenceState(it) }
+    val uiState = LocalAppUiState.current
+    val actions = LocalPreferenceActions.current
+    val boundState = if (checked == null) key?.let { rememberPreferenceState(it) } else null
     val currentChecked = checked
         ?: boundState
         ?: remember { mutableStateOf(false) }
@@ -39,14 +42,13 @@ fun SwitchPreference(
         checked = currentChecked.value,
         enabled = enabled,
         onCheckedChange = { newValue ->
-            if (!MainActivity.moduleActive.value) {
+            if (!uiState.moduleActive) {
                 context.toast(R.string.make_sure_active)
             } else {
-                // 持久化（boundState 与 currentChecked 为同一对象时不重复写入）
-                if (boundState != null && boundState !== currentChecked) {
-                    boundState.value = newValue
-                }
                 currentChecked.value = newValue
+                if (checked != null && key != null) {
+                    actions.update(key, newValue)
+                }
                 onCheckedChange?.invoke(newValue)
             }
         },

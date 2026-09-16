@@ -11,6 +11,9 @@ class AppPreferenceActions(
     override val preferenceUpdates: Flow<PreferenceKey<*>>
         get() = repo.preferenceUpdates
 
+    override val preferenceReloads: Flow<Unit>
+        get() = repo.globalReloadEvent
+
     override fun <T : Any> get(key: PreferenceKey<T>): T {
         return repo.get(key)
     }

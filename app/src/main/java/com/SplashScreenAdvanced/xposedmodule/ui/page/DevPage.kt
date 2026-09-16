@@ -6,16 +6,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
+import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.EditTextInputType
 import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import dev.lackluster.hyperx.ui.preference.SeekBarPreference
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 
@@ -25,59 +24,41 @@ import kotlin.math.roundToInt
 @Composable
 fun DevPage() {
     val navigator = LocalNavigator.current
+    val repo = koinInject<GlobalPreferencesRepository>()
+    val uiState = LocalAppUiState.current
     HyperXPage(
         title = stringResource(R.string.dev_settings),
     ) {
-        item {
-            SettingItems(navigator)
+        itemPreferenceGroup(key = "general", position = ItemPosition.First) {
+            SwitchPreference(
+                title = stringResource(R.string.dev_settings),
+                key = Preferences.Dev.ENABLE_DEV_SETTINGS,
+                onCheckedChange = {
+                    uiState.syncDevMode()
+                    navigator.pop()
+                }
+            )
+        }
+        itemPreferenceGroup(
+            titleRes = R.string.icon_settings,
+            position = ItemPosition.Last
+        ) {
+            val roundCornerRate = remember {
+                mutableFloatStateOf(repo.get(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE).toFloat())
+            }
+            SeekBarPreference(
+                title = stringResource(R.string.dev_icon_round_corner_rate),
+                value = roundCornerRate.floatValue,
+                onValueChange = { roundCornerRate.floatValue = it },
+                onValueChangeFinished = {
+                    repo.update(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE, roundCornerRate.floatValue.roundToInt())
+                },
+                defaultValue = Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE.default.toFloat(),
+                min = 0f,
+                max = 50f,
+                dialogInputType = EditTextInputType.Number,
+                valueFormatter = { "%d%% / 50%%".format(it.roundToInt()) }
+            )
         }
     }
-}
-
-/**
- * 分组设置
- */
-@Composable
-private fun SettingItems(navigator: Navigator) {
-    PreferenceGroup(position = ItemPosition.First) { GeneralSettingItems(navigator = navigator) }
-    PreferenceGroup(title = stringResource(R.string.icon_settings), position = ItemPosition.Last) { IconSettingItems() }
-}
-
-/**
- * 通用设置
- */
-@Composable
-private fun GeneralSettingItems(navigator: Navigator) {
-    SwitchPreference(
-        title = stringResource(R.string.dev_settings),
-        key = Preferences.Dev.ENABLE_DEV_SETTINGS,
-        onCheckedChange = {
-            MainActivity.devMode.value = it
-            navigator.pop()
-        }
-    )
-}
-
-/**
- * 图标设置
- */
-@Composable
-private fun IconSettingItems() {
-    val store = koinInject<RemotePreferenceStore>()
-    val roundCornerRate = remember {
-        mutableFloatStateOf(store.get(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE).toFloat())
-    }
-    SeekBarPreference(
-        title = stringResource(R.string.dev_icon_round_corner_rate),
-        value = roundCornerRate.floatValue,
-        onValueChange = { roundCornerRate.floatValue = it },
-        onValueChangeFinished = {
-            store.put(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE, roundCornerRate.floatValue.roundToInt())
-        },
-        defaultValue = Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE.default.toFloat(),
-        min = 0f,
-        max = 50f,
-        dialogInputType = EditTextInputType.Number,
-        valueFormatter = { "%d%% / 50%%".format(it.roundToInt()) }
-    )
 }

@@ -12,9 +12,10 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
-import com.SplashScreenAdvanced.xposedmodule.utils.GraphicUtils
+import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
+import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.wrapper.SplashScreenViewBuilderWrapper
 
 /**
@@ -50,7 +51,7 @@ object BgHookHandler : BaseHookHandler() {
      */
     private fun getColor(): Int? {
         val context = appContext ?: return null
-        val isDarkMode = isDarkMode(context)
+        val isDarkMode = context.isDarkMode
         val bgColorMode = prefs.get(Preferences.Background.BG_COLOR_MODE)
         val bgColorType = prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE)
         val isInBGExceptList = currentPackageName in prefs.get(Preferences.AppList.BG_EXCEPT_LIST)
@@ -87,9 +88,7 @@ object BgHookHandler : BaseHookHandler() {
                     IconHookHandler.currentIconDominantColor
                         ?: tmpAttrs?.let { ReflectCache.getField<Drawable>(it, "mSplashScreenIcon") }
                             ?.let { drawable ->
-                                val bitmap = GraphicUtils.drawable2Bitmap(drawable, 100)
-                                GraphicUtils.getBgColor(
-                                    bitmap,
+                                drawable.drawable2Bitmap(100).getBgColor(
                                     when (bgColorMode) {
                                         BGColorModes.DarkColor.ordinal -> false
                                         BGColorModes.FollowSystem.ordinal -> !isDarkMode

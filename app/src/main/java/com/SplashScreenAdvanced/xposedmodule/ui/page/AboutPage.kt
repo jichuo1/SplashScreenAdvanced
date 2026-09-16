@@ -33,15 +33,15 @@ import androidx.core.net.toUri
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
+import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -58,26 +58,25 @@ fun AboutPage() {
     HyperXPage(
         title = stringResource(R.string.about),
     ) {
-        item {
-            val context = LocalContext.current
-
-            // 模块头部信息
+        item(key = "header") {
             AdaptiveHeaderCard(
                 colorCardContent = { HeaderBrandCard() },
                 infoCardContent = { AppInfoCard() }
             )
-
-            // 开源许可信息
-            PreferenceGroup(title = stringResource(R.string.open_source_license), position = ItemPosition.Last) {
-                for (project in OpenSourceReference.entries) {
-                    TextPreference(
-                        title = "${project.author}/${project.name}",
-                        summary = project.license
-                    ) {
-                        with(context) {
-                            toast(getString(R.string.thanks_to, project.author))
-                            openExternalUrl(project.link)
-                        }
+        }
+        itemPreferenceGroup(
+            titleRes = R.string.open_source_license,
+            position = ItemPosition.Last
+        ) {
+            val context = LocalContext.current
+            for (project in OpenSourceReference.entries) {
+                TextPreference(
+                    title = "${project.author}/${project.name}",
+                    summary = project.license
+                ) {
+                    with(context) {
+                        toast(getString(R.string.thanks_to, project.author))
+                        openExternalUrl(project.link)
                     }
                 }
             }
@@ -91,7 +90,8 @@ fun AboutPage() {
 @Composable
 private fun HeaderBrandCard() {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val repo = koinInject<GlobalPreferencesRepository>()
+    val uiState = LocalAppUiState.current
     var count = 0
     var lastClickTime: Long = 0
 
@@ -106,9 +106,9 @@ private fun HeaderBrandCard() {
             lastClickTime = now
             if (count != 5) return@clickable
             count = 0
-            if (!store.get(Preferences.Dev.ENABLE_DEV_SETTINGS)) {
-                MainActivity.devMode.value = true
-                store.put(Preferences.Dev.ENABLE_DEV_SETTINGS, true)
+            if (!repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS)) {
+                repo.update(Preferences.Dev.ENABLE_DEV_SETTINGS, true)
+                uiState.syncDevMode()
                 context.toast(R.string.enable_dev_settings)
             } else {
                 context.toast(R.string.enable_dev_settings)
@@ -258,7 +258,8 @@ enum class OpenSourceReference(val author: String, val license: String, val link
     `Hide-My-Applist`("Dr-TSNG", "AGPL-3.0", "https://github.com/Dr-TSNG/Hide-My-Applist"),
     YukiHookAPI("fankes", "Apache-2.0", "https://github.com/fankes/YukiHookAPI"),
     HyperCompose("HowieHChen", "Apache-2.0", "https://github.com/HowieHChen/hyperx-compose"),
-    Miuix("miuix-kotlin-multiplatform", "Apache-2.0", "https://github.com/miuix-kotlin-multiplatform/miuix")
+    Miuix("miuix-kotlin-multiplatform", "Apache-2.0", "https://github.com/miuix-kotlin-multiplatform/miuix"),
+    DexKit("LuckyPray", "LGPL-3.0", "https://github.com/LuckyPray/DexKit")
 }
 
 /**

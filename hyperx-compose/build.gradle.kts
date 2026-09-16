@@ -1,18 +1,15 @@
-@file:Suppress("UseTomlInstead")
-
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.plugin.serialization")
-    id("kotlin-parcelize")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.parcelize)
 }
 
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.fromTarget("21")
-        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
 
@@ -43,16 +40,15 @@ android {
 }
 
 dependencies {
-    api("top.yukonga.miuix.kmp:miuix-ui:0.9.3")
-    api("top.yukonga.miuix.kmp:miuix-preference:0.9.3")
-    api("top.yukonga.miuix.kmp:miuix-icons:0.9.3")
-    api("top.yukonga.miuix.kmp:miuix-blur:0.9.3")
-    api("top.yukonga.miuix.kmp:miuix-squircle:0.9.3")
-    api("androidx.compose.foundation:foundation:1.11.4")
-    api("androidx.activity:activity-compose:1.13.0")
-    api("top.yukonga.miuix.kmp:miuix-navigation3-ui:0.9.3")
-    api("androidx.navigation3:navigation3-runtime:1.1.4")
-    api("org.jetbrains.androidx.navigationevent:navigationevent-compose:1.1.0")
-    api("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
-    implementation("io.coil-kt.coil3:coil-compose:3.5.0")
+    api(libs.miuix.ui)
+    api(libs.miuix.preference)
+    api(libs.miuix.icons)
+    api(libs.miuix.blur)
+    api(libs.miuix.squircle)
+    api(libs.androidx.compose.foundation)
+    api(libs.androidx.activity.compose)
+    api(libs.miuix.navigation3.ui)
+    api(libs.androidx.navigation3.runtime)
+    api(libs.jetbrains.navigationevent.compose)
+    api(libs.androidx.lifecycle.viewmodel.compose)
 }

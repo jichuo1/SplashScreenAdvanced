@@ -14,7 +14,9 @@ import com.SplashScreenAdvanced.xposedmodule.hook.systemui.IconHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.OplusHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.ScopeHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.XiaomiHookHandler
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.DexHostQueries
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.loadHookHandler
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isColorOS
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
@@ -52,17 +54,40 @@ object SystemUIHooker {
         // 这些都发生在 SystemUI attachBaseContext 的启动关键路径上。
         // 注意: 必须声明在下面各 HookManager 之前, 对象初始化按声明顺序执行
         private val splashscreenContentDrawerClass by lazy {
-            "com.android.wm.shell.startingsurface.SplashscreenContentDrawer".toClassOrNull(loader = classLoader)
+            HostDexLookup.findClass(
+                "com.android.wm.shell.startingsurface.SplashscreenContentDrawer",
+                query = DexHostQueries.splashscreenContentDrawer,
+            )
         }
 
         /** A15+ 为 StartingWindowViewBuilder, A14 为 SplashViewBuilder */
         private val startingWindowViewBuilderClass by lazy {
-            $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$StartingWindowViewBuilder".toClassOrNull(loader = classLoader)
-                ?: $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$SplashViewBuilder".toClassOrNull(loader = classLoader)
+            val outerName = splashscreenContentDrawerClass?.name
+            HostDexLookup.findClass(
+                $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$StartingWindowViewBuilder",
+                $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$SplashViewBuilder",
+                *(outerName?.let {
+                    arrayOf(
+                        "$it\$StartingWindowViewBuilder",
+                        "$it\$SplashViewBuilder",
+                    )
+                } ?: emptyArray<String>()),
+                query = DexHostQueries.startingWindowViewBuilder(outerName),
+            )
         }
 
         private val baseIconFactoryClass by lazy {
-            "com.android.launcher3.icons.BaseIconFactory".toClassOrNull(loader = classLoader)
+            HostDexLookup.findClass(
+                "com.android.launcher3.icons.BaseIconFactory",
+                query = DexHostQueries.baseIconFactory,
+            )
+        }
+
+        private val oplusStartingWindowManagerClass by lazy {
+            HostDexLookup.findClass(
+                "com.android.wm.shell.startingsurface.OplusShellStartingWindowManager",
+                query = DexHostQueries.oplusStartingWindowManager,
+            )
         }
 
         val makeSplashScreenContentView = HookManager {
@@ -92,11 +117,18 @@ object SystemUIHooker {
                 ?.resolve()?.optional()?.firstMethodOrNull { name = "createIconDrawable" }?.self
         }
         val iconColor_constructor = HookManager {
-            $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$ColorCache$IconColor".toClassOrNull(loader = classLoader)
-                ?.resolve()?.optional()?.firstConstructorOrNull()?.self
+            val outerName = splashscreenContentDrawerClass?.name
+            HostDexLookup.findClass(
+                $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$ColorCache$IconColor",
+                *(outerName?.let { arrayOf("$it\$ColorCache\$IconColor") } ?: emptyArray<String>()),
+                query = DexHostQueries.iconColor(outerName),
+            )?.resolve()?.optional()?.firstConstructorOrNull()?.self
         }
         val getIcon_IconProvider = HookManager(!isColorOS) {
-            "com.android.launcher3.icons.IconProvider".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            HostDexLookup.findClass(
+                "com.android.launcher3.icons.IconProvider",
+                query = DexHostQueries.iconProvider,
+            )?.resolve()?.optional()?.firstMethodOrNull {
                 name = "getIcon"
                 parameterCount = 2
                 parameters { types ->
@@ -122,16 +154,19 @@ object SystemUIHooker {
             }?.self
         }
         val removeStartingWindow = HookManager {
-            "com.android.wm.shell.ShellTaskOrganizer".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            HostDexLookup.findClass(
+                "com.android.wm.shell.ShellTaskOrganizer",
+                query = DexHostQueries.shellTaskOrganizer,
+            )?.resolve()?.optional()?.firstMethodOrNull {
                 name = "removeStartingWindow"
             }?.self
         }
 
         // Xiaomi
         val isMiuiHome_TaskSnapshotHelperImpl = HookManager(
-            isHyperOS && "android.app.TaskSnapshotHelperImpl".toClassOrNull(loader = classLoader) != null
+            isHyperOS && HostDexLookup.findClass("android.app.TaskSnapshotHelperImpl") != null
         ) {
-            "android.app.TaskSnapshotHelperImpl".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            HostDexLookup.findClass("android.app.TaskSnapshotHelperImpl")?.resolve()?.optional()?.firstMethodOrNull {
                 name = "isMiuiHome"
                 parameters(String::class)
             }?.self
@@ -148,23 +183,20 @@ object SystemUIHooker {
 
         // Oplus
         val setContentViewBackground_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            "com.android.wm.shell.startingsurface.OplusShellStartingWindowManager".toClassOrNull(loader = classLoader)?.resolve()
-                ?.optional()?.firstMethodOrNull {
-                    name = "setContentViewBackground"
-                }?.self
+            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+                name = "setContentViewBackground"
+            }?.self
         }
         val getIconExt_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            "com.android.wm.shell.startingsurface.OplusShellStartingWindowManager".toClassOrNull(loader = classLoader)?.resolve()
-                ?.optional()?.firstMethodOrNull {
-                    name = "getIconExt"
-                    parameterCount { it in 4..6 }
-                }?.self
+            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+                name = "getIconExt"
+                parameterCount { it in 4..6 }
+            }?.self
         }
         val getWindowAttrsIfPresent_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            "com.android.wm.shell.startingsurface.OplusShellStartingWindowManager".toClassOrNull(loader = classLoader)?.resolve()
-                ?.optional()?.firstMethodOrNull {
-                    name = "getWindowAttrsIfPresent"
-                }?.self
+            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+                name = "getWindowAttrsIfPresent"
+            }?.self
         }
     }
 
@@ -214,6 +246,19 @@ object SystemUIHooker {
 
     /** 开始 Hook */
     private fun onHook() {
+        HostDexLookup.attach(
+            classLoader = classLoader,
+            cacheDir = appContext?.cacheDir,
+            apkPath = appContext?.applicationInfo?.sourceDir,
+        )
+        try {
+            installHooks()
+        } finally {
+            HostDexLookup.closeBridge()
+        }
+    }
+
+    private fun installHooks() {
         loadHookHandler(
             GenerateHookHandler,
             ScopeHookHandler,

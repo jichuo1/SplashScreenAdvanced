@@ -30,10 +30,13 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.getValueFrom
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
-import com.SplashScreenAdvanced.xposedmodule.utils.GraphicUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
+import com.SplashScreenAdvanced.xposedmodule.utils.convertToSquareDrawable
+import com.SplashScreenAdvanced.xposedmodule.utils.createShadowedIcon
+import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
+import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
 import com.SplashScreenAdvanced.xposedmodule.wrapper.NoStrokeAdaptiveIconDrawable
 import com.SplashScreenAdvanced.xposedmodule.wrapper.TransparentAdaptiveIconDrawable
@@ -172,13 +175,14 @@ object IconHookHandler : BaseHookHandler() {
                 val blurIconSize = (appResources!!.getDimensionPixelSize(startingSurfaceIconSizeResId) / 1.5).toInt()
                 val bgIconSize = blurIconSize * 4
 
-                val blurBgDrawable = GraphicUtils.createShadowedIcon(
-                    appContext,
-                    currentIconDrawable,
-                    blurIconSize,
-                    blurIconSize * 4,
-                    blurIconSize * getDevPrefs(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE) / 100f
-                )
+                val blurBgDrawable = appContext?.let { context ->
+                    currentIconDrawable?.createShadowedIcon(
+                        context,
+                        blurIconSize,
+                        blurIconSize * 4,
+                        blurIconSize * getDevPrefs(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE) / 100f
+                    )
+                }
                 if (blurBgDrawable != null) {
                     val iconBlurBGView = ImageView(appContext).apply {
                         setImageDrawable(blurBgDrawable)
@@ -277,7 +281,7 @@ object IconHookHandler : BaseHookHandler() {
 
             (args(0).any() as? Drawable)?.let { drawable ->
                 printLog { "createIconBitmap_BaseIconFactory(): avoid shrink icon by system ui" }
-                result = GraphicUtils.drawable2Bitmap(drawable, getIconSize(drawable))
+                result = drawable.drawable2Bitmap(getIconSize(drawable))
             }
         }
 
@@ -333,12 +337,12 @@ object IconHookHandler : BaseHookHandler() {
         if (prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE) == ChangeBGColorTypes.FromIcon.ordinal) {
             val isLight = when (prefs.get(Preferences.Background.BG_COLOR_MODE)) {
                 BGColorModes.DarkColor.ordinal -> false
-                BGColorModes.FollowSystem.ordinal -> !isDarkMode(appContext!!)
+                BGColorModes.FollowSystem.ordinal -> !appContext!!.isDarkMode
                 else -> true
             }
             val cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}|$isLight"
             currentIconDominantColor = synchronized(dominantColorCache) { dominantColorCache[cacheKey] }
-                ?: GraphicUtils.getBgColor(GraphicUtils.drawable2Bitmap(iconDrawable, 112), isLight)
+                ?: iconDrawable.drawable2Bitmap(112).getBgColor(isLight)
                     .also { synchronized(dominantColorCache) { dominantColorCache[cacheKey] = it } }
         }
 
@@ -378,7 +382,7 @@ object IconHookHandler : BaseHookHandler() {
 
                 // 转换成正方形图标
                 if (largeIconSize in arrayOf("1x2", "2x1")) {
-                    GraphicUtils.convertToSquareDrawable(it, appResources!!)
+                    it.convertToSquareDrawable(appResources!!)
                 } else {
                     it
                 }

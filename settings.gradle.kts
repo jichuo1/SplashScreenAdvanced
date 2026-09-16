@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "SplashScreenAdvanced"
-include(":app", ":hyperx-compose")
+include(":app", ":hyperx-compose", ":baselineprofile")
