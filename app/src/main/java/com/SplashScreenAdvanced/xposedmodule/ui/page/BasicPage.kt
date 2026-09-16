@@ -6,21 +6,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import com.SplashScreenAdvanced.xposedmodule.ui.component.HeaderCard
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import org.koin.compose.koinInject
 import java.time.LocalDateTime
 
@@ -32,24 +31,18 @@ fun BasicPage() {
     HyperXPage(
         title = stringResource(R.string.basic_settings),
     ) {
-        item {
+        item(key = "header") {
             HeaderCard(imageResID = R.drawable.demo_basic, title = "BASIC")
-
-            SettingItems()
         }
-    }
-}
-
-/**
- * 分组设置
- */
-@Composable
-private fun SettingItems() {
-    PreferenceGroup {
-        ModuleAppSettings()
-    }
-    PreferenceGroup(title = stringResource(R.string.backup_restore_title), position = ItemPosition.Last) {
-        BackupAndRestore()
+        itemPreferenceGroup(key = "module") {
+            ModuleAppSettings()
+        }
+        itemPreferenceGroup(
+            titleRes = R.string.backup_restore_title,
+            position = ItemPosition.Last
+        ) {
+            BackupAndRestore()
+        }
     }
 }
 
@@ -59,12 +52,11 @@ private fun SettingItems() {
 @Composable
 private fun ModuleAppSettings() {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val repo = koinInject<GlobalPreferencesRepository>()
+    val enableLog = rememberPreferenceState(Preferences.Log.ENABLE_LOG)
 
-    val enableLog = remember { mutableStateOf(store.get(Preferences.Log.ENABLE_LOG)) }
     LaunchedEffect(Unit) {
-        if (enableLog.value && (System.currentTimeMillis() - store.get(Preferences.Log.ENABLE_LOG_TIMESTAMP)) > 86400000) {
-            store.put(Preferences.Log.ENABLE_LOG, false)
+        if (enableLog.value && (System.currentTimeMillis() - repo.get(Preferences.Log.ENABLE_LOG_TIMESTAMP)) > 86400000) {
             enableLog.value = false
         }
     }
@@ -73,11 +65,10 @@ private fun ModuleAppSettings() {
     SwitchPreference(
         title = stringResource(R.string.enable_log),
         summary = stringResource(R.string.enable_log_tips),
-        key = Preferences.Log.ENABLE_LOG,
         checked = enableLog
     ) {
         if (it) {
-            store.put(Preferences.Log.ENABLE_LOG_TIMESTAMP, System.currentTimeMillis())
+            repo.update(Preferences.Log.ENABLE_LOG_TIMESTAMP, System.currentTimeMillis())
         }
     }
     // 隐藏桌面图标

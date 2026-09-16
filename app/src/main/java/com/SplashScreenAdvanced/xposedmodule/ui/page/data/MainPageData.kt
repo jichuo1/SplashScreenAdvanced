@@ -4,7 +4,7 @@ import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.SplashScreenAdvanced.xposedmodule.R
-import com.SplashScreenAdvanced.xposedmodule.data.Pages
+import com.SplashScreenAdvanced.xposedmodule.data.Route
 
 /**
  * 模块首页状态显示类型的枚举类
@@ -29,21 +29,19 @@ enum class ModuleStatusType(
  *
  * @property iconRes 图标资源的 drawable ID，用于在 UI 中显示设置项的图标
  * @property stringRes 标题资源的 string ID，用于在 UI 中显示设置项的名称
- * @property navigateTo 导航目标的路由字符串，表示点击此设置项后跳转的页面。如果为 null，则不执行导航操作。
+ * @property navigateTo 导航目标。如果为 null，则不执行导航操作。
  */
 enum class ModulePreferenceRes(
     @get:DrawableRes val iconRes: Int,
     @get:StringRes val stringRes: Int,
-    // todo: navigateTo 不应为 String, 后续封装为枚举类型
-    val navigateTo: String? = null,
+    val navigateTo: Route? = null,
 ) {
-    BasicSettings(R.drawable.ic_setting, R.string.basic_settings, Pages.BASIC_SETTINGS),
-    CustomScopeSettings(R.drawable.ic_app, R.string.custom_scope_settings, Pages.SCOPE_SETTINGS),
-    IconSettings(R.drawable.ic_picture, R.string.icon_settings, Pages.ICON_SETTINGS),
-    BottomSettings(R.drawable.ic_bottom, R.string.bottom_settings, Pages.BOTTOM_SETTINGS),
-    BackgroundSettings(R.drawable.ic_color, R.string.background_settings, Pages.BACKGROUND_SETTINGS),
-    DisplaySettings(R.drawable.ic_monitor, R.string.display_settings, Pages.DISPLAY_SETTINGS),
-    DevSettings(R.drawable.ic_lab, R.string.dev_settings, Pages.DEVELOPER_SETTINGS),
-    // FAQ 项已移除: 原先指向原作者自建的 FAQ 站点, 本项目没有对应内容
-    About(R.drawable.ic_info, R.string.about, Pages.ABOUT)
+    BasicSettings(R.drawable.ic_setting, R.string.basic_settings, Route.Basic),
+    CustomScopeSettings(R.drawable.ic_app, R.string.custom_scope_settings, Route.Scope),
+    IconSettings(R.drawable.ic_picture, R.string.icon_settings, Route.Icon),
+    BottomSettings(R.drawable.ic_bottom, R.string.bottom_settings, Route.Bottom),
+    BackgroundSettings(R.drawable.ic_color, R.string.background_settings, Route.Background),
+    DisplaySettings(R.drawable.ic_monitor, R.string.display_settings, Route.Display),
+    DevSettings(R.drawable.ic_lab, R.string.dev_settings, Route.Developer),
+    About(R.drawable.ic_info, R.string.about, Route.About)
 }

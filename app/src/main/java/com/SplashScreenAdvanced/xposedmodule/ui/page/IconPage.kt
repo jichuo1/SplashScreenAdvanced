@@ -17,21 +17,22 @@ import androidx.compose.ui.res.stringResource
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import com.SplashScreenAdvanced.xposedmodule.ui.component.DropDownPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.HeaderCard
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.DropDownEntry
 import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
@@ -45,27 +46,18 @@ fun IconPage() {
     HyperXPage(
         title = stringResource(R.string.icon_settings),
     ) {
-        item {
+        item(key = "header") {
             HeaderCard(imageResID = R.drawable.demo_icon, title = "ICON")
-
-            SettingItems(navigator)
         }
-    }
-}
-
-/**
- * 分组设置
- */
-@Composable
-private fun SettingItems(navigator: Navigator) {
-    PreferenceGroup {
-        CommonSettingsGroup()
-    }
-    PreferenceGroup {
-        DefaultIconSettingsGroup(navigator)
-    }
-    PreferenceGroup(position = ItemPosition.Last) {
-        HideSplashIconSettingsGroup(navigator)
+        itemPreferenceGroup(key = "common") {
+            CommonSettingsGroup()
+        }
+        itemPreferenceGroup(key = "default-icon") {
+            DefaultIconSettingsGroup(navigator)
+        }
+        itemPreferenceGroup(key = "hide-icon", position = ItemPosition.Last) {
+            HideSplashIconSettingsGroup(navigator)
+        }
     }
 }
 
@@ -75,7 +67,7 @@ private fun SettingItems(navigator: Navigator) {
 @Composable
 private fun CommonSettingsGroup() {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val repo = koinInject<GlobalPreferencesRepository>()
 
     // 图标包列表预处理
     val selectedIconPackIndex = remember { mutableIntStateOf(0) }
@@ -93,9 +85,9 @@ private fun CommonSettingsGroup() {
         }
         availableIconPackItems = listOf(DropDownEntry(value = 0, title = "None", summary = "None")) + packs
         selectedIconPackIndex.intValue = availableIconPackItems.indexOfFirst {
-            it.summary == store.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME)
+            it.summary == repo.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME)
         }.takeIf { it != -1 } ?: run {
-            store.put(Preferences.Icon.ICON_PACK_PACKAGE_NAME, "None")
+            repo.update(Preferences.Icon.ICON_PACK_PACKAGE_NAME, "None")
             context.toast(R.string.icon_pack_is_removed)
             0
         }
@@ -106,15 +98,14 @@ private fun CommonSettingsGroup() {
         key = Preferences.Display.ENABLE_DRAW_ROUND_CORNER
     )
     // 缩小图标
-    var shrinkIcon by remember { mutableIntStateOf(store.get(Preferences.Icon.SHRINK_ICON)) }
+    val shrinkIcon = rememberPreferenceState(Preferences.Icon.SHRINK_ICON)
     DropDownPreference(
         title = stringResource(R.string.shrink_icon),
         entries = ShrinkIconType.entries.mapIndexed { index, type -> DropDownEntry(value = index, title = stringResource(type.stringID)) },
-        key = Preferences.Icon.SHRINK_ICON,
-        onSelectedIndexChange = { shrinkIcon = it }
+        selectedIndex = shrinkIcon
     )
     AnimatedVisibility(
-        visible = shrinkIcon != ShrinkIconType.NotShrinkIcon.ordinal,
+        visible = shrinkIcon.value != ShrinkIconType.NotShrinkIcon.ordinal,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
@@ -150,7 +141,7 @@ private fun CommonSettingsGroup() {
         entries = availableIconPackItems,
         selectedIndex = selectedIconPackIndex
     ) {
-        store.put(
+        repo.update(
             Preferences.Icon.ICON_PACK_PACKAGE_NAME,
             availableIconPackItems[it].summary ?: "None"
         )
@@ -163,14 +154,10 @@ private fun CommonSettingsGroup() {
 @Composable
 private fun DefaultIconSettingsGroup(navigator: Navigator) {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
-
-    // 忽略应用主动设置的图标
-    val ignoreAppIcon = remember { mutableStateOf(store.get(Preferences.Icon.ENABLE_DEFAULT_STYLE)) }
+    val ignoreAppIcon = rememberPreferenceState(Preferences.Icon.ENABLE_DEFAULT_STYLE)
     SwitchPreference(
         title = stringResource(R.string.default_style),
         summary = stringResource(R.string.default_style_tips),
-        key = Preferences.Icon.ENABLE_DEFAULT_STYLE,
         checked = ignoreAppIcon
     ) { newValue ->
         if (newValue) {
@@ -182,7 +169,6 @@ private fun DefaultIconSettingsGroup(navigator: Navigator) {
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        // 配置应用列表
         TextPreference(title = stringResource(R.string.default_style_list)) {
             navigator.push(Route.IgnoreAppIcon)
         }
@@ -195,13 +181,9 @@ private fun DefaultIconSettingsGroup(navigator: Navigator) {
 @Composable
 private fun HideSplashIconSettingsGroup(navigator: Navigator) {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
-
-    val hideSplashIcon = remember { mutableStateOf(store.get(Preferences.Icon.ENABLE_HIDE_SPLASH_SCREEN_ICON)) }
-    // 不显示图标
+    val hideSplashIcon = rememberPreferenceState(Preferences.Icon.ENABLE_HIDE_SPLASH_SCREEN_ICON)
     SwitchPreference(
         title = stringResource(R.string.hide_splash_screen_icon),
-        key = Preferences.Icon.ENABLE_HIDE_SPLASH_SCREEN_ICON,
         checked = hideSplashIcon
     ) { newValue ->
         if (newValue) {
@@ -213,7 +195,6 @@ private fun HideSplashIconSettingsGroup(navigator: Navigator) {
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        // 配置应用列表
         TextPreference(
             title = stringResource(R.string.default_style_list),
             onClick = { navigator.push(Route.HideIcon) }

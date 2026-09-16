@@ -1,6 +1,5 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.apppage
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -57,10 +56,11 @@ import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SpliceCard
 import com.SplashScreenAdvanced.xposedmodule.ui.component.loadInstalledApps
 import com.SplashScreenAdvanced.xposedmodule.ui.component.rememberAppIcon
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.notEqualsTo
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toMap
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toSet
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.notEqualsTo
+import com.SplashScreenAdvanced.xposedmodule.utils.toMap
+import com.SplashScreenAdvanced.xposedmodule.utils.toSet
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.component.ImageIcon
@@ -114,7 +114,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun MinDurationPage() {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val store = koinInject<GlobalPreferencesRepository>()
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current
@@ -314,8 +314,8 @@ fun MinDurationPage() {
                                 }.toMutableSet()
 
                                 withContext(Dispatchers.Default) {
-                                    store.put(Preferences.AppList.MIN_DURATION_LIST, currentCheckedList)
-                                    store.put(Preferences.AppList.MIN_DURATION_CONFIG_MAP, currentConfigMap)
+                                    store.update(Preferences.AppList.MIN_DURATION_LIST, currentCheckedList)
+                                    store.update(Preferences.AppList.MIN_DURATION_CONFIG_MAP, currentConfigMap)
                                     tmpCheckedList.apply {
                                         clear()
                                         addAll(store.get(Preferences.AppList.MIN_DURATION_LIST))
@@ -326,11 +326,7 @@ fun MinDurationPage() {
                                     }
                                 }
 
-                                Toast.makeText(
-                                    context,
-                                    saveSuccessfulText,
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                context.toast(saveSuccessfulText)
                             }
                         }
                     )
@@ -401,7 +397,7 @@ fun MinDurationPage() {
                         onTextChange = { newText ->
                             newText.toIntOrNull()?.let { newValue ->
                                 if (newValue in 0..2000) {
-                                    store.put(Preferences.Display.MIN_DURATION, newValue)
+                                    store.update(Preferences.Display.MIN_DURATION, newValue)
                                     defaultMinDuration.intValue = newValue
                                 }
                             }

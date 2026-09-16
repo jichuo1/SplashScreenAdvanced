@@ -87,12 +87,12 @@ import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toMap
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toSet
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
-import com.SplashScreenAdvanced.xposedmodule.utils.GraphicUtils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.toMap
+import com.SplashScreenAdvanced.xposedmodule.utils.toSet
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.dialog.AlertDialog
@@ -158,7 +158,7 @@ fun ColorPickerPage(pkgName: String) {
     val dropdownDialogVisibility = remember { mutableStateOf(false) }
 
     // 已选颜色的状态, app 已保存的信息
-    val store = koinInject<RemotePreferenceStore>()
+    val store = koinInject<GlobalPreferencesRepository>()
     val context = LocalContext.current
     // 必须 remember: AppColorConfig 的构造函数里有 PackageManager binder 调用、
     // 新建 IconPackManager (会完整解析一遍图标包的 appfilter.xml) 和图标光栅化。
@@ -204,13 +204,32 @@ fun ColorPickerPage(pkgName: String) {
                 contentPadding = paddingValues,
                 overscrollEffect = null,
                 content = {
-                    item {
-                        MainContent(
-                            appColorConfig,
-                            pickedColor,
-                            currentDarkMode,
-                            dropdownDialogVisibility
-                        )
+                    item(key = "preview") {
+                        PreferenceGroup {
+                            DisplayCard(appColorConfig, pickedColor)
+                        }
+                    }
+                    item(key = "input") {
+                        PreferenceGroup {
+                            InputColor(
+                                pickedColor = pickedColor,
+                                appColorConfig = appColorConfig,
+                                darkMode = currentDarkMode,
+                                dropdownDialogVisibility = dropdownDialogVisibility
+                            )
+                        }
+                    }
+                    item(key = "reset") {
+                        PreferenceGroup {
+                            ResetText(
+                                appColorConfig = appColorConfig,
+                                pickedColor = pickedColor,
+                                currentDarkMode = currentDarkMode
+                            )
+                        }
+                    }
+                    item(key = "picker") {
+                        ColorSpacePager(pickedColor)
                     }
                 }
             )
@@ -276,33 +295,12 @@ private fun TopBar(
 }
 
 /**
- * 界面主要内容
+ * RGB / HSV 滑条区域
+ *
+ * 从预览、输入和重置项里拆出来, 拖动滑条时只让这一块跟着重组。
  */
 @Composable
-private fun MainContent(
-    appColorConfig: AppColorConfig,
-    pickedColor: PickedColor,
-    darkMode: MutableState<Boolean>,
-    dropdownDialogVisibility: MutableState<Boolean>,
-) {
-    PreferenceGroup {
-        DisplayCard(appColorConfig, pickedColor)
-    }
-    PreferenceGroup {
-        InputColor(
-            pickedColor = pickedColor,
-            appColorConfig = appColorConfig,
-            darkMode = darkMode,
-            dropdownDialogVisibility = dropdownDialogVisibility
-        )
-    }
-    PreferenceGroup {
-        ResetText(
-            appColorConfig = appColorConfig,
-            pickedColor = pickedColor,
-            currentDarkMode = darkMode
-        )
-    }
+private fun ColorSpacePager(pickedColor: PickedColor) {
     val tabIndex = remember { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
@@ -622,7 +620,7 @@ private fun ResetText(
     currentDarkMode: MutableState<Boolean>
 ) {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val store = koinInject<GlobalPreferencesRepository>()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -634,7 +632,7 @@ private fun ResetText(
                         Preferences.Background.OVERALL_BG_COLOR
                     }
                     // 恢复默认：写回该键的默认值（等效于移除后读取默认）
-                    store.put(targetKey, targetKey.default)
+                    store.update(targetKey, targetKey.default)
                     appColorConfig.defaultColorLight = Color.White.toArgb()
                     appColorConfig.defaultColorDark = Color.Black.toArgb()
                 } else {
@@ -647,7 +645,7 @@ private fun ResetText(
                     val tmpConfigMap = store.get(targetKey).toMap()
                     tmpConfigMap.remove(appColorConfig.packageName)
 
-                    store.put(targetKey, tmpConfigMap.toSet())
+                    store.update(targetKey, tmpConfigMap.toSet())
                     appColorConfig.defaultColorLight = appColorConfig.effectiveGlobalBGColor(false)
                     appColorConfig.defaultColorDark = appColorConfig.effectiveGlobalBGColor(true)
                 }
@@ -706,7 +704,7 @@ private fun BottomBar(
                     .fillMaxWidth()
             ) {
                 val context = LocalContext.current
-                val store = koinInject<RemotePreferenceStore>()
+                val store = koinInject<GlobalPreferencesRepository>()
                 TextButton(
                     modifier = Modifier.weight(1.0f),
                     text = stringResource(R.string.undo_modification),
@@ -727,7 +725,7 @@ private fun BottomBar(
                                 Preferences.Background.OVERALL_BG_COLOR_NIGHT
                             else
                                 Preferences.Background.OVERALL_BG_COLOR
-                            store.put(targetKey, colorHexString)
+                            store.update(targetKey, colorHexString)
                         } else {
                             val targetKey = if (currentDarkMode.value)
                                 Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
@@ -735,7 +733,7 @@ private fun BottomBar(
                                 Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
                             val tmpConfigMap = store.get(targetKey).toMap()
                             tmpConfigMap[appColorConfig.packageName] = colorHexString
-                            store.put(targetKey, tmpConfigMap.toSet())
+                            store.update(targetKey, tmpConfigMap.toSet())
                         }
 
                         appColorConfig.defaultColorLight = if (appColorConfig.isConfiguringOverallBGColor) {
@@ -1014,7 +1012,7 @@ private fun @receiver:ColorInt Int.toHSVColorList() =
 private class AppColorConfig(
     realPackageName: String?,
     private val context: Context,
-    private val store: RemotePreferenceStore
+    private val store: GlobalPreferencesRepository
 ) {
     private val pm = context.packageManager
 
@@ -1095,7 +1093,7 @@ private class AppColorConfig(
                     if (isDark) Preferences.Background.OVERALL_BG_COLOR_NIGHT
                     else Preferences.Background.OVERALL_BG_COLOR
                 )
-                value.takeIf { it.isNotBlank() }?.toColorInt() ?: getBgColor(appIcon, isLight)
+                value.takeIf { it.isNotBlank() }?.toColorInt() ?: appIcon.getBgColor(isLight)
             }
             // 继承系统 Monet 色, 取不到时回退图标主色
             ChangeBGColorTypes.FromMonet.ordinal -> runCatching {
@@ -1104,9 +1102,9 @@ private class AppColorConfig(
                     else android.R.color.system_surface_dark,
                     context.theme
                 )
-            }.getOrDefault(getBgColor(appIcon, isLight))
+            }.getOrDefault(appIcon.getBgColor(isLight))
             // 从图标取色 / 不改背景: 回退图标主色
-            else -> getBgColor(appIcon, isLight)
+            else -> appIcon.getBgColor(isLight)
         }
     }
 }

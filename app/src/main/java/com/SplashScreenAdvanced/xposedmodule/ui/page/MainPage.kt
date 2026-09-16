@@ -25,23 +25,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import com.SplashScreenAdvanced.xposedmodule.R
-import com.SplashScreenAdvanced.xposedmodule.data.Pages
-import com.SplashScreenAdvanced.xposedmodule.data.Route
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity.Companion.androidRestartNeeded
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity.Companion.moduleActive
-import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity.Companion.systemUIRestartNeeded
+import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ModulePreferenceRes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ModuleStatusType
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.execShell
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
+import com.SplashScreenAdvanced.xposedmodule.utils.execShell
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.navigation.HyperXRoute
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.navigation.Navigator
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.layout.HyperXPage
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
+import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -87,11 +82,26 @@ fun MainPage() {
             }
         }
     ) {
-        item {
+        item(key = "status") {
             TopCard()
-
-            SettingItems(navigator)
-
+        }
+        itemPreferenceGroup(key = "basic") {
+            ModuleSettingPreference(ModulePreferenceRes.BasicSettings, navigator)
+        }
+        itemPreferenceGroup(key = "features") {
+            ModuleSettingPreference(ModulePreferenceRes.CustomScopeSettings, navigator)
+            ModuleSettingPreference(ModulePreferenceRes.IconSettings, navigator)
+            ModuleSettingPreference(ModulePreferenceRes.BottomSettings, navigator)
+            ModuleSettingPreference(ModulePreferenceRes.BackgroundSettings, navigator)
+            ModuleSettingPreference(ModulePreferenceRes.DisplaySettings, navigator)
+            if (LocalAppUiState.current.devMode) {
+                ModuleSettingPreference(ModulePreferenceRes.DevSettings, navigator)
+            }
+        }
+        itemPreferenceGroup(key = "about") {
+            ModuleSettingPreference(ModulePreferenceRes.About, navigator)
+        }
+        item(key = "hint") {
             Text(
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
                 text = stringResource(R.string.main_activity_hint),
@@ -109,10 +119,11 @@ fun MainPage() {
  */
 @Composable
 private fun TopCard() {
+    val uiState = LocalAppUiState.current
     val moduleStatusTypeRes = getModuleStatusType(
-        moduleActive = moduleActive.value,
-        androidRestartNeeded = androidRestartNeeded.value,
-        systemUIRestartNeeded = systemUIRestartNeeded.value
+        moduleActive = uiState.moduleActive,
+        androidRestartNeeded = uiState.androidRestartNeeded,
+        systemUIRestartNeeded = uiState.systemUIRestartNeeded
     )
 
     Card(
@@ -158,14 +169,14 @@ private fun TopCard() {
                     fontSize = MiuixTheme.textStyles.body1.fontSize,
                     color = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 )
-                Crossfade(moduleActive.value, label = "moduleActive") { isActive ->
+                Crossfade(uiState.moduleActive, label = "moduleActive") { isActive ->
                     if (isActive) {
                         Text(
                             modifier = Modifier.padding(bottom = 16.dp),
                             text = stringResource(
                                 R.string.xposed_framework_version,
-                                MainActivity.xposedFrameworkName.value,
-                                MainActivity.xposedApiVersion.value
+                                uiState.xposedFrameworkName,
+                                uiState.xposedApiVersion
                             ),
                             fontSize = MiuixTheme.textStyles.body2.fontSize,
                             color = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.6f),
@@ -178,34 +189,6 @@ private fun TopCard() {
         }
     }
 }
-
-/**
- * 全部设置项
- */
-@Composable
-private fun SettingItems(
-    navigator: Navigator
-) {
-    PreferenceGroup {
-        ModuleSettingPreference(ModulePreferenceRes.BasicSettings, navigator)
-    }
-
-    PreferenceGroup {
-        ModuleSettingPreference(ModulePreferenceRes.CustomScopeSettings, navigator)
-        ModuleSettingPreference(ModulePreferenceRes.IconSettings, navigator)
-        ModuleSettingPreference(ModulePreferenceRes.BottomSettings, navigator)
-        ModuleSettingPreference(ModulePreferenceRes.BackgroundSettings, navigator)
-        ModuleSettingPreference(ModulePreferenceRes.DisplaySettings, navigator)
-        if (MainActivity.devMode.value) {
-            ModuleSettingPreference(ModulePreferenceRes.DevSettings, navigator)
-        }
-    }
-
-    PreferenceGroup {
-        ModuleSettingPreference(ModulePreferenceRes.About, navigator)
-    }
-}
-
 
 @Composable
 private fun RestartDialog(
@@ -285,34 +268,11 @@ fun ModuleSettingPreference(
         ignoreModuleActiveStatus = true
     ) {
         onClick?.invoke()
-        modulePreferenceRes.navigateTo?.toRoute()?.let { route ->
+        modulePreferenceRes.navigateTo?.let { route ->
             navigator?.popUntil { it is HyperXRoute.Main }
             navigator?.push(route)
         }
     }
-}
-
-/**
- * 将旧的页面常量（[Pages]）映射为新的导航路由（[Route]）
- */
-private fun String.toRoute(): Route? = when (this) {
-    Pages.ABOUT -> Route.About
-    Pages.BASIC_SETTINGS -> Route.Basic
-    Pages.SCOPE_SETTINGS -> Route.Scope
-    Pages.ICON_SETTINGS -> Route.Icon
-    Pages.BOTTOM_SETTINGS -> Route.Bottom
-    Pages.BACKGROUND_SETTINGS -> Route.Background
-    Pages.DISPLAY_SETTINGS -> Route.Display
-    Pages.DEVELOPER_SETTINGS -> Route.Developer
-    Pages.CONFIG_CUSTOM_SCOPE -> Route.CustomScope
-    Pages.CONFIG_IGNORE_APP_ICON -> Route.IgnoreAppIcon
-    Pages.CONFIG_HIDE_SPLASH_ICON -> Route.HideIcon
-    Pages.CONFIG_REMOVE_BRANDING -> Route.RemoveBranding
-    Pages.CONFIG_BACKGROUND_EXCEPT -> Route.BackgroundExcept
-    Pages.CONFIG_BACKGROUND_INDIVIDUALLY -> Route.BgIndividual
-    Pages.CONFIG_MIN_DURATION -> Route.MinDuration
-    Pages.CONFIG_FORCE_SHOW_SPLASH -> Route.ForceSplash
-    else -> null
 }
 
 /**
