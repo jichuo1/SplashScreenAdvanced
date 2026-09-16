@@ -6,6 +6,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 
 @Composable
 fun <T : Any> rememberPreferenceState(key: PreferenceKey<T>): MutableState<T> {
@@ -16,11 +17,18 @@ fun <T : Any> rememberPreferenceState(key: PreferenceKey<T>): MutableState<T> {
     }
 
     LaunchedEffect(key, actions) {
-        actions.preferenceUpdates
-            .filter { it == key }
-            .collect {
+        launch {
+            actions.preferenceUpdates
+                .filter { it == key }
+                .collect {
+                    state.value = actions.get(key)
+                }
+        }
+        launch {
+            actions.preferenceReloads.collect {
                 state.value = actions.get(key)
             }
+        }
     }
 
     return remember(key) {

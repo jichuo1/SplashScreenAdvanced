@@ -51,5 +51,4 @@ dependencies {
     api(libs.androidx.navigation3.runtime)
     api(libs.jetbrains.navigationevent.compose)
     api(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.coil.compose)
 }

@@ -6,7 +6,7 @@ import android.net.Uri
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import com.SplashScreenAdvanced.xposedmodule.ui.MainActivity
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toast
+import com.highcapable.betterandroid.system.extension.component.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,7 +43,7 @@ object BackupUtils {
                 // 这里在协程里, 用 delay 挂起即可, 不需要 Thread.sleep 占住一个线程
                 delay(500)
                 val intent =
-                    Intent(context, MainActivity::class.java)
+                    Intent<MainActivity>(context)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 context.startActivity(intent)

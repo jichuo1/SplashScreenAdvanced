@@ -37,8 +37,8 @@ import com.SplashScreenAdvanced.xposedmodule.ui.component.loadInstalledApps
 import com.SplashScreenAdvanced.xposedmodule.ui.component.rememberAppIcon
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SpliceCard
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.toMap
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.toMap
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.layout.HyperXScaffold
@@ -74,7 +74,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun BgIndividualPage() {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val store = koinInject<GlobalPreferencesRepository>()
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current

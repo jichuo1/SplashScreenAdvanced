@@ -1,6 +1,5 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.component
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
@@ -50,8 +49,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.SplashScreenAdvanced.xposedmodule.R
-import com.SplashScreenAdvanced.xposedmodule.utils.CommonUtils.notEqualsTo
-import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
+import com.SplashScreenAdvanced.xposedmodule.utils.notEqualsTo
+import com.SplashScreenAdvanced.xposedmodule.utils.toast
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import dev.lackluster.hyperx.core.utils.HanziToPinyin
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
@@ -101,7 +101,7 @@ fun AppListPage(
     extraContent: (LazyListScope.() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val store = koinInject<RemotePreferenceStore>()
+    val store = koinInject<GlobalPreferencesRepository>()
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current
@@ -367,13 +367,13 @@ fun AppListPage(
                             val currentCheckedList = appInfoList.filter { it.isChecked.value }.map {
                                 it.packageName
                             }.toMutableSet()
-                            store.put(checkedListKey, currentCheckedList)
+                            store.update(checkedListKey, currentCheckedList)
                             tmpCheckedList.apply {
                                 clear()
                                 addAll(store.get(checkedListKey))
                             }
                             coroutineScope.launch {
-                                Toast.makeText(context, saveSuccessfulText, Toast.LENGTH_SHORT).show()
+                                context.toast(saveSuccessfulText)
                             }
                         }
                     )
