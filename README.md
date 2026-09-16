@@ -138,7 +138,7 @@ cd SplashScreenAdvanced
 | 产物 | 命令 / 入口 |
 |:---|:---|
 | Debug APK | `./gradlew :app:assembleDebug` |
-| Alpha 预发布 | 向 `Compose` 推送，或手动运行 [alpha-release](.github/workflows/alpha-release.yml) |
+| Alpha 预发布 | 向 `main` 推送，或手动运行 [alpha-release](.github/workflows/alpha-release.yml) |
 | Stable 发布 | [stable-release](.github/workflows/stable-release.yml) |
 
 发布签名使用 GitHub Environment Secrets，密钥库不要放进仓库。步骤见 [release-signing](.github/release-signing/README.md)。
