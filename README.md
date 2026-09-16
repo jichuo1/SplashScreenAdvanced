@@ -39,7 +39,7 @@
 ```bash
 git clone https://github.com/jichuo1/SplashScreenAdvanced.git
 cd SplashScreenAdvanced
-./gradlew :app:assembleAppDebug
+./gradlew :app:assembleDebug
 ```
 
 需要 JDK 21 与 Android SDK Platform 37。签名发布走 CI，见 `.github/workflows/`。
