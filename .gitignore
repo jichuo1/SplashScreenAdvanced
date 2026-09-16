@@ -15,3 +15,7 @@
 local.properties
 .idea/*
 /.kotlin
+
+# Python (发布工具链的测试产物)
+__pycache__/
+*.py[cod]
