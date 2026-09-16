@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # 始终构建触发事件记录的精确提交，禁止 checkout 随分支移动而漂移。
           ref: ${{ github.sha }}
@@ -153,7 +153,7 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           # 工程的 sourceCompatibility / jvmTarget 都是 21。
@@ -191,7 +191,7 @@ jobs:
 
       - name: Upload lint reports on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: lint-reports-${{ github.sha }}
           path: |
@@ -213,7 +213,7 @@ jobs:
 
     steps:
       - name: Check out source and release template
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
@@ -231,7 +231,7 @@ jobs:
           fi
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -368,7 +368,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload verified signed Alpha asset
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: alpha-signed-release-asset-${{ github.sha }}
           path: release-asset
@@ -376,7 +376,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Alpha R8 mapping
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: alpha-r8-mapping-${{ github.sha }}
           path: release-symbols
