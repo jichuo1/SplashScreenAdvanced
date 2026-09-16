@@ -137,6 +137,7 @@ fun MinDurationPage() {
     var sortTrigger by remember { mutableIntStateOf(0) }
 
     val emptyMapString = stringResource(R.string.not_set_min_duration)
+    val saveSuccessfulText = stringResource(R.string.save_successful)
 
     // 完整应用列表
     var appInfoList by remember { mutableStateOf<List<DurationAppInfo>>(emptyList()) }
@@ -327,7 +328,7 @@ fun MinDurationPage() {
 
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.save_successful),
+                                    saveSuccessfulText,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }

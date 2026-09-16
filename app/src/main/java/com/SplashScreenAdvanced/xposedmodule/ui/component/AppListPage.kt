@@ -125,6 +125,7 @@ fun AppListPage(
     var clearSelectedRequest by remember { mutableStateOf(false) }
     var queryString by remember { mutableStateOf("") }
     var sortTrigger by remember { mutableIntStateOf(0) }
+    val saveSuccessfulText = stringResource(R.string.save_successful)
 
     // 完整应用列表
     var appInfoList by remember { mutableStateOf<List<MyAppInfo>>(emptyList()) }
@@ -372,9 +373,7 @@ fun AppListPage(
                                 addAll(store.get(checkedListKey))
                             }
                             coroutineScope.launch {
-                                context.let {
-                                    Toast.makeText(it, it.getString(R.string.save_successful), Toast.LENGTH_SHORT).show()
-                                }
+                                Toast.makeText(context, saveSuccessfulText, Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
