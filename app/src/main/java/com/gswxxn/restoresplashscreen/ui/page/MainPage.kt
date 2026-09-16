@@ -207,9 +207,15 @@ private fun SettingItems(
         val context = LocalContext.current
         ModuleSettingPreference(ModulePreferenceRes.FAQ) {
             with(context) {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW, getString(R.string.faq_url).toUri())
-                )
+                // 设备上没有能处理该链接的应用时会抛 ActivityNotFoundException,
+                // 与 AboutPage 里的同类调用保持一致, 加上保护
+                try {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW, getString(R.string.faq_url).toUri())
+                    )
+                } catch (_: Exception) {
+                    toast(R.string.no_browser)
+                }
             }
         }
         ModuleSettingPreference(ModulePreferenceRes.About, navigator)

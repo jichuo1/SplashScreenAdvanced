@@ -43,9 +43,16 @@ object ScopeHookHandler : BaseHookHandler() {
          * 此操作在原生系统为非必要操作, 尤其在某些类原生系统执行此 Hook 会造成额外错误,
          * 所以这里手动指定为只在 MIUI 系统上执行该 Hook, 后续如有返回其他厂商系统需要类似操作, 再手动添加
          */
+        // 下面这些字段/外部类引用都是宿主私有实现, 在不同 ROM 与 Android 版本上未必同名
+        // (例如 A14 的内部类是 SplashViewBuilder, this$0 的合成字段名也可能不同)。
+        // 取不到时只让本功能失效并留日志, 不要抛异常 —— 这些落点在启动遮罩构建链路上
         if (isHyperOS) {
             SystemUIHooker.Members.getBGColorFromCache.addAfterHook {
-                val mTmpAttrs = ReflectCache.getField<Any>(instance!!, "mTmpAttrs")!!
+                val mTmpAttrs = instance?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
+                if (mTmpAttrs == null) {
+                    printLog { "getBGColorFromCache(): mTmpAttrs not found, skip" }
+                    return@addAfterHook
+                }
                 ReflectCache.setField(mTmpAttrs, "mIconBgColor", 1)
                 printLog { "getBGColorFromCache(): Set mIconBgColor to 1" }
             }
@@ -53,9 +60,16 @@ object ScopeHookHandler : BaseHookHandler() {
             // 重置因实现自定义作用域而影响到的 mTmpAttrs
             SystemUIHooker.Members.startingWindowViewBuilderConstructor.addAfterHook {
                 val mSplashscreenContentDrawer =
-                    ReflectCache.getField<Any>(instance!!, "this$0")!!
-                val mTmpAttrs = ReflectCache.getField<Any>(mSplashscreenContentDrawer, "mTmpAttrs")!!
-                val context = args.first { it is Context }
+                    instance?.let { ReflectCache.getField<Any>(it, "this$0") }
+                val mTmpAttrs = mSplashscreenContentDrawer
+                    ?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
+                // firstOrNull: 参数里没有 Context 时 first 会抛 NoSuchElementException
+                val context = args.firstOrNull { it is Context }
+
+                if (mSplashscreenContentDrawer == null || mTmpAttrs == null || context == null) {
+                    printLog { "StartingWindowViewBuilder(): missing this\$0 / mTmpAttrs / Context, skip reset" }
+                    return@addAfterHook
+                }
 
                 ReflectCache.invokeMethod<Any>(mSplashscreenContentDrawer, "getWindowAttrs", context, mTmpAttrs)
             }

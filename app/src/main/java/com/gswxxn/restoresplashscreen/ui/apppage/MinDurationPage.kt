@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
 import com.gswxxn.restoresplashscreen.ui.component.SpliceCard
+import com.gswxxn.restoresplashscreen.ui.component.loadInstalledApps
 import com.gswxxn.restoresplashscreen.ui.component.rememberAppIcon
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.notEqualsTo
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toMap
@@ -74,7 +75,6 @@ import dev.lackluster.hyperx.ui.preference.EditTextInputType
 import dev.lackluster.hyperx.ui.preference.EditTextPreference
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import dev.lackluster.hyperx.ui.preference.ValuePosition
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -175,33 +175,26 @@ fun MinDurationPage() {
     }
 
     LaunchedEffect(Unit) {
-        launch {
-            isLoading = true
-            // 使用 IO 调度器进行耗时操作
-            val loadedApps = withContext(Dispatchers.IO) {
-                val pm = context.packageManager
-                val installedApps = pm.getInstalledApplications(0)
+        isLoading = true
+        // 应用基础信息走共享缓存, 图标不在这里加载 —— 交给行内的 rememberAppIcon 按需取
+        val installedApps = loadInstalledApps(context)
 
-                // 创建应用信息列表
-                installedApps.map { appInfo ->
-                    // 图标改由行组合时经 rememberAppIcon 按需加载, 这里不再全量 loadIcon()
-                    DurationAppInfo(
-                        appName = appInfo.loadLabel(pm).toString(),
-                        packageName = appInfo.packageName,
-                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
-                        config = mutableStateOf(tmpConfigMap[appInfo.packageName])
-                    )
-                }.sortedWith(
-                    // 按应用类别排序：已勾选且有配置的应用优先显示
-                    compareByDescending<DurationAppInfo> { it.isChecked.value }
-                        .thenByDescending { it.config.value != null }
-                        .thenBy(Collator.getInstance(Locale.getDefault())) { it.appName }
+        appInfoList = withContext(Dispatchers.Default) {
+            installedApps.map { app ->
+                DurationAppInfo(
+                    appName = app.appName,
+                    packageName = app.packageName,
+                    isChecked = mutableStateOf(app.packageName in tmpCheckedList),
+                    config = mutableStateOf(tmpConfigMap[app.packageName])
                 )
-            }
-
-            appInfoList = loadedApps
-            isLoading = false
+            }.sortedWith(
+                // 按应用类别排序：已勾选且有配置的应用优先显示
+                compareByDescending<DurationAppInfo> { it.isChecked.value }
+                    .thenByDescending { it.config.value != null }
+                    .thenBy(Collator.getInstance(Locale.getDefault())) { it.appName }
+            )
         }
+        isLoading = false
     }
 
     // LaunchedEffect 在 key 变化时本就会取消上一次协程, 原先那个 queryJob 是 composable 局部变量,
@@ -307,7 +300,9 @@ fun MinDurationPage() {
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                         minHeight = 50.dp,
                         onClick = {
-                            CoroutineScope(Dispatchers.Default).launch {
+                            // 用页面自己的 rememberCoroutineScope, 而不是 new 一个 CoroutineScope:
+                            // 后者不属于任何生命周期, 每点一次保存就泄漏一个永不取消的作用域
+                            coroutineScope.launch {
                                 val currentCheckedList = appInfoList.filter { it.isChecked.value }.map {
                                     it.packageName
                                 }.toMutableSet()
@@ -317,21 +312,24 @@ fun MinDurationPage() {
                                     "${it.packageName}_${it.config.value}"
                                 }.toMutableSet()
 
-                                store.put(Preferences.AppList.MIN_DURATION_LIST, currentCheckedList)
-                                store.put(Preferences.AppList.MIN_DURATION_CONFIG_MAP, currentConfigMap)
-                                tmpCheckedList.apply {
-                                    clear()
-                                    addAll(store.get(Preferences.AppList.MIN_DURATION_LIST))
-                                }
-                                tmpConfigMap.apply {
-                                    clear()
-                                    putAll(store.get(Preferences.AppList.MIN_DURATION_CONFIG_MAP).toMap())
-                                }
-                                coroutineScope.launch {
-                                    context.let {
-                                        Toast.makeText(it, it.getString(R.string.save_successful), Toast.LENGTH_SHORT).show()
+                                withContext(Dispatchers.Default) {
+                                    store.put(Preferences.AppList.MIN_DURATION_LIST, currentCheckedList)
+                                    store.put(Preferences.AppList.MIN_DURATION_CONFIG_MAP, currentConfigMap)
+                                    tmpCheckedList.apply {
+                                        clear()
+                                        addAll(store.get(Preferences.AppList.MIN_DURATION_LIST))
+                                    }
+                                    tmpConfigMap.apply {
+                                        clear()
+                                        putAll(store.get(Preferences.AppList.MIN_DURATION_CONFIG_MAP).toMap())
                                     }
                                 }
+
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.save_successful),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     )

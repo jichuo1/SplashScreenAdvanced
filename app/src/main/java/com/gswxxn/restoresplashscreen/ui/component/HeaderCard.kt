@@ -82,8 +82,10 @@ fun HeaderCard(
                 )
             }
         ) { measurables, constraints ->
+            // 必须 return: 原先只是求值了一个 MeasureResult 就丢掉, 然后照样往下走到
+            // measurables[0], 这个守卫等于没写
             if (measurables.size != 2) {
-                layout(0, 0) { }
+                return@Layout layout(0, 0) { }
             }
             val px16dp = 16.dp.roundToPx()
             val px32dp = 32.dp.roundToPx()

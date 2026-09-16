@@ -60,8 +60,9 @@ class MainActivity : HyperXActivity() {
     companion object {
         val moduleActive: MutableState<Boolean> = mutableStateOf(false)
         val devMode: MutableState<Boolean> = mutableStateOf(false)
-        val blurEnabled: MutableState<Boolean> = mutableStateOf(true)
-        val splitEnabled: MutableState<Boolean> = mutableStateOf(true)
+        // blurEnabled / splitEnabled 已移除: 二者与 GlobalPreferencesRepository.uiConfigFlow
+        // 重复，且这里这份只在服务绑定与 BasicPage 手动开关时更新，导入备份 / 重置设置不会刷新它。
+        // 现在统一由 LocalHyperXLayoutConfig 提供
 
         val systemUIRestartNeeded = mutableStateOf(true)
         val androidRestartNeeded = mutableStateOf<Boolean?>(null)
@@ -83,8 +84,6 @@ class MainActivity : HyperXActivity() {
                 // Xposed 服务绑定后才能读到真实的远程配置，在此刷新依赖持久化值的 UI 状态
                 if (service != null) {
                     devMode.value = globalPreferencesRepository.get(Preferences.Dev.ENABLE_DEV_SETTINGS)
-                    blurEnabled.value = globalPreferencesRepository.get(Preferences.Module.MODULE_APP_BLUR)
-                    splitEnabled.value = globalPreferencesRepository.get(Preferences.Module.SPLIT_VIEW)
                 }
                 refreshRestartState()
             }

@@ -34,19 +34,34 @@ object CommonUtils {
 
     /**
      * 执行 Shell 命令
+     *
+     * 阻塞直到 su 进程退出, 调用方应在后台线程调用。
+     *
+     * 原实现只关了 stdin 就返回: [Process] 从不 waitFor / destroy, 留下僵尸进程和三个未回收的
+     * 管道 fd; stdout / stderr 也不排空, su 输出稍多就会把子进程堵死。
+     *
      * @param command Shell 命令
+     * @return 退出码; 取不到 (如没有 su) 返回 null
      */
-    fun execShell(command: String) {
-        try {
-            val p = Runtime.getRuntime().exec("su")
-            val outputStream = p.outputStream
-            val dataOutputStream = DataOutputStream(outputStream)
-            dataOutputStream.writeBytes(command)
-            dataOutputStream.flush()
-            dataOutputStream.close()
-            outputStream.close()
+    fun execShell(command: String): Int? {
+        var process: Process? = null
+        return try {
+            process = Runtime.getRuntime().exec("su")
+            DataOutputStream(process.outputStream).use { out ->
+                // 补上换行与 exit: 部分 su 实现要读到换行才会执行该行
+                out.writeBytes("$command\n")
+                out.writeBytes("exit\n")
+                out.flush()
+            }
+            // 排空输出, 避免管道缓冲区写满后子进程阻塞
+            process.inputStream.use { it.readBytes() }
+            process.errorStream.use { it.readBytes() }
+            process.waitFor()
         } catch (t: Throwable) {
             t.printStackTrace()
+            null
+        } finally {
+            process?.destroy()
         }
     }
 

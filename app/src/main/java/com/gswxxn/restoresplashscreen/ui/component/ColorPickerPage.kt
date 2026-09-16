@@ -85,7 +85,6 @@ import androidx.core.graphics.toColorInt
 import androidx.palette.graphics.Palette
 import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
-import com.gswxxn.restoresplashscreen.ui.MainActivity
 import com.gswxxn.restoresplashscreen.ui.page.data.BGColorModes
 import com.gswxxn.restoresplashscreen.ui.page.data.ChangeBGColorTypes
 import com.gswxxn.restoresplashscreen.utils.CommonUtils.toMap
@@ -100,6 +99,7 @@ import dev.lackluster.hyperx.ui.dialog.AlertDialog
 import dev.lackluster.hyperx.ui.dialog.AlertDialogMode
 import dev.lackluster.hyperx.ui.dialog.EditTextDialog
 import dev.lackluster.hyperx.ui.layout.HyperXScaffold
+import dev.lackluster.hyperx.ui.layout.LocalHyperXLayoutConfig
 import dev.lackluster.hyperx.ui.layout.LocalLayoutPadding
 import dev.lackluster.hyperx.ui.layout.TabRow
 import dev.lackluster.hyperx.ui.preference.DropDownEntry
@@ -107,7 +107,9 @@ import dev.lackluster.hyperx.ui.preference.DropDownPreference
 import dev.lackluster.hyperx.ui.preference.ItemPosition
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import dev.lackluster.hyperx.ui.preference.TextPreference
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -141,8 +143,12 @@ import kotlin.math.round
 fun ColorPickerPage(pkgName: String) {
     val navigator = LocalNavigator.current
 
-    // 模块 App 透明度配置
-    val blurEnabled = MainActivity.blurEnabled
+    // 模块 App 透明度配置。
+    // 统一走 LocalHyperXLayoutConfig（由 GlobalPreferencesRepository.uiConfigFlow 驱动），
+    // 与其余页面同源。原先本页单独读 MainActivity 里的静态 MutableState，
+    // 那份只在 BasicPage 手动开关和服务绑定时才更新 —— 导入备份 / 重置设置改了模糊开关时,
+    // 其它页面会跟着变而本页不会
+    val blurEnabled = LocalHyperXLayoutConfig.current.isBlurEnabled
 
     // 顶部栏模糊状态
     val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
@@ -168,8 +174,8 @@ fun ColorPickerPage(pkgName: String) {
     // 显示内容脚手架（模糊由布局内部处理）
     HyperXScaffold(
         modifier = Modifier.fillMaxSize(),
-        blurTopBar = blurEnabled.value,
-        blurBottomBar = blurEnabled.value,
+        blurTopBar = blurEnabled,
+        blurBottomBar = blurEnabled,
         layoutPadding = LocalLayoutPadding.current,
         topBar = {
             TopBar(
@@ -239,12 +245,12 @@ private fun TopBar(
     paddingValues: PaddingValues,
     appName: String,
     scrollBehavior: ScrollBehavior,
-    blurEnabled: MutableState<Boolean>,
+    blurEnabled: Boolean,
     onBack: () -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     TopAppBar(
-        color = if (blurEnabled.value) Color.Transparent else MiuixTheme.colorScheme.surface,
+        color = if (blurEnabled) Color.Transparent else MiuixTheme.colorScheme.surface,
         title = appName,
         scrollBehavior = scrollBehavior,
         navigationIcon = {
@@ -448,18 +454,22 @@ private fun DisplayColorSelection(
         ) {
             val paletteColors = remember { mutableStateListOf<Int>() }
             LaunchedEffect(Unit) {
-                val colors = with(
-                    Palette.from(appColorConfig.appIcon).maximumColorCount(8).generate()
-                ) {
-                    listOf(
-                        getDominantColor(0),
-                        getLightVibrantColor(0),
-                        getVibrantColor(0),
-                        getDarkVibrantColor(0),
-                        getLightMutedColor(0),
-                        getMutedColor(0),
-                        getDarkMutedColor(0)
-                    ).distinct().filter { it != 0 }
+                // Palette.generate() 是同步取色, LaunchedEffect 默认跑在主线程,
+                // 这里切到 Default 再算
+                val colors = withContext(Dispatchers.Default) {
+                    with(
+                        Palette.from(appColorConfig.appIcon).maximumColorCount(8).generate()
+                    ) {
+                        listOf(
+                            getDominantColor(0),
+                            getLightVibrantColor(0),
+                            getVibrantColor(0),
+                            getDarkVibrantColor(0),
+                            getLightMutedColor(0),
+                            getMutedColor(0),
+                            getDarkMutedColor(0)
+                        ).distinct().filter { it != 0 }
+                    }
                 }
                 paletteColors.clear()
                 paletteColors.addAll(colors)
@@ -665,7 +675,7 @@ private fun BottomBar(
     contentPadding: PaddingValues,
     appColorConfig: AppColorConfig,
     pickedColor: PickedColor,
-    blurEnabled: MutableState<Boolean>,
+    blurEnabled: Boolean,
     currentDarkMode: MutableState<Boolean>
 ) {
     val captionBarBottomPadding by rememberUpdatedState(
@@ -680,7 +690,7 @@ private fun BottomBar(
                 .calculateBottomPadding() + captionBarBottomPadding + 16.dp
         )
     }
-    Surface(color = MiuixTheme.colorScheme.surface.copy(if (blurEnabled.value) 0f else 1f)) {
+    Surface(color = MiuixTheme.colorScheme.surface.copy(if (blurEnabled) 0f else 1f)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -1,6 +1,5 @@
 package com.gswxxn.restoresplashscreen.ui.apppage
 
-import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +33,7 @@ import com.gswxxn.restoresplashscreen.R
 import com.gswxxn.restoresplashscreen.data.Route
 import com.gswxxn.restoresplashscreen.data.preference.Preferences
 import com.gswxxn.restoresplashscreen.ui.component.MyAppInfo
+import com.gswxxn.restoresplashscreen.ui.component.loadInstalledApps
 import com.gswxxn.restoresplashscreen.ui.component.rememberAppIcon
 import com.gswxxn.restoresplashscreen.ui.component.SpliceCard
 import com.gswxxn.restoresplashscreen.ui.component.TextPreference
@@ -47,7 +47,6 @@ import dev.lackluster.hyperx.ui.layout.LocalLayoutPadding
 import dev.lackluster.hyperx.ui.preference.PreferenceGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -103,34 +102,26 @@ fun BgIndividualPage() {
     val deviceDarkMode = isSystemInDarkTheme()
 
     LaunchedEffect(Unit) {
-        launch {
-            isLoading = true
-            // 使用 IO 调度器进行耗时操作
-            val loadedApps = withContext(Dispatchers.IO) {
-                val configMapKey =
-                    if (deviceDarkMode) Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
-                val tmpCheckedList = mutableMapOf<String, String>().apply {
-                    clear()
-                    putAll(store.get(configMapKey).toMap())
-                }
-                val pm = context.packageManager
-                val installedApps = pm.getInstalledApplications(0)
+        isLoading = true
+        // 应用基础信息走共享缓存, 图标不在这里加载 —— 交给行内的 rememberAppIcon 按需取
+        val installedApps = loadInstalledApps(context)
 
-                // 创建应用信息列表并按字母顺序排序
-                installedApps.map { appInfo ->
-                    // 图标改由行组合时经 rememberAppIcon 按需加载, 这里不再全量 loadIcon()
-                    MyAppInfo(
-                        appName = appInfo.loadLabel(pm).toString(),
-                        packageName = appInfo.packageName,
-                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList.keys),
-                        isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
-                    )
-                }.sortedBy { it.appName }
-            }
+        appInfoList = withContext(Dispatchers.Default) {
+            val configMapKey =
+                if (deviceDarkMode) Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
+            val tmpCheckedList = store.get(configMapKey).toMap()
 
-            appInfoList = loadedApps
-            isLoading = false
+            // 创建应用信息列表并按字母顺序排序
+            installedApps.map { app ->
+                MyAppInfo(
+                    appName = app.appName,
+                    packageName = app.packageName,
+                    isChecked = mutableStateOf(app.packageName in tmpCheckedList.keys),
+                    isSystemApp = app.isSystemApp
+                )
+            }.sortedBy { it.appName }
         }
+        isLoading = false
     }
 
     // LaunchedEffect 在 key 变化时本就会取消上一次协程, 原先那个 queryJob 是 composable 局部变量,

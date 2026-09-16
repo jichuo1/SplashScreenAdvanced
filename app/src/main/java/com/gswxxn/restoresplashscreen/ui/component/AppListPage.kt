@@ -1,6 +1,5 @@
 package com.gswxxn.restoresplashscreen.ui.component
 
-import android.content.pm.ApplicationInfo
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -154,33 +153,25 @@ fun AppListPage(
     }
 
     LaunchedEffect(Unit) {
-        launch {
-            isLoading = true
-            // 使用 IO 调度器进行耗时操作
-            val loadedApps = withContext(Dispatchers.IO) {
-                val pm = context.packageManager
-                val installedApps = pm.getInstalledApplications(0)
+        isLoading = true
+        // 应用基础信息走共享缓存, 图标不在这里加载 —— 交给行内的 rememberAppIcon 按需取
+        val installedApps = loadInstalledApps(context)
 
-                // 创建应用信息列表
-                installedApps.map { appInfo ->
-                    // 这里不再 loadIcon(): 图标改由行组合时经 rememberAppIcon 按需加载,
-                    // 避免几百个 Drawable 随列表常驻内存
-                    MyAppInfo(
-                        appName = appInfo.loadLabel(pm).toString(),
-                        packageName = appInfo.packageName,
-                        isChecked = mutableStateOf(appInfo.packageName in tmpCheckedList),
-                        isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
-                    )
-                }.sortedWith(
-                    // 按应用类别排序：已勾选的应用优先显示
-                    compareByDescending<MyAppInfo> { it.isChecked.value }
-                        .thenBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.appName }
+        appInfoList = withContext(Dispatchers.Default) {
+            installedApps.map { app ->
+                MyAppInfo(
+                    appName = app.appName,
+                    packageName = app.packageName,
+                    isChecked = mutableStateOf(app.packageName in tmpCheckedList),
+                    isSystemApp = app.isSystemApp
                 )
-            }
-
-            appInfoList = loadedApps
-            isLoading = false
+            }.sortedWith(
+                // 按应用类别排序：已勾选的应用优先显示
+                compareByDescending<MyAppInfo> { it.isChecked.value }
+                    .thenBy(java.text.Collator.getInstance(java.util.Locale.getDefault())) { it.appName }
+            )
         }
+        isLoading = false
     }
 
     LaunchedEffect(selectSystemAppRequest) {
