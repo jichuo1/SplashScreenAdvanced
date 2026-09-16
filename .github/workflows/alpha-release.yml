@@ -8,6 +8,15 @@ on:
       - '*.md'
       - '**/*.md'
       - 'README*'
+  # 面向 Compose 的 PR 也跑一遍构建门禁：编译不过的改动在合并前就该被挡住，
+  # 而不是等合进默认分支再红灯。publish job 有 workflow_dispatch 条件，PR 不会触发发布。
+  pull_request:
+    branches:
+      - Compose
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'README*'
   workflow_dispatch:
     inputs:
       publish_alpha:
@@ -51,10 +60,30 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Require the latest Compose source
+      - name: Validate build source
         shell: bash
         run: |
           set -euo pipefail
+
+          # PR 场景：head 是 GitHub 生成的临时 merge ref，不存在「是否为最新 Compose」
+          # 这个概念，只需确认它确实是冲着 Compose 提的。
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            if [[ "$GITHUB_BASE_REF" != "Compose" ]]; then
+              echo "Pull requests must target Compose; base ref is $GITHUB_BASE_REF"
+              exit 1
+            fi
+            {
+              echo "### Build source (pull request)"
+              echo "- Base: \`$GITHUB_BASE_REF\`"
+              echo "- Head: \`$GITHUB_HEAD_REF\`"
+              echo "- Merge commit: \`$GITHUB_SHA\`"
+              echo "- Subject: $(git log -1 --format=%s)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # push / workflow_dispatch 场景：必须是 Compose，且必须仍是该分支的最新提交，
+          # 否则发布出去的产物与分支状态对不上。
           if [[ "$GITHUB_REF" != "refs/heads/Compose" ]]; then
             echo "Alpha builds must be triggered from Compose; selected ref is $GITHUB_REF"
             exit 1
