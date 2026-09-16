@@ -117,7 +117,7 @@ androidComponents {
         variant.outputs.forEach { output ->
             (output as? com.android.build.api.variant.impl.VariantOutputImpl)?.outputFileName?.set(
                 output.versionName.map { versionName ->
-                    "RestoreSplashScreen_${versionName}${if (variant.buildType == "debug") "_debug" else ""}.apk"
+                    "SplashScreenAdvanced_${versionName}${if (variant.buildType == "debug") "_debug" else ""}.apk"
                 }
             )
         }
