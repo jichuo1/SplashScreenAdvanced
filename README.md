@@ -64,8 +64,6 @@ cd SplashScreenAdvanced
 - 模块设置界面的重组开销与图标加载优化
 - 替换发布流水线
 
-原作者的个人品牌素材、社区链接与捐赠信息已移除，因为它们指向的是原作者本人而非本项目。
-
 ## 致谢
 
 - [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) —— 本项目的上游
