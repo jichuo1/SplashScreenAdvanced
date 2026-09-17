@@ -47,7 +47,8 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import dev.lackluster.hyperx.ui.theme.currentCardPressFeedback
+import dev.lackluster.hyperx.ui.theme.currentCardShowIndication
 import kotlin.math.min
 
 /**
@@ -197,7 +198,8 @@ private fun AdaptiveHeaderCard(
         content = {
             Card(
                 colors = CardDefaults.defaultColors(Color("#21A2EE".toColorInt())),
-                pressFeedbackType = PressFeedbackType.Sink
+                pressFeedbackType = currentCardPressFeedback(),
+                showIndication = currentCardShowIndication(),
             ) {
                 colorCardContent()
             }

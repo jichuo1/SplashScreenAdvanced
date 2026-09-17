@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.animation.PageMotionTargetProbe
 import dev.lackluster.hyperx.ui.animation.pageMotionToolbarTitleColor
+import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
+import dev.lackluster.hyperx.ui.theme.hyperXScrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -31,8 +34,6 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
 fun HyperXPage(
@@ -69,7 +70,7 @@ fun HyperXPage(
 
 
     val containerColor = MiuixTheme.colorScheme.surface
-    val topBarColor = if (uiConfig.isBlurEnabled) {
+    val topBarColor = if (uiConfig.isBlurActive) {
         Color.Transparent
     } else {
         containerColor
@@ -120,7 +121,7 @@ fun HyperXPage(
                 )
             }
         },
-        blurTopBar = uiConfig.isBlurEnabled,
+        blurTopBar = uiConfig.isBlurActive,
         containerColor = containerColor,
         blurTintAlpha = blurTintAlpha,
         layoutPadding = layoutPadding,
@@ -128,11 +129,12 @@ fun HyperXPage(
         LazyColumn(
             modifier = contentModifier
                 .fillMaxHeight()
-                .scrollEndHaptic()
-                .overScrollVertical()
+                .hyperXScrollEndHaptic()
+                .hyperXOverScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             state = listState,
             contentPadding = paddingValues,
+            overscrollEffect = rememberHyperXListOverscrollEffect(),
             content = content,
         )
     }

@@ -35,7 +35,7 @@ import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
 import com.SplashScreenAdvanced.xposedmodule.utils.convertToSquareDrawable
 import com.SplashScreenAdvanced.xposedmodule.utils.createShadowedIcon
 import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
-import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
 import com.SplashScreenAdvanced.xposedmodule.wrapper.NoStrokeAdaptiveIconDrawable
@@ -71,6 +71,10 @@ object IconHookHandler : BaseHookHandler() {
             .firstField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)!!
     }
 
+    private val startingSurfaceIconSizePx by lazy {
+        appResources!!.getDimensionPixelSize(startingSurfaceIconSizeResId)
+    }
+
     /**
      * 图标包管理器
      *
@@ -88,6 +92,10 @@ object IconHookHandler : BaseHookHandler() {
         }
 
     private val miuiIcons by lazy { XiaomiIconsHelper(appContext!!, appClassLoader) }
+
+    private val iconAnimateListenerClass by lazy {
+        $$"android.window.SplashScreenView$IconAnimateListener".toClass(loader = appClassLoader)
+    }
 
     /**
      * 图标主色 LRU 缓存: 主色计算需渲染位图 + Palette 取色, 是启动链路上最贵的纯计算。
@@ -212,7 +220,7 @@ object IconHookHandler : BaseHookHandler() {
                     iconDrawable == null ->
                         printLog { "build_SplashScreenViewBuilder(): skip round corner, no icon drawable" }
                     // 不为动态图标绘制圆角
-                    $$"android.window.SplashScreenView$IconAnimateListener".toClass(loader = appClassLoader) in iconDrawable.javaClass.interfaces ->
+                    iconAnimateListenerClass in iconDrawable.javaClass.interfaces ->
                         printLog { "build_SplashScreenViewBuilder(): skip round corner for animated icon" }
 
                     else -> {
@@ -342,7 +350,7 @@ object IconHookHandler : BaseHookHandler() {
             }
             val cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}|$isLight"
             currentIconDominantColor = synchronized(dominantColorCache) { dominantColorCache[cacheKey] }
-                ?: iconDrawable.drawable2Bitmap(112).getBgColor(isLight)
+                ?: iconDrawable.drawableDominantColor(isLight)
                     .also { synchronized(dominantColorCache) { dominantColorCache[cacheKey] = it } }
         }
 
@@ -365,7 +373,7 @@ object IconHookHandler : BaseHookHandler() {
      * @return 图标的大小
      */
     private fun getIconSize(drawable: Drawable): Int {
-        val mIconSize = appResources!!.getDimensionPixelSize(startingSurfaceIconSizeResId)
+        val mIconSize = startingSurfaceIconSizePx
 
         return if (drawable is AdaptiveIconDrawable) (mIconSize * 1.2 + 0.5).toInt()
         else mIconSize
@@ -378,10 +386,14 @@ object IconHookHandler : BaseHookHandler() {
             return miuiIcons.getLargeIconDrawable(currentPackageName)?.let {
                 val largeIconSize = miuiIcons.getLargeIconSize(currentPackageName)
                 printLog { "getIcon(): large icon size: $largeIconSize" }
-                currentUseBigHyperOSLagerIcon = if (largeIconSize in arrayOf("1x1", "1x2", "2x1", "2x2")) largeIconSize != "1x1" else null
+                currentUseBigHyperOSLagerIcon = when (largeIconSize) {
+                    "1x2", "2x1", "2x2" -> true
+                    "1x1" -> false
+                    else -> null
+                }
 
                 // 转换成正方形图标
-                if (largeIconSize in arrayOf("1x2", "2x1")) {
+                if (largeIconSize == "1x2" || largeIconSize == "2x1") {
                     it.convertToSquareDrawable(appResources!!)
                 } else {
                     it

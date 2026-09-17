@@ -38,6 +38,11 @@
     <string name="enable_log_tips">启用日志 24 小时后自动关闭</string>
     <string name="hide_icon">隐藏桌面图标</string>
     <string name="blur">模糊效果</string>
+    <string name="blur_miuix_only">模糊效果仅用于 MIUI 风格，Material You 使用色调表面</string>
+    <string name="ui_style">界面风格</string>
+    <string name="ui_style_tips">MIUI 风格保留超椭圆、按压缩放与顶部模糊；Material You 跟随壁纸取色，并使用圆角、涟漪与系统滚动效果。</string>
+    <string name="ui_style_miuix">MIUI</string>
+    <string name="ui_style_material_you">Material You</string>
     <string name="split_view">自适应布局</string>
     <string name="split_view_tips">在大屏幕设备上或横屏时，应用程序将自动切换到双面板布局。</string>
     <string name="min_duration">遮罩最小持续时长</string>

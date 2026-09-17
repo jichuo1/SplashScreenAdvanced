@@ -5,8 +5,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
@@ -14,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.lackluster.hyperx.ui.layout.LocalUiStyle
 import top.yukonga.miuix.kmp.squircle.squircleClip
 
 enum class IconSize(val dp: Dp) {
@@ -56,14 +59,23 @@ fun AdaptiveIcon(
     modifier: Modifier = Modifier
 ) {
     val sizeDp = icon.actualSizeDp
+    val cornerRadius = icon.cornerRadius
+    val materialYou = LocalUiStyle.current.isMaterialYou
+    val roundedClip = remember(cornerRadius) {
+        RoundedCornerShape(if (cornerRadius == Dp.Unspecified) 0.dp else cornerRadius)
+    }
+    val cornerClip = if (cornerRadius == Dp.Unspecified) {
+        Modifier
+    } else if (cornerRadius >= sizeDp / 2) {
+        Modifier.clip(CircleShape)
+    } else if (materialYou) {
+        Modifier.clip(roundedClip)
+    } else {
+        Modifier.squircleClip(cornerRadius)
+    }
     val finalModifier = modifier
         .size(sizeDp)
-        .then(
-            if (icon.cornerRadius != Dp.Unspecified) {
-                if (icon.cornerRadius >= sizeDp / 2) Modifier.clip(CircleShape)
-                else Modifier.squircleClip(icon.cornerRadius)
-            } else Modifier
-        )
+        .then(cornerClip)
 
     when (val src = icon.source) {
         is ImageSource.Res -> Image(painterResource(src.id), null, finalModifier)

@@ -12,8 +12,16 @@ object RemotePreferences {
     private lateinit var remotePrefs: SharedPreferences
 
     private val observerRoutingTable = ConcurrentHashMap<String, CopyOnWriteArraySet<() -> Unit>>()
+    private val snapshot = ConcurrentHashMap<String, Any>()
     private val globalListener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
-        if (changedKey == null) return@OnSharedPreferenceChangeListener
+        if (changedKey == null) {
+            snapshot.clear()
+            observerRoutingTable.values.forEach { observers ->
+                observers.forEach { action -> action.invoke() }
+            }
+            return@OnSharedPreferenceChangeListener
+        }
+        snapshot.remove(changedKey)
         observerRoutingTable[changedKey]?.forEach { action ->
             action.invoke()
         }
@@ -22,13 +30,17 @@ object RemotePreferences {
 
     fun init(module: XposedModule) {
         remotePrefs = module.getRemotePreferences(Preferences.NAME)
+        snapshot.clear()
+        if (isGlobalListenerRegistered.compareAndSet(false, true)) {
+            remotePrefs.registerOnSharedPreferenceChangeListener(globalListener)
+        }
     }
 
     private val isInitialized: Boolean
         get() = this::remotePrefs.isInitialized
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T : Any> getPref(key: PreferenceKey<T>): T {
+    private fun <T : Any> readRemote(key: PreferenceKey<T>): T {
         if (!isInitialized) return key.default
 
         return when (key.default) {
@@ -43,6 +55,17 @@ object RemotePreferences {
             }
             else -> key.default
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : Any> getPref(key: PreferenceKey<T>): T {
+        snapshot[key.name]?.let { cached ->
+            return cached as T
+        }
+        val fresh = readRemote(key)
+        val stored: Any = if (fresh is Set<*>) HashSet(fresh) else fresh
+        snapshot[key.name] = stored
+        return stored as T
     }
 
     fun <T : Any> PreferenceKey<T>.get(): T = getPref(this)

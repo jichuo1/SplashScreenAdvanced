@@ -64,8 +64,9 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
+import dev.lackluster.hyperx.ui.theme.hyperXScrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -78,7 +79,7 @@ fun BgIndividualPage() {
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current
-    val blurEnabled = uiConfig.isBlurEnabled
+    val blurEnabled = uiConfig.isBlurActive
     val layoutPadding = LocalLayoutPadding.current
 
     val containerColor = MiuixTheme.colorScheme.surface
@@ -148,7 +149,7 @@ fun BgIndividualPage() {
     HyperXScaffold(
         modifier = Modifier
             .fillMaxSize()
-            .scrollEndHaptic(),
+            .hyperXScrollEndHaptic(),
         containerColor = containerColor,
         layoutPadding = layoutPadding,
         topBar = { contentPadding ->
@@ -186,11 +187,11 @@ fun BgIndividualPage() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxHeight()
-                .overScrollVertical()
+                .hyperXOverScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             state = listState,
             contentPadding = paddingValues,
-            overscrollEffect = null
+            overscrollEffect = rememberHyperXListOverscrollEffect()
         ) {
             item {
                 SearchBar(

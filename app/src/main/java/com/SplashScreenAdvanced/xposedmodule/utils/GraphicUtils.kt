@@ -45,9 +45,14 @@ fun Drawable.drawable2Bitmap(size: Int): Bitmap {
     return bitmap
 }
 
+/** Palette 量化边长。再大只会增加启动链路耗时, 对主色几乎没有收益 */
+private const val PALETTE_MAX_SIZE = 48
+
 /** 取色失败时的回退色 */
 private val FALLBACK_LIGHT_COLOR = "#F5F5F5".toColorInt()
 private val FALLBACK_DARK_COLOR = "#1C2833".toColorInt()
+
+private val hsvScratch = ThreadLocal.withInitial { FloatArray(3) }
 
 /**
  * 根据 Bitmap 获取背景颜色
@@ -57,23 +62,46 @@ private val FALLBACK_DARK_COLOR = "#1C2833".toColorInt()
  * @return [Int]
  */
 fun Bitmap.getBgColor(isLight: Boolean): Int {
-    val hsv = FloatArray(3)
-
-    val color = Palette.from(this)
-        .maximumColorCount(8).generate()
-        .getDominantColor(if (isLight) FALLBACK_LIGHT_COLOR else FALLBACK_DARK_COLOR)
-    Color.colorToHSV(color, hsv)
-    if (isLight) {
-        hsv[1] = hsv[1] - 0.4f // 减小饱和度
-        hsv[2] = hsv[2] + 0.2f // 增大明度
+    val hsv = hsvScratch.get()!!
+    val sample: Bitmap
+    val recycleSample: Boolean
+    if (width > PALETTE_MAX_SIZE || height > PALETTE_MAX_SIZE) {
+        sample = Bitmap.createScaledBitmap(this, PALETTE_MAX_SIZE, PALETTE_MAX_SIZE, true)
+        recycleSample = sample !== this
     } else {
-        hsv[1] = hsv[1] - 0.2f // 减小饱和度
-        hsv[2] = hsv[2] - 0.7f // 减小明度
+        sample = this
+        recycleSample = false
     }
-    // 上面的加减会越界 (如饱和度减到负数), 依赖 Skia 内部 pin 属于未言明的实现细节, 这里显式收敛
-    hsv[1] = hsv[1].coerceIn(0f, 1f)
-    hsv[2] = hsv[2].coerceIn(0f, 1f)
-    return Color.HSVToColor(hsv)
+    try {
+        val color = Palette.from(sample)
+            .maximumColorCount(8).generate()
+            .getDominantColor(if (isLight) FALLBACK_LIGHT_COLOR else FALLBACK_DARK_COLOR)
+        Color.colorToHSV(color, hsv)
+        if (isLight) {
+            hsv[1] = hsv[1] - 0.4f
+            hsv[2] = hsv[2] + 0.2f
+        } else {
+            hsv[1] = hsv[1] - 0.2f
+            hsv[2] = hsv[2] - 0.7f
+        }
+        hsv[1] = hsv[1].coerceIn(0f, 1f)
+        hsv[2] = hsv[2].coerceIn(0f, 1f)
+        return Color.HSVToColor(hsv)
+    } finally {
+        if (recycleSample) sample.recycle()
+    }
+}
+
+/**
+ * 从图标采样主色。位图在取色后立即回收, 避免启动遮罩路径上堆积 112px 缓冲。
+ */
+fun Drawable.drawableDominantColor(isLight: Boolean, sampleSize: Int = PALETTE_MAX_SIZE): Int {
+    val bitmap = drawable2Bitmap(sampleSize)
+    return try {
+        bitmap.getBgColor(isLight)
+    } finally {
+        bitmap.recycle()
+    }
 }
 
 /**
@@ -92,7 +120,6 @@ fun Drawable.createShadowedIcon(
     blurIconSize: Int,
     cornerRadius: Float
 ): Drawable {
-    // 计算缩放比例
     val originalSize = intrinsicWidth
     val ratio = (oriIconSize.toDouble() / originalSize).coerceAtMost(1.0).toFloat()
     val scaledSize = (originalSize * ratio).toInt()
@@ -111,7 +138,6 @@ fun Drawable.createShadowedIcon(
             )
         }
     )
-    // 同 drawable2Bitmap: 传进来的是宿主共享 Drawable, 画完还原 bounds
     val originalBounds = Rect(bounds)
     setBounds(0, 0, scaledSize, scaledSize)
     draw(canvas)
@@ -129,11 +155,9 @@ fun Drawable.createShadowedIcon(
  * @return 返回一个新的正方形 Drawable，其空白区域用透明色填充。
  */
 fun Drawable.convertToSquareDrawable(resources: Resources): Drawable {
-    // 将 Drawable 转换为 Bitmap
     val originalBitmap = if (this is BitmapDrawable) {
         bitmap
     } else {
-        // 如果不是 BitmapDrawable，创建一个新的 Bitmap 并绘制原始 Drawable
         createBitmap(intrinsicWidth, intrinsicHeight).also { bitmap ->
             val canvas = Canvas(bitmap)
             setBounds(0, 0, canvas.width, canvas.height)
@@ -141,22 +165,11 @@ fun Drawable.convertToSquareDrawable(resources: Resources): Drawable {
         }
     }
 
-    // 计算新的正方形 Bitmap 的尺寸
     val size = maxOf(originalBitmap.width, originalBitmap.height)
-
-    // 创建一个新的正方形 Bitmap
     val squareBitmap = createBitmap(size, size)
-
-    // 在新的 Bitmap 上创建一个 Canvas 用于绘图
     val canvas = Canvas(squareBitmap)
-
-    // 计算原始 Bitmap 在新 Bitmap 上的位置
     val x = (size - originalBitmap.width) / 2
     val y = (size - originalBitmap.height) / 2
-
-    // 将原始 Bitmap 绘制到新的 Canvas 上
     canvas.drawBitmap(originalBitmap, x.toFloat(), y.toFloat(), null)
-
-    // 将新的正方形 Bitmap 转换回 Drawable 并返回
     return squareBitmap.toDrawable(resources)
 }

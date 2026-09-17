@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -32,12 +33,15 @@ fun rememberAppIcon(packageName: String, size: IconSize = IconSize.App): ImageIc
     val context = LocalContext.current
     val sizePx = with(LocalDensity.current) { size.dp.toPx() }.toInt().coerceAtLeast(1)
 
-    val bitmap by produceState<ImageBitmap?>(cachedIcon(packageName), packageName) {
+    val cached = remember(packageName) { cachedIcon(packageName) }
+    val bitmap by produceState(cached, packageName) {
         if (value != null) return@produceState
         value = withContext(Dispatchers.IO) { loadAppIcon(context, packageName, sizePx) }
     }
 
-    return bitmap?.let { ImageIcon(bitmap = it, size = size) }
+    return remember(bitmap, size) {
+        bitmap?.let { ImageIcon(bitmap = it, size = size) }
+    }
 }
 
 /** LRU 上限。按 40dp @ xxhdpi (120px) 估算, 单张约 57KB, 整体控制在几 MB 量级 */

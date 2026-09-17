@@ -88,6 +88,7 @@ object Preferences {
     object Module {
         val MODULE_APP_BLUR = PreferenceKey("module_blur", true)
         val SPLIT_VIEW = PreferenceKey("module_split", false)
+        val UI_STYLE = PreferenceKey("module_ui_style", 0)
         val SP_VERSION = PreferenceKey("sp_version", VERSION)
     }
 }

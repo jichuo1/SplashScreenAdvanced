@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -12,15 +13,17 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.lackluster.hyperx.ui.layout.LocalUiStyle
 import dev.lackluster.hyperx.ui.theme.DisabledAlpha
 import dev.lackluster.hyperx.ui.theme.contentColorFor
+import dev.lackluster.hyperx.ui.theme.hyperXClip
+import dev.lackluster.hyperx.ui.theme.hyperXSurface
 import top.yukonga.miuix.kmp.basic.Surface
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -35,7 +38,7 @@ fun Card(
     CompositionLocalProvider(LocalContentColor provides colors.contentColor(enabled = true)) {
         Column(
             modifier = modifier
-                .squircleSurface(
+                .hyperXSurface(
                     color = colors.containerColor(enabled = true),
                     cornerRadius = cornerRadius,
                 )
@@ -57,10 +60,13 @@ fun Card(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val actualInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val materialYou = LocalUiStyle.current.isMaterialYou
+    val roundedShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     Surface(
         onClick = onClick,
-        modifier = modifier.squircleClip(cornerRadius),
+        modifier = modifier.hyperXClip(cornerRadius),
         enabled = enabled,
+        shape = if (materialYou) roundedShape else RectangleShape,
         color = colors.containerColor(enabled),
         contentColor = colors.contentColor(enabled),
         interactionSource = actualInteractionSource,
@@ -77,17 +83,20 @@ object CardDefaults {
 
     @Composable
     fun cardColors(): CardColors {
-        val containerColor = MiuixTheme.colorScheme.background
+        val materialYou = LocalUiStyle.current.isMaterialYou
+        val scheme = MiuixTheme.colorScheme
+        val containerColor = if (materialYou) scheme.surfaceContainer else scheme.background
         val contentColor = contentColorFor(containerColor)
-
-        return CardColors(
-            containerColor = containerColor,
-            contentColor = contentColor,
-            disabledContainerColor = containerColor
-                .copy(alpha = DisabledAlpha)
-                .compositeOver(containerColor),
-            disabledContentColor = contentColor.copy(alpha = DisabledAlpha),
-        )
+        return remember(materialYou, containerColor, contentColor) {
+            CardColors(
+                containerColor = containerColor,
+                contentColor = contentColor,
+                disabledContainerColor = containerColor
+                    .copy(alpha = DisabledAlpha)
+                    .compositeOver(containerColor),
+                disabledContentColor = contentColor.copy(alpha = DisabledAlpha),
+            )
+        }
     }
 
     @Composable

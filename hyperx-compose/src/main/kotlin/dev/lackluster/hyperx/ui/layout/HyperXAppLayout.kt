@@ -62,7 +62,7 @@ fun HyperXAppLayout(
     emptyContent: @Composable () -> Unit = { DefaultEmptyPage() },
     primaryContent: @Composable () -> Unit
 ) {
-    HyperXTheme {
+    HyperXTheme(uiStyle = config.uiStyle) {
         val density = LocalDensity.current
         val containerSize = LocalWindowInfo.current.containerSize
         val windowWidth = with(density) { containerSize.width.toDp() }
@@ -87,6 +87,7 @@ fun HyperXAppLayout(
         CompositionLocalProvider(
             LocalNavigator provides navigator,
             LocalHyperXLayoutConfig provides config,
+            LocalUiStyle provides config.uiStyle,
             LocalPageMotion provides motion
         ) {
             AnimatedContent(
@@ -124,8 +125,8 @@ fun HyperXAppLayout(
                     }
                 }
             }
+            MiuixPopupUtils.MiuixPopupHost()
         }
-        MiuixPopupUtils.MiuixPopupHost()
     }
 }
 
@@ -153,6 +154,16 @@ private fun UnifiedNormalLayout(
         LocalPageMode provides PageLayoutMode.FULL_SCREEN,
         LocalLayoutPadding provides contentPadding
     ) {
+        val holdTransition = remember { HyperXNavTransitions.holdTransitionSpec<NavKey>() }
+        val holdPredictive = remember { HyperXNavTransitions.holdPredictivePopTransitionSpec<NavKey>() }
+        val entryProvider = remember<(NavKey) -> NavEntry<NavKey>>(primaryContent, customEntryProvider) {
+            { key ->
+                when (key) {
+                    is HyperXRoute.Main -> NavEntry(key) { primaryContent() }
+                    else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
+                }
+            }
+        }
         PageMotionHost(
             motion = motion,
             backStackSize = backStack.size,
@@ -161,16 +172,11 @@ private fun UnifiedNormalLayout(
             NavDisplay(
                 backStack = backStack,
                 onBack = { navigator.pop() },
-                transitionSpec = HyperXNavTransitions.holdTransitionSpec(),
-                popTransitionSpec = HyperXNavTransitions.holdTransitionSpec(),
-                predictivePopTransitionSpec = HyperXNavTransitions.holdPredictivePopTransitionSpec(),
+                transitionSpec = holdTransition,
+                popTransitionSpec = holdTransition,
+                predictivePopTransitionSpec = holdPredictive,
                 transitionEffects = HyperXNavTransitions.NormalTransitionEffects,
-                entryProvider = { key ->
-                    when (key) {
-                        is HyperXRoute.Main -> NavEntry(key) { primaryContent() }
-                        else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
-                    }
-                }
+                entryProvider = entryProvider
             )
         }
     }
@@ -203,6 +209,16 @@ private fun UnifiedSplitLayout(
         bottom = systemBarInsets.calculateBottomPadding()
     )
 
+    val holdTransition = remember { HyperXNavTransitions.holdTransitionSpec<NavKey>() }
+    val holdPredictive = remember { HyperXNavTransitions.holdPredictivePopTransitionSpec<NavKey>() }
+    val entryProvider = remember<(NavKey) -> NavEntry<NavKey>>(emptyContent, customEntryProvider) {
+        { key ->
+            when (key) {
+                is HyperXRoute.Main -> NavEntry(key) { emptyContent() }
+                else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
+            }
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -233,16 +249,11 @@ private fun UnifiedSplitLayout(
                 NavDisplay(
                     backStack = backStack,
                     onBack = { navigator.pop() },
-                    transitionSpec = HyperXNavTransitions.holdTransitionSpec(),
-                    popTransitionSpec = HyperXNavTransitions.holdTransitionSpec(),
-                    predictivePopTransitionSpec = HyperXNavTransitions.holdPredictivePopTransitionSpec(),
+                    transitionSpec = holdTransition,
+                    popTransitionSpec = holdTransition,
+                    predictivePopTransitionSpec = holdPredictive,
                     transitionEffects = HyperXNavTransitions.SplitTransitionEffects,
-                    entryProvider = { key ->
-                        when (key) {
-                            is HyperXRoute.Main -> NavEntry(key) { emptyContent() }
-                            else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
-                        }
-                    }
+                    entryProvider = entryProvider
                 )
             }
         }
@@ -251,17 +262,20 @@ private fun UnifiedSplitLayout(
 
 @Composable
 fun DefaultEmptyPage(
-    imageIcon: ImageIcon = ImageIcon(
-        source = ImageSource.Res(R.drawable.ic_miuix),
-        size = IconSize.Unspecified,
-        customSizeDp = 255.dp
-    )
+    imageIcon: ImageIcon? = null
 ) {
+    val icon = imageIcon ?: remember {
+        ImageIcon(
+            source = ImageSource.Res(R.drawable.ic_miuix),
+            size = IconSize.Unspecified,
+            customSizeDp = 255.dp
+        )
+    }
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        AdaptiveIcon(imageIcon)
+        AdaptiveIcon(icon)
     }
 }
 

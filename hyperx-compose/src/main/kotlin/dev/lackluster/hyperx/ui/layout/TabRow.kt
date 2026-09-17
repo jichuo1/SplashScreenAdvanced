@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleClip
+import dev.lackluster.hyperx.ui.theme.hyperXBorder
+import dev.lackluster.hyperx.ui.theme.hyperXClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -76,8 +76,8 @@ fun TabRow(
                         role = Role.Tab
                         selected = isSelected
                     }
-                    .squircleBorder({ 1.5.dp }, { borderColor }, cornerRadius)
-                    .squircleClip(cornerRadius)
+                    .hyperXBorder(1.5.dp, borderColor, cornerRadius)
+                    .hyperXClip(cornerRadius)
             ) {
                 Box(
                     modifier = Modifier

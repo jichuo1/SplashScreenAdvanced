@@ -52,7 +52,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close2
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import dev.lackluster.hyperx.ui.theme.currentCardPressFeedback
+import dev.lackluster.hyperx.ui.theme.currentCardShowIndication
 
 /**
  * 主界面 Page
@@ -132,7 +133,8 @@ private fun TopCard() {
             .padding(horizontal = 12.dp)
             .padding(bottom = 6.dp, top = 12.dp),
         colors = CardDefaults.defaultColors(colorResource(moduleStatusTypeRes.cardBackground)),
-        pressFeedbackType = PressFeedbackType.Sink,
+        pressFeedbackType = currentCardPressFeedback(),
+        showIndication = currentCardShowIndication(),
         onLongPress = {
             // todo: 目前 execShell 并没有能力判断命令执行成功与否, 在未获取到 root 时, 卡片仍为可点击状态但没有任何提示
             if (moduleStatusTypeRes != ModuleStatusType.INACTIVE) {

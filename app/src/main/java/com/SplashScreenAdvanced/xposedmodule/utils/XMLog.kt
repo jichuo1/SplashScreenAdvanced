@@ -17,6 +17,10 @@ object XMLog {
     @Volatile
     var isDebugEnabled: Boolean = BuildConfig.DEBUG
 
+    /** Cached [Preferences.Log.ENABLE_LOG_TIMESTAMP]; hot logs must not hit remote prefs. */
+    @Volatile
+    var debugEnabledAtMillis: Long = 0L
+
     fun init(module: XposedModule) {
         this.module = module
     }

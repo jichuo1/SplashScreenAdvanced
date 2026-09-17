@@ -28,6 +28,7 @@ fun DropDownPreference(
     key: PreferenceKey<Int>? = null,
     selectedIndex: MutableState<Int>? = null,
     showValue: Boolean = true,
+    ignoreModuleActiveStatus: Boolean = false,
     onSelectedIndexChange: ((Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -45,7 +46,7 @@ fun DropDownPreference(
         entries = entries,
         showValue = showValue,
         onValueChange = { newValue ->
-            if (!uiState.moduleActive) {
+            if (!uiState.moduleActive && !ignoreModuleActiveStatus) {
                 context.toast(R.string.make_sure_active)
             } else {
                 current?.value = newValue

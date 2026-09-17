@@ -13,8 +13,7 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
-import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
-import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.wrapper.SplashScreenViewBuilderWrapper
 
@@ -88,7 +87,7 @@ object BgHookHandler : BaseHookHandler() {
                     IconHookHandler.currentIconDominantColor
                         ?: tmpAttrs?.let { ReflectCache.getField<Drawable>(it, "mSplashScreenIcon") }
                             ?.let { drawable ->
-                                drawable.drawable2Bitmap(100).getBgColor(
+                                drawable.drawableDominantColor(
                                     when (bgColorMode) {
                                         BGColorModes.DarkColor.ordinal -> false
                                         BGColorModes.FollowSystem.ordinal -> !isDarkMode

@@ -80,13 +80,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.toColorInt
 import androidx.palette.graphics.Palette
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
+import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
 import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
 import com.SplashScreenAdvanced.xposedmodule.utils.toMap
 import com.SplashScreenAdvanced.xposedmodule.utils.toSet
@@ -131,10 +131,24 @@ import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.utils.overScrollVertical
+import dev.lackluster.hyperx.ui.theme.hyperXClip
+import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
+import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 import kotlin.math.pow
 import kotlin.math.round
+
+private val HueGradientColors = listOf(
+    Color.hsv(0.0f, 1.0f, 1.0f),
+    Color.hsv(60.0f, 1.0f, 1.0f),
+    Color.hsv(120.0f, 1.0f, 1.0f),
+    Color.hsv(180.0f, 1.0f, 1.0f),
+    Color.hsv(240.0f, 1.0f, 1.0f),
+    Color.hsv(300.0f, 1.0f, 1.0f),
+    Color.hsv(360.0f, 1.0f, 1.0f),
+)
+
+private const val COLOR_PICKER_ICON_SIZE = 96
+private const val COLOR_PICKER_PALETTE_SIZE = 48
 
 /**
  * 手动选择背景颜色界面
@@ -148,7 +162,7 @@ fun ColorPickerPage(pkgName: String) {
     // 与其余页面同源。原先本页单独读 MainActivity 里的静态 MutableState，
     // 那份只在 BasicPage 手动开关和服务绑定时才更新 —— 导入备份 / 重置设置改了模糊开关时,
     // 其它页面会跟着变而本页不会
-    val blurEnabled = LocalHyperXLayoutConfig.current.isBlurEnabled
+    val blurEnabled = LocalHyperXLayoutConfig.current.isBlurActive
 
     // 顶部栏模糊状态
     val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
@@ -198,11 +212,11 @@ fun ColorPickerPage(pkgName: String) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .overScrollVertical()
+                    .hyperXOverScrollVertical()
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 state = listState,
                 contentPadding = paddingValues,
-                overscrollEffect = null,
+                overscrollEffect = rememberHyperXListOverscrollEffect(),
                 content = {
                     item(key = "preview") {
                         PreferenceGroup {
@@ -304,12 +318,12 @@ private fun ColorSpacePager(pickedColor: PickedColor) {
     val tabIndex = remember { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
+    val rgbTab = stringResource(R.string.rgb_color_space)
+    val hsvTab = stringResource(R.string.hsv_color_space)
+    val tabs = remember(rgbTab, hsvTab) { listOf(rgbTab, hsvTab) }
     TabRow(
         modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp),
-        tabs = listOf(
-            stringResource(R.string.rgb_color_space),
-            stringResource(R.string.hsv_color_space)
-        ),
+        tabs = tabs,
         selectedTabIndex = tabIndex.intValue,
         onTabSelected = {
             tabIndex.intValue = it
@@ -372,6 +386,7 @@ private fun DisplayColorDemo(
     ) {
         var magnifierCenter by remember { mutableStateOf(Offset.Unspecified) }
         val appIcon = appColorConfig.appIcon
+        val appIconBitmap = remember(appIcon) { appIcon.asImageBitmap() }
         Image(
             painter = painterResource(id = R.drawable.demo_transparency),
             contentDescription = null,
@@ -415,7 +430,7 @@ private fun DisplayColorDemo(
                         }
                     )
                 },
-            bitmap = appIcon.asImageBitmap(),
+            bitmap = appIconBitmap,
             contentDescription = null,
         )
     }
@@ -456,7 +471,10 @@ private fun DisplayColorSelection(
                 // 这里切到 Default 再算
                 val colors = withContext(Dispatchers.Default) {
                     with(
-                        Palette.from(appColorConfig.appIcon).maximumColorCount(8).generate()
+                        Palette.from(appColorConfig.appIcon)
+                            .resizeBitmapArea(COLOR_PICKER_PALETTE_SIZE * COLOR_PICKER_PALETTE_SIZE)
+                            .maximumColorCount(8)
+                            .generate()
                     ) {
                         listOf(
                             getDominantColor(0),
@@ -504,15 +522,20 @@ private fun InputColor(
     darkMode: MutableState<Boolean>,
     dropdownDialogVisibility: MutableState<Boolean>
 ) {
+    val lightModeTitle = stringResource(R.string.target_color_mode_light)
+    val darkModeTitle = stringResource(R.string.target_color_mode_dark)
+    val colorModeEntries = remember(lightModeTitle, darkModeTitle) {
+        listOf(
+            DropDownEntry(0, lightModeTitle),
+            DropDownEntry(1, darkModeTitle)
+        )
+    }
     // 颜色生效模式
     DropDownPreference(
         title = stringResource(R.string.target_color_mode),
         summary = stringResource(R.string.target_color_mode_tips),
         value = if (darkMode.value) 1 else 0,
-        entries = listOf(
-            DropDownEntry(0, stringResource(R.string.target_color_mode_light)),
-            DropDownEntry(1, stringResource(R.string.target_color_mode_dark))
-        ),
+        entries = colorModeEntries,
         showValue = true,
         onValueChange = {
             if (appColorConfig.getDefaultBGColor(darkMode.value) != pickedColor.colorInt) {
@@ -904,22 +927,14 @@ private fun HueSeekBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(28.dp)
-                        .squircleClip(28.dp)
+                        .hyperXClip(28.dp)
                         .drawBehind {
                             val barHeight = size.height
                             val barWidth = size.width
                             val cornerRadius = CornerRadius.Zero
                             drawRoundRect(
                                 brush = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color.hsv(0.0f, 1.0f, 1.0f),
-                                        Color.hsv(60.0f, 1.0f, 1.0f),
-                                        Color.hsv(120.0f, 1.0f, 1.0f),
-                                        Color.hsv(180.0f, 1.0f, 1.0f),
-                                        Color.hsv(240.0f, 1.0f, 1.0f),
-                                        Color.hsv(300.0f, 1.0f, 1.0f),
-                                        Color.hsv(360.0f, 1.0f, 1.0f),
-                                    ),
+                                    colors = HueGradientColors,
                                     startX = size.height,
                                     endX = size.width - size.height,
                                     tileMode = TileMode.Clamp
@@ -1026,8 +1041,10 @@ private class AppColorConfig(
     }
 
     val appIcon = (IconPackManager(context, store.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME))
-        .getIconByPackageName(packageName)                      // 优先获取图标包中的图标
-        ?: pm.getApplicationIcon(packageName)).toBitmap()       // 使用默认方式获取图标
+        .getIconByPackageName(packageName)
+        ?: pm.getApplicationIcon(packageName)).drawable2Bitmap(COLOR_PICKER_ICON_SIZE)
+    private var cachedIconBgLight: Int? = null
+    private var cachedIconBgDark: Int? = null
     var defaultColorLight = processDefaultBGColor(false)
     var defaultColorDark = processDefaultBGColor(true)
 
@@ -1093,7 +1110,7 @@ private class AppColorConfig(
                     if (isDark) Preferences.Background.OVERALL_BG_COLOR_NIGHT
                     else Preferences.Background.OVERALL_BG_COLOR
                 )
-                value.takeIf { it.isNotBlank() }?.toColorInt() ?: appIcon.getBgColor(isLight)
+                value.takeIf { it.isNotBlank() }?.toColorInt() ?: iconBgColor(isLight)
             }
             // 继承系统 Monet 色, 取不到时回退图标主色
             ChangeBGColorTypes.FromMonet.ordinal -> runCatching {
@@ -1102,9 +1119,17 @@ private class AppColorConfig(
                     else android.R.color.system_surface_dark,
                     context.theme
                 )
-            }.getOrDefault(appIcon.getBgColor(isLight))
+            }.getOrDefault(iconBgColor(isLight))
             // 从图标取色 / 不改背景: 回退图标主色
-            else -> appIcon.getBgColor(isLight)
+            else -> iconBgColor(isLight)
+        }
+    }
+
+    private fun iconBgColor(isLight: Boolean): Int {
+        return if (isLight) {
+            cachedIconBgLight ?: appIcon.getBgColor(true).also { cachedIconBgLight = it }
+        } else {
+            cachedIconBgDark ?: appIcon.getBgColor(false).also { cachedIconBgDark = it }
         }
     }
 }
@@ -1127,6 +1152,8 @@ class PickedColor(
     private val rgbColorState: MutableIntState,
     private val hsvColorState: SnapshotStateList<Float>
 ) {
+    private val hsvScratch = FloatArray(3)
+
     var r
         get() = (rgbColorState.intValue shr 16) and 0xFF
         set(value) {
@@ -1164,8 +1191,10 @@ class PickedColor(
         set(value) {
             if (value == 0) field = 0xFFFFFFFF.toInt()
             else {
-                hsvColorState.addAll(value.toHSVColorList())
-                hsvColorState.removeRange(0, 3)
+                android.graphics.Color.colorToHSV(value, hsvScratch)
+                hsvColorState[0] = hsvScratch[0]
+                hsvColorState[1] = hsvScratch[1]
+                hsvColorState[2] = hsvScratch[2]
                 rgbColorState.intValue = value
             }
         }
@@ -1175,6 +1204,9 @@ class PickedColor(
      */
     private fun setHsvColor(index: Int, value: Float) {
         hsvColorState[index] = value
-        rgbColorState.intValue = android.graphics.Color.HSVToColor(hsvColorState.toFloatArray())
+        hsvScratch[0] = hsvColorState[0]
+        hsvScratch[1] = hsvColorState[1]
+        hsvScratch[2] = hsvColorState[2]
+        rgbColorState.intValue = android.graphics.Color.HSVToColor(hsvScratch)
     }
 }
