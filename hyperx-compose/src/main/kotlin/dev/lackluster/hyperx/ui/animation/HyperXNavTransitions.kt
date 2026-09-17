@@ -5,6 +5,8 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Immutable
@@ -70,7 +72,12 @@ class NavTransitionEasing(
 object HyperXNavTransitions {
     private val NavAnimationEasing = NavTransitionEasing(0.8f, 0.95f)
 
-    val NormalTransitionEffects = NavDisplayTransitionEffects.Default
+    val NormalTransitionEffects = NavDisplayTransitionEffects(
+        enableCornerClip = false,
+        dimAmount = 0f,
+        blockInputDuringTransition = false,
+        popDirectionFollowsSwipeEdge = false
+    )
 
     val SplitTransitionEffects = NavDisplayTransitionEffects(
         enableCornerClip = false,
@@ -78,6 +85,22 @@ object HyperXNavTransitions {
         blockInputDuringTransition = true,
         popDirectionFollowsSwipeEdge = false
     )
+
+    fun <T : Any> holdTransitionSpec():
+            AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform = {
+        ContentTransform(
+            fadeIn(animationSpec = tween(0)),
+            fadeOut(animationSpec = tween(0)),
+        )
+    }
+
+    fun <T : Any> holdPredictivePopTransitionSpec():
+            AnimatedContentTransitionScope<Scene<T>>.(@NavigationEvent.SwipeEdge Int) -> ContentTransform = {
+        ContentTransform(
+            fadeIn(animationSpec = tween(0)),
+            fadeOut(animationSpec = tween(0)),
+        )
+    }
 
     fun <T : Any> normalTransitionSpec(layoutDirection: LayoutDirection):
             AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform = {

@@ -21,6 +21,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.lackluster.hyperx.navigation.LocalNavigator
+import dev.lackluster.hyperx.ui.animation.PageMotionTargetProbe
+import dev.lackluster.hyperx.ui.animation.pageMotionToolbarTitleColor
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -79,31 +81,44 @@ fun HyperXPage(
         uiConfig.darkBlurAlpha
     }
 
+    val titleColor = pageMotionToolbarTitleColor(title)
+
     HyperXScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { contentPadding ->
-            TopAppBar(
-                color = topBarColor,
-                title = title,
-                scrollBehavior = scrollBehavior,
-                navigationIcon = { navigationIcon() },
-                actions = { actions(this) },
-                defaultWindowInsetsPadding = false,
-                titlePadding = 28.dp + contentPadding.calculateStartPadding(layoutDirection),
-                navigationIconPadding = contentPadding.calculateStartPadding(layoutDirection),
-                actionIconPadding = contentPadding.calculateEndPadding(layoutDirection),
-                bottomContent = {
-                    fixedHeader?.let {
-                        Box(
-                            modifier = Modifier
-                                .background(topBarColor)
-                                .padding(contentPadding)
-                        ) {
-                            it()
+            val barTitlePadding = 28.dp + contentPadding.calculateStartPadding(layoutDirection)
+            Box {
+                TopAppBar(
+                    color = topBarColor,
+                    title = title,
+                    titleColor = titleColor,
+                    largeTitleColor = titleColor,
+                    scrollBehavior = scrollBehavior,
+                    navigationIcon = { navigationIcon() },
+                    actions = { actions(this) },
+                    defaultWindowInsetsPadding = false,
+                    titlePadding = barTitlePadding,
+                    navigationIconPadding = contentPadding.calculateStartPadding(layoutDirection),
+                    actionIconPadding = contentPadding.calculateEndPadding(layoutDirection),
+                    bottomContent = {
+                        fixedHeader?.let {
+                            Box(
+                                modifier = Modifier
+                                    .background(topBarColor)
+                                    .padding(contentPadding)
+                            ) {
+                                it()
+                            }
                         }
                     }
-                }
-            )
+                )
+                PageMotionTargetProbe(
+                    title = title,
+                    titlePadding = barTitlePadding,
+                    fontSize = MiuixTheme.textStyles.title1.fontSize,
+                    color = MiuixTheme.colorScheme.onSurface,
+                )
+            }
         },
         blurTopBar = uiConfig.isBlurEnabled,
         containerColor = containerColor,
