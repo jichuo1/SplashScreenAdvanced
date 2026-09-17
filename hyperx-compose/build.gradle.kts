@@ -51,4 +51,5 @@ dependencies {
     api(libs.androidx.navigation3.runtime)
     api(libs.jetbrains.navigationevent.compose)
     api(libs.androidx.lifecycle.viewmodel.compose)
+    testImplementation("junit:junit:4.13.2")
 }
