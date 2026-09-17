@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import android.provider.Settings
+import android.os.SystemClock
+import java.util.concurrent.ConcurrentHashMap
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.base.HookManager
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.IconHookHandler.getActivityIconOrApp
@@ -126,6 +128,12 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         largeIconsHelperClazz.resolve().optional().firstFieldOrNull { name = "sManagerList" }
     }
 
+    private val hasLargeIconCache = ConcurrentHashMap<String, Boolean>()
+    private val largeIconSizeCache = ConcurrentHashMap<String, String>()
+
+    @Volatile
+    private var largeIconConfigLoadedAt = 0L
+
     @Volatile
     private var hooksInstalled = false
 
@@ -173,14 +181,6 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
                     if (result == "content://weather/actualWeatherData/1")
                         result = "content://weather/actualWeatherData/2"
                 }.startHook(SystemUIHooker.module)
-
-                // 由于大图标的变更通知不到系统界面, 所以只能每次都重新读取配置
-                HookManager(true) {
-                    "com.miui.maml.util.LargeIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
-                        ?.resolve()?.optional()?.firstMethodOrNull { name = "hasLargeIcon" }?.self
-                }.addBeforeHook({ true }) {
-                    sManagerListField?.setValueTo(null, null)
-                }.startHook(SystemUIHooker.module)
             } catch (t: Throwable) {
                 XMLog.e(t, "MIUIIconsHelper")
             }
@@ -194,8 +194,11 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
      * @return 如果程序包有大图标则返回 `true`，否则返回 `false`。
      */
     fun hasLargeIcon(packageName: String) = try {
-        ensureHooksInstalled()
-        hasLargeIconMethod?.invoke(null, packageName, null, "desktop", userHandleCurrent) ?: false
+        refreshLargeIconConfigIfStale()
+        hasLargeIconCache.getOrPut(packageName) {
+            ensureHooksInstalled()
+            hasLargeIconMethod?.invoke(null, packageName, null, "desktop", userHandleCurrent) ?: false
+        }
     } catch (e: Throwable) {
         XMLog.e(t = e) { "Failed to get hasLargeIcon for package $packageName" }
         false
@@ -208,16 +211,34 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
      * @return 如果成功获取大图标的尺寸则返回该尺寸，否则在捕获异常后返回null。
      */
     fun getLargeIconSize(packageName: String) = try {
-        ensureHooksInstalled()
-        val iconsConfigs = getLargeIconConfigFileMethod?.invoke(null, "desktop", false)?.let { configFile ->
-            ReflectCache.invokeMethod<HashMap<String, Any>>(configFile, "getIconsConfigs")
-        }
-        iconsConfigs?.get(packageName)?.let { config ->
-            ReflectCache.getField<String>(config, "size")
+        refreshLargeIconConfigIfStale()
+        largeIconSizeCache[packageName] ?: run {
+            ensureHooksInstalled()
+            val iconsConfigs = getLargeIconConfigFileMethod?.invoke(null, "desktop", false)?.let { configFile ->
+                ReflectCache.invokeMethod<HashMap<String, Any>>(configFile, "getIconsConfigs")
+            }
+            val size = iconsConfigs?.get(packageName)?.let { config ->
+                ReflectCache.getField<String>(config, "size")
+            }
+            if (size != null) largeIconSizeCache[packageName] = size
+            size
         }
     } catch (e: Throwable) {
         XMLog.e(t = e) { "Failed to get large icon size for package $packageName" }
         null
+    }
+
+    private fun refreshLargeIconConfigIfStale() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - largeIconConfigLoadedAt < LARGE_ICON_CONFIG_TTL_MS) return
+        synchronized(installLock) {
+            val innerNow = SystemClock.elapsedRealtime()
+            if (innerNow - largeIconConfigLoadedAt < LARGE_ICON_CONFIG_TTL_MS) return
+            sManagerListField?.setValueTo(null, null)
+            hasLargeIconCache.clear()
+            largeIconSizeCache.clear()
+            largeIconConfigLoadedAt = innerNow
+        }
     }
 
     /**
@@ -274,5 +295,9 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         "com.miui.weather2" -> 3600000L
         "com.android.deskclock" -> 0L
         else -> 86400000L
+    }
+
+    companion object {
+        private const val LARGE_ICON_CONFIG_TTL_MS = 60_000L
     }
 }

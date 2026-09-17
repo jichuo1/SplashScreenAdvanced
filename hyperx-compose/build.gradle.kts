@@ -46,6 +46,7 @@ dependencies {
     api(libs.miuix.blur)
     api(libs.miuix.squircle)
     api(libs.androidx.compose.foundation)
+    implementation(libs.androidx.material.ripple)
     api(libs.androidx.activity.compose)
     api(libs.miuix.navigation3.ui)
     api(libs.androidx.navigation3.runtime)

@@ -14,7 +14,7 @@ fun rememberBlurBackdrop(
     containerColor: Color = MiuixTheme.colorScheme.surface
 ): LayerBackdrop? {
     val config = LocalHyperXLayoutConfig.current
-    if (!config.isBlurEnabled || !isRenderEffectSupported() || !isRuntimeShaderSupported()) {
+    if (!config.isBlurActive || !isRenderEffectSupported() || !isRuntimeShaderSupported()) {
         return null
     }
     return rememberLayerBackdrop {

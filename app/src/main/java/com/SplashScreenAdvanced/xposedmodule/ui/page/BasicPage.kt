@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
@@ -13,13 +14,17 @@ import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import com.SplashScreenAdvanced.xposedmodule.ui.component.HeaderCard
+import com.SplashScreenAdvanced.xposedmodule.ui.component.DropDownPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
 import dev.lackluster.hyperx.ui.layout.HyperXPage
+import dev.lackluster.hyperx.ui.layout.LocalHyperXLayoutConfig
+import dev.lackluster.hyperx.ui.preference.DropDownEntry
 import dev.lackluster.hyperx.ui.preference.ItemPosition
 import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
 import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
+import dev.lackluster.hyperx.ui.theme.UiStyle
 import org.koin.compose.koinInject
 import java.time.LocalDateTime
 
@@ -54,6 +59,16 @@ private fun ModuleAppSettings() {
     val context = LocalContext.current
     val repo = koinInject<GlobalPreferencesRepository>()
     val enableLog = rememberPreferenceState(Preferences.Log.ENABLE_LOG)
+    val uiConfig = LocalHyperXLayoutConfig.current
+    val miuixChrome = uiConfig.uiStyle.isMiuix
+    val miuixStyleTitle = stringResource(R.string.ui_style_miuix)
+    val materialYouStyleTitle = stringResource(R.string.ui_style_material_you)
+    val uiStyleEntries = remember(miuixStyleTitle, materialYouStyleTitle) {
+        listOf(
+            DropDownEntry(UiStyle.Miuix.prefValue, miuixStyleTitle),
+            DropDownEntry(UiStyle.MaterialYou.prefValue, materialYouStyleTitle),
+        )
+    }
 
     LaunchedEffect(Unit) {
         if (enableLog.value && (System.currentTimeMillis() - repo.get(Preferences.Log.ENABLE_LOG_TIMESTAMP)) > 86400000) {
@@ -87,13 +102,23 @@ private fun ModuleAppSettings() {
             PackageManager.DONT_KILL_APP
         )
     }
+    // 界面风格：MIUI / Material You。此项只影响模块 App 外观，未激活也可切换。
+    DropDownPreference(
+        title = stringResource(R.string.ui_style),
+        summary = stringResource(R.string.ui_style_tips),
+        entries = uiStyleEntries,
+        key = Preferences.Module.UI_STYLE,
+        ignoreModuleActiveStatus = true,
+    )
     // 模糊效果。
     // 这两项不需要 onCheckedChange 再手动同步一份状态: key 的写入会经
     // GlobalPreferencesRepository.update 落到 uiConfigFlow, 各页面统一从
     // LocalHyperXLayoutConfig 读取
     SwitchPreference(
         title = stringResource(R.string.blur),
-        key = Preferences.Module.MODULE_APP_BLUR
+        summary = if (miuixChrome) null else stringResource(R.string.blur_miuix_only),
+        key = Preferences.Module.MODULE_APP_BLUR,
+        enabled = miuixChrome,
     )
     // 自适应布局
     SwitchPreference(

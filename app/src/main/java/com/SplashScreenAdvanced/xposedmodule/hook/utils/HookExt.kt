@@ -47,12 +47,12 @@ object HookExt {
      *
      * 入参为 lambda, 日志关闭时直接返回, 不会构造日志字符串
      *
-     * 开关走 [XMLog.isDebugEnabled] 缓存布尔 (由 HookEntry 经 observe 维护),
-     * 日志关闭时 (常态) 零 prefs 读取; 仅开启后才读时间戳判断 24h 过期
+     * 开关走 [XMLog.isDebugEnabled] / [XMLog.debugEnabledAtMillis] 进程内缓存
+     * (由 HookEntry 经 observe 维护), 日志关闭时 (常态) 零 prefs 读取
      */
     inline fun printLog(msg: () -> String) {
         if (!XMLog.isDebugEnabled) return
-        if (System.currentTimeMillis() - Preferences.Log.ENABLE_LOG_TIMESTAMP.get() > 86400000) return
+        if (System.currentTimeMillis() - XMLog.debugEnabledAtMillis > 86400000) return
         val text = msg()
         XMLog.i { text }
     }

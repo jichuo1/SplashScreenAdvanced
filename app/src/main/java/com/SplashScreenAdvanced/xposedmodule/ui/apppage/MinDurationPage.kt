@@ -102,8 +102,9 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
+import dev.lackluster.hyperx.ui.theme.hyperXScrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 import java.text.Collator
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
@@ -118,7 +119,7 @@ fun MinDurationPage() {
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current
-    val blurEnabled = uiConfig.isBlurEnabled
+    val blurEnabled = uiConfig.isBlurActive
     val layoutPadding = LocalLayoutPadding.current
 
     val containerColor = MiuixTheme.colorScheme.surface
@@ -134,7 +135,6 @@ fun MinDurationPage() {
 
     val dialogMessage = stringResource(R.string.set_min_duration) + "\n" + stringResource(R.string.set_min_duration_unit)
     var queryString by remember { mutableStateOf("") }
-    var sortTrigger by remember { mutableIntStateOf(0) }
 
     val emptyMapString = stringResource(R.string.not_set_min_duration)
     val saveSuccessfulText = stringResource(R.string.save_successful)
@@ -200,7 +200,7 @@ fun MinDurationPage() {
 
     // LaunchedEffect 在 key 变化时本就会取消上一次协程, 原先那个 queryJob 是 composable 局部变量,
     // 每次重组都被重置为 null, cancel() 永远是空操作
-    LaunchedEffect(appInfoList, queryString, sortTrigger) {
+    LaunchedEffect(appInfoList, queryString) {
         if (appInfoList.isEmpty()) return@LaunchedEffect
 
         delay(if (queryString.isNotBlank()) 300.milliseconds else 50.milliseconds)
@@ -228,7 +228,7 @@ fun MinDurationPage() {
     HyperXScaffold(
         modifier = Modifier
             .fillMaxSize()
-            .scrollEndHaptic(),
+            .hyperXScrollEndHaptic(),
         containerColor = containerColor,
         layoutPadding = layoutPadding,
         topBar = { contentPadding ->
@@ -340,11 +340,11 @@ fun MinDurationPage() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxHeight()
-                .overScrollVertical()
+                .hyperXOverScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             state = listState,
             contentPadding = paddingValues,
-            overscrollEffect = null
+            overscrollEffect = rememberHyperXListOverscrollEffect()
         ) {
             item {
                 SearchBar(
@@ -438,23 +438,11 @@ fun MinDurationPage() {
                             checked = item.isChecked,
                             defValue = item.config.value?.toIntOrNull() ?: 0,
                             dialogMessage = dialogMessage,
-                            onCheckedChange = {
-                                // 在用户切换选中状态后，延迟触发重新排序
-                                coroutineScope.launch {
-                                    delay(200.milliseconds)
-                                    sortTrigger++
-                                }
-                            },
                             onValueChange = { text, value ->
                                 if (value == 0) {
                                     item.config.value = null
                                 } else {
                                     item.config.value = text
-                                }
-                                // 配置变更后触发重新排序
-                                coroutineScope.launch {
-                                    delay(200.milliseconds)
-                                    sortTrigger++
                                 }
                             }
                         )

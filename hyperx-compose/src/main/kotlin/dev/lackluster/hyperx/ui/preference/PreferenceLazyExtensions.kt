@@ -36,11 +36,6 @@ fun LazyListScope.itemPreferenceGroup(
     if (!visible) return
     item(key = key, contentType = "PreferenceGroup") {
         PreferenceGroup(
-            modifier = Modifier.animateItem(
-                fadeInSpec = DefaultItemFadeSpec,
-                placementSpec = DefaultItemPlacementSpec,
-                fadeOutSpec = DefaultItemFadeSpec
-            ),
             title = title,
             position = position,
             titleColor = titleColor,
@@ -62,11 +57,6 @@ fun LazyListScope.itemPreferenceGroup(
     if (!visible) return
     item(key = key, contentType = "PreferenceGroup") {
         PreferenceGroup(
-            modifier = Modifier.animateItem(
-                fadeInSpec = DefaultItemFadeSpec,
-                placementSpec = DefaultItemPlacementSpec,
-                fadeOutSpec = DefaultItemFadeSpec
-            ),
             title = stringResource(titleRes),
             position = position,
             titleColor = titleColor,

@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -53,14 +56,18 @@ suspend fun loadInstalledApps(context: Context): List<InstalledApp> {
     return loadMutex.withLock {
         // 双检: 等锁期间可能已经有别的调用把缓存填好了
         validCache() ?: withContext(Dispatchers.IO) {
-            // 用 applicationContext: 缓存是进程级的, 不要牵扯 Activity 的生命周期
             val pm = context.applicationContext.packageManager
-            pm.getInstalledApplications(0).map { appInfo ->
-                InstalledApp(
-                    packageName = appInfo.packageName,
-                    appName = appInfo.loadLabel(pm).toString(),
-                    isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
-                )
+            val apps = pm.getInstalledApplications(0)
+            coroutineScope {
+                apps.map { appInfo ->
+                    async {
+                        InstalledApp(
+                            packageName = appInfo.packageName,
+                            appName = appInfo.loadLabel(pm).toString(),
+                            isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+                        )
+                    }
+                }.awaitAll()
             }
         }.also {
             cache = it

@@ -16,6 +16,9 @@ fun Colors.contentColorFor(backgroundColor: Color): Color {
         secondaryVariant -> onSecondary
         background -> onBackground
         surface -> onSurface
+        surfaceContainer -> onSurfaceContainer
+        surfaceContainerHigh -> onSurfaceContainerHigh
+        surfaceContainerHighest -> onSurfaceContainerHighest
         else -> Color.Unspecified
     }
 }

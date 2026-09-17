@@ -34,6 +34,7 @@ class HookEntry : XposedModule() {
         XMLog.init(this)
         RemotePreferences.init(this)
         Preferences.Log.ENABLE_LOG.observe { XMLog.isDebugEnabled = it }
+        Preferences.Log.ENABLE_LOG_TIMESTAMP.observe { XMLog.debugEnabledAtMillis = it }
     }
 
     override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {

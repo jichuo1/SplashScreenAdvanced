@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -91,8 +92,9 @@ import top.yukonga.miuix.kmp.icon.extended.Info
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
+import dev.lackluster.hyperx.ui.theme.hyperXScrollEndHaptic
+import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 
 @Composable
 fun AppListPage(
@@ -105,7 +107,7 @@ fun AppListPage(
 
     val navigator = LocalNavigator.current
     val uiConfig = LocalHyperXLayoutConfig.current
-    val blurEnabled = uiConfig.isBlurEnabled
+    val blurEnabled = uiConfig.isBlurActive
     val layoutPadding = LocalLayoutPadding.current
 
     val containerColor = MiuixTheme.colorScheme.surface
@@ -235,7 +237,7 @@ fun AppListPage(
     HyperXScaffold(
         modifier = Modifier
             .fillMaxSize()
-            .scrollEndHaptic(),
+            .hyperXScrollEndHaptic(),
         containerColor = containerColor,
         layoutPadding = layoutPadding,
         topBar = { contentPadding ->
@@ -305,7 +307,11 @@ fun AppListPage(
                                 )
                             }
                         }
-                        showTopPopup.value = true
+                        SideEffect {
+                            if (!showTopPopup.value) {
+                                showTopPopup.value = true
+                            }
+                        }
                     }
                     AnimatedVisibility(
                         queryString.isBlank()
@@ -387,11 +393,11 @@ fun AppListPage(
         LazyColumn(
             modifier = Modifier
                 .fillMaxHeight()
-                .overScrollVertical()
+                .hyperXOverScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             state = listState,
             contentPadding = paddingValues,
-            overscrollEffect = null
+            overscrollEffect = rememberHyperXListOverscrollEffect()
         ) {
             item {
                 SearchBar(
@@ -455,12 +461,6 @@ fun AppListPage(
                             title = item.appName,
                             summary = item.packageName,
                             checked = item.isChecked,
-                            onCheckedChange = {
-                                coroutineScope.launch {
-                                    delay(200)
-                                    sortTrigger++
-                                }
-                            }
                         )
                     }
                 }

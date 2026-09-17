@@ -7,6 +7,7 @@ import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
 import dev.lackluster.hyperx.ui.layout.HyperXLayoutConfig
 import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import dev.lackluster.hyperx.ui.theme.UiStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,12 +26,7 @@ class GlobalPreferencesRepository(
     private val context: Context,
     private val prefStore: RemotePreferenceStore
 ) {
-    private val _uiConfigFlow = MutableStateFlow(
-        HyperXLayoutConfig(
-            isBlurEnabled = Preferences.Module.MODULE_APP_BLUR.default,
-            isSplitScreenEnabled = Preferences.Module.SPLIT_VIEW.default
-        )
-    )
+    private val _uiConfigFlow = MutableStateFlow(readUiConfig())
     val uiConfigFlow = _uiConfigFlow.asStateFlow()
 
     private val _globalReloadEvent = MutableSharedFlow<Unit>(
@@ -64,9 +60,14 @@ class GlobalPreferencesRepository(
 
         XMLog.isDebugEnabled = prefStore.get(Preferences.Log.ENABLE_LOG)
 
-        _uiConfigFlow.value = HyperXLayoutConfig(
+        _uiConfigFlow.value = readUiConfig()
+    }
+
+    private fun readUiConfig(): HyperXLayoutConfig {
+        return HyperXLayoutConfig(
             isSplitScreenEnabled = prefStore.get(Preferences.Module.SPLIT_VIEW),
-            isBlurEnabled = prefStore.get(Preferences.Module.MODULE_APP_BLUR)
+            isBlurEnabled = prefStore.get(Preferences.Module.MODULE_APP_BLUR),
+            uiStyle = UiStyle.fromPref(prefStore.get(Preferences.Module.UI_STYLE)),
         )
     }
 
@@ -84,6 +85,9 @@ class GlobalPreferencesRepository(
         when (key) {
             Preferences.Module.SPLIT_VIEW -> _uiConfigFlow.update { it.copy(isSplitScreenEnabled = value as Boolean) }
             Preferences.Module.MODULE_APP_BLUR -> _uiConfigFlow.update { it.copy(isBlurEnabled = value as Boolean) }
+            Preferences.Module.UI_STYLE -> _uiConfigFlow.update {
+                it.copy(uiStyle = UiStyle.fromPref(value as Int))
+            }
 
             Preferences.Log.ENABLE_LOG -> XMLog.isDebugEnabled = (value as Boolean)
             // 其余仅需持久化的 Key 在第 1 步已写入 SP，Hook 端可直接读取，这里无需处理。

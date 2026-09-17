@@ -12,12 +12,15 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 class RemotePreferenceStore(
     private val xposedManager: XposedServiceManager
 ) {
     private val remotePrefs: SharedPreferences?
         get() = xposedManager.currentService?.getRemotePreferences(Preferences.NAME)
+
+    private val snapshot = ConcurrentHashMap<String, Any>()
 
     private val _globalReloadEvent = MutableSharedFlow<Unit>(
         extraBufferCapacity = 1,
@@ -30,6 +33,7 @@ class RemotePreferenceStore(
     init {
         scope.launch {
             xposedManager.serviceFlow.collect { service ->
+                snapshot.clear()
                 if (service != null) {
                     _globalReloadEvent.emit(Unit)
                 }
@@ -39,8 +43,18 @@ class RemotePreferenceStore(
 
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> get(key: PreferenceKey<T>): T {
+        snapshot[key.name]?.let { cached ->
+            return cached as T
+        }
         val prefs = remotePrefs ?: return key.default
+        val fresh = readRemote(prefs, key)
+        val stored: Any = if (fresh is Set<*>) HashSet(fresh) else fresh
+        snapshot[key.name] = stored
+        return stored as T
+    }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun <T : Any> readRemote(prefs: SharedPreferences, key: PreferenceKey<T>): T {
         return when (key.default) {
             is Boolean -> prefs.getBoolean(key.name, key.default as Boolean) as T
             is Int -> prefs.getInt(key.name, key.default as Int) as T
@@ -50,8 +64,8 @@ class RemotePreferenceStore(
             // Hook 端的 RemotePreferences.getPref 本来就是这么写的, 两边保持一致
             is String -> (prefs.getString(key.name, key.default as String) ?: key.default) as T
             is Set<*> -> {
-                val defSet = (key.default as? Set<String>)?.toMutableSet() ?: mutableSetOf()
-                prefs.getStringSet(key.name, defSet) as T
+                val defSet = (key.default as? Set<String>) ?: emptySet()
+                (prefs.getStringSet(key.name, defSet) ?: defSet) as T
             }
             else -> key.default
         }
@@ -59,7 +73,8 @@ class RemotePreferenceStore(
 
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> put(key: PreferenceKey<T>, value: T) {
-        remotePrefs?.edit {
+        val prefs = remotePrefs ?: return
+        prefs.edit {
             if (value is Set<*>) {
                 putStringSet(key.name, value as Set<String>)
             } else {
@@ -72,9 +87,11 @@ class RemotePreferenceStore(
                 }
             }
         }
+        snapshot[key.name] = if (value is Set<*>) HashSet(value as Set<*>) else value
     }
 
     fun setAll(map: Map<String, Any>) {
+        snapshot.clear()
         remotePrefs?.edit(true) {
             map.forEach { (key, value) ->
                 when (value) {
@@ -105,11 +122,15 @@ class RemotePreferenceStore(
         val prefs = remotePrefs ?: return
         if (prefs.getInt(Preferences.Module.SP_VERSION.name, -1) == Preferences.VERSION) return
         prefs.edit { putInt(Preferences.Module.SP_VERSION.name, Preferences.VERSION) }
+        snapshot[Preferences.Module.SP_VERSION.name] = Preferences.VERSION
     }
 
     fun getAll(): Map<String, *>? = remotePrefs?.all
 
-    fun clearAll() = remotePrefs?.edit(true) {
-        clear()
+    fun clearAll() {
+        snapshot.clear()
+        remotePrefs?.edit(true) {
+            clear()
+        }
     }
 }
