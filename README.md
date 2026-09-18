@@ -10,6 +10,10 @@
 
 <br>
 
+**简体中文** · [English](README_EN.md)
+
+<br>
+
 [![License](https://img.shields.io/github/license/jichuo1/SplashScreenAdvanced?style=flat-square&color=a32d2a)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-14%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#要求)
 [![libxposed](https://img.shields.io/badge/libxposed-API%20101%2B-6DB33F?style=flat-square&logo=android&logoColor=white)](https://github.com/libxposed)
