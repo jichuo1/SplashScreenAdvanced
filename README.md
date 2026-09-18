@@ -16,6 +16,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Release](https://img.shields.io/github/v/release/jichuo1/SplashScreenAdvanced?include_prereleases&style=flat-square&label=release)](https://github.com/jichuo1/SplashScreenAdvanced/releases)
 [![Issues](https://img.shields.io/github/issues/jichuo1/SplashScreenAdvanced?style=flat-square)](https://github.com/jichuo1/SplashScreenAdvanced/issues)
+[![Telegram](https://img.shields.io/badge/Telegram-交流群-26A5E4?style=flat-square&logo=telegram&logoColor=white)](https://t.me/SplashScreenAdvanced)
 
 [功能](#功能) · [要求](#要求) · [使用](#使用) · [构建](#构建) · [反馈](#反馈) · [许可](#出处与许可)
 
@@ -146,6 +147,8 @@ cd SplashScreenAdvanced
 ---
 
 ## 反馈
+
+使用交流与问题讨论，欢迎加入 [Telegram 交流群](https://t.me/SplashScreenAdvanced)。提交 Bug 请按下方说明提供信息，方便跟进。
 
 请先到 [Releases](https://github.com/jichuo1/SplashScreenAdvanced/releases) 确认已是最新版本，再提交 [Issue](https://github.com/jichuo1/SplashScreenAdvanced/issues)，并附上：
 
