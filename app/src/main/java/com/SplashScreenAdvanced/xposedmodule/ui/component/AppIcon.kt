@@ -63,3 +63,7 @@ private fun loadAppIcon(context: Context, packageName: String, sizePx: Int): Ima
     }.getOrNull()?.also {
         synchronized(iconCache) { iconCache[packageName] = it }
     }
+
+internal fun clearAppIconCache() {
+    synchronized(iconCache) { iconCache.clear() }
+}

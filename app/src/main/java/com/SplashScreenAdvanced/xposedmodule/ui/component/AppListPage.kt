@@ -84,7 +84,7 @@ import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import dev.lackluster.hyperx.ui.animation.PageMotionTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -144,7 +144,9 @@ fun AppListPage(
     val coroutineScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
 
-    BackHandler(true) {
+    val hasUnsavedChanges = !isLoading && appInfoList.filter { it.isChecked.value }
+        .map { it.packageName }.toSet().notEqualsTo(tmpCheckedList)
+    BackHandler(dev.lackluster.hyperx.ui.animation.LocalPageActive.current && hasUnsavedChanges) {
         val currentCheckedList = appInfoList.filter { it.isChecked.value }.map {
             it.packageName
         }.toSet()

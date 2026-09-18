@@ -21,15 +21,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.ui.animation.PageMotionTargetProbe
-import dev.lackluster.hyperx.ui.animation.pageMotionToolbarTitleColor
+import dev.lackluster.hyperx.ui.animation.PageMotionTopAppBar as TopAppBar
 import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
 import dev.lackluster.hyperx.ui.theme.hyperXScrollEndHaptic
 import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -82,8 +80,6 @@ fun HyperXPage(
         uiConfig.darkBlurAlpha
     }
 
-    val titleColor = pageMotionToolbarTitleColor(title)
-
     HyperXScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { contentPadding ->
@@ -92,8 +88,6 @@ fun HyperXPage(
                 TopAppBar(
                     color = topBarColor,
                     title = title,
-                    titleColor = titleColor,
-                    largeTitleColor = titleColor,
                     scrollBehavior = scrollBehavior,
                     navigationIcon = { navigationIcon() },
                     actions = { actions(this) },
@@ -112,12 +106,6 @@ fun HyperXPage(
                             }
                         }
                     }
-                )
-                PageMotionTargetProbe(
-                    title = title,
-                    titlePadding = barTitlePadding,
-                    fontSize = MiuixTheme.textStyles.title1.fontSize,
-                    color = MiuixTheme.colorScheme.onSurface,
                 )
             }
         },

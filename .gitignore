@@ -8,13 +8,19 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+# Gradle 构建产物（根工程及所有模块）
+build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
 .idea/*
-/.kotlin
+.kotlin/
+
+# 本地日志、临时文件及内存分析转储
+*.log
+*.tmp
+*.hprof
 
 # Python (发布工具链的测试产物)
 __pycache__/

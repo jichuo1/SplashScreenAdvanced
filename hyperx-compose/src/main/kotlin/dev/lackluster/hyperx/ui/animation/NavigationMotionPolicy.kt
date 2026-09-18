@@ -8,6 +8,9 @@ internal enum class NavigationMotionPhase {
 }
 
 internal object NavigationMotionPolicy {
+    fun predictiveExpansion(start: Float, progress: Float): Float =
+        start.coerceIn(0f, 1f) * (1f - progress.coerceIn(0f, 1f))
+
     fun keepInputBlocked(animationBlocked: Boolean, backPressActive: Boolean): Boolean =
         animationBlocked || backPressActive
 

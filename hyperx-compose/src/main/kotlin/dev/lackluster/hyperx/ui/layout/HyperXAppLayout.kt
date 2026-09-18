@@ -1,10 +1,5 @@
 package dev.lackluster.hyperx.ui.layout
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,6 +19,8 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,21 +29,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.rememberDecoratedNavEntries
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import dev.lackluster.hyperx.ui.animation.LocalPageMotion
+import dev.lackluster.hyperx.ui.animation.MotionPageScope
+import dev.lackluster.hyperx.ui.animation.PageMotionController
+import dev.lackluster.hyperx.ui.animation.PageMotionHost
+import dev.lackluster.hyperx.ui.animation.PageMotionEntry
+import dev.lackluster.hyperx.ui.animation.pageMotionInput
+import dev.lackluster.hyperx.ui.animation.rememberPageMotionController
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
 import dev.lackluster.hyperx.R
 import dev.lackluster.hyperx.navigation.HyperXRoute
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.navigation.Navigator
-import dev.lackluster.hyperx.ui.animation.HyperXNavTransitions
-import dev.lackluster.hyperx.ui.animation.LocalPageMotion
-import dev.lackluster.hyperx.ui.animation.PageMotionController
-import dev.lackluster.hyperx.ui.animation.PageMotionHost
-import dev.lackluster.hyperx.ui.animation.rememberPageMotionController
 import dev.lackluster.hyperx.ui.component.AdaptiveIcon
 import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
@@ -60,6 +61,8 @@ fun HyperXAppLayout(
     config: HyperXLayoutConfig = HyperXLayoutConfig(),
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)? = null,
     emptyContent: @Composable () -> Unit = { DefaultEmptyPage() },
+    startBackStack: List<NavKey> = listOf(HyperXRoute.Main),
+    onDestinationChanged: (NavKey?) -> Unit = {},
     primaryContent: @Composable () -> Unit
 ) {
     HyperXTheme(uiStyle = config.uiStyle) {
@@ -71,9 +74,17 @@ fun HyperXAppLayout(
         val isLandscape = windowWidth > windowHeight
         val largeScreen = windowHeight >= 480.dp && windowWidth >= 840.dp
 
-        val backStack = rememberNavBackStack(HyperXRoute.Main)
-        val motion = rememberPageMotionController {
-            if (backStack.size > 1) backStack.removeLastOrNull()
+        val initialKeys = remember {
+            startBackStack.ifEmpty { listOf(HyperXRoute.Main) }.toTypedArray()
+        }
+        val backStack = rememberNavBackStack(*initialKeys)
+        val currentKey = backStack.lastOrNull()
+        val motion = rememberPageMotionController { closingKey ->
+            if (backStack.size > 1 && backStack.last() == closingKey) backStack.removeLastOrNull()
+        }
+        SideEffect {
+            motion.syncBackStack(backStack.toList())
+            onDestinationChanged(currentKey)
         }
         val navigator = remember(backStack, motion) { Navigator(backStack, motion) }
 
@@ -84,29 +95,38 @@ fun HyperXAppLayout(
             else -> AppRootLayout.Normal
         }
 
+        val split = appRootLayout == AppRootLayout.Split11 || appRootLayout == AppRootLayout.Split12
+        val entryProvider = remember<(NavKey) -> NavEntry<NavKey>>(primaryContent, emptyContent, customEntryProvider, split) {
+            { navKey: NavKey ->
+                when (navKey) {
+                    is HyperXRoute.Main -> NavEntry<NavKey>(navKey) { if (split) emptyContent() else primaryContent() }
+                    else -> customEntryProvider?.invoke(navKey) ?: NavEntry(navKey) {}
+                }
+            }
+        }
+        val entries = rememberDecoratedNavEntries(
+            backStack = backStack,
+            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+            entryProvider = entryProvider,
+        ).mapIndexed { index, entry -> PageMotionEntry(backStack[index], entry) }
+
         CompositionLocalProvider(
             LocalNavigator provides navigator,
             LocalHyperXLayoutConfig provides config,
             LocalUiStyle provides config.uiStyle,
-            LocalPageMotion provides motion
+            LocalPageMotion provides motion,
         ) {
-            AnimatedContent(
-                targetState = appRootLayout,
-                label = "HyperXLayoutSwitch",
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
-                }
-            ) { targetLayout ->
+            // A layout-mode change settles the old motion host before measuring the new pane.
+            key(appRootLayout) {
+                val targetLayout = appRootLayout
                 when (targetLayout) {
                     AppRootLayout.Split11, AppRootLayout.Split12 -> {
                         val rightWeight = if (targetLayout == AppRootLayout.Split12) 2.0f else 1.0f
                         UnifiedSplitLayout(
-                            backStack = backStack,
+                            entries = entries,
+                            motion = motion,
                             rightWeight = rightWeight,
                             primaryContent = primaryContent,
-                            emptyContent = emptyContent,
-                            customEntryProvider = customEntryProvider,
-                            motion = motion
                         )
                     }
                     else -> {
@@ -116,11 +136,9 @@ fun HyperXAppLayout(
                             PaddingValues(0.dp)
                         }
                         UnifiedNormalLayout(
-                            backStack = backStack,
+                            entries = entries,
+                            motion = motion,
                             extraPadding = extraPadding,
-                            primaryContent = primaryContent,
-                            customEntryProvider = customEntryProvider,
-                            motion = motion
                         )
                     }
                 }
@@ -132,14 +150,11 @@ fun HyperXAppLayout(
 
 @Composable
 private fun UnifiedNormalLayout(
-    backStack: MutableList<NavKey>,
-    extraPadding: PaddingValues,
-    primaryContent: @Composable () -> Unit,
-    customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)?,
+    entries: List<PageMotionEntry>,
     motion: PageMotionController,
+    extraPadding: PaddingValues,
 ) {
     val layoutDirection = LocalLayoutDirection.current
-    val navigator = LocalNavigator.current
     val systemBarInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     val contentPadding = PaddingValues(
@@ -154,45 +169,18 @@ private fun UnifiedNormalLayout(
         LocalPageMode provides PageLayoutMode.FULL_SCREEN,
         LocalLayoutPadding provides contentPadding
     ) {
-        val holdTransition = remember { HyperXNavTransitions.holdTransitionSpec<NavKey>() }
-        val holdPredictive = remember { HyperXNavTransitions.holdPredictivePopTransitionSpec<NavKey>() }
-        val entryProvider = remember<(NavKey) -> NavEntry<NavKey>>(primaryContent, customEntryProvider) {
-            { key ->
-                when (key) {
-                    is HyperXRoute.Main -> NavEntry(key) { primaryContent() }
-                    else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
-                }
-            }
-        }
-        PageMotionHost(
-            motion = motion,
-            backStackSize = backStack.size,
-            currentKey = backStack.lastOrNull(),
-        ) {
-            NavDisplay(
-                backStack = backStack,
-                onBack = { navigator.pop() },
-                transitionSpec = holdTransition,
-                popTransitionSpec = holdTransition,
-                predictivePopTransitionSpec = holdPredictive,
-                transitionEffects = HyperXNavTransitions.NormalTransitionEffects,
-                entryProvider = entryProvider
-            )
-        }
+        PageMotionHost(motion, entries)
     }
 }
 
 @Composable
 private fun UnifiedSplitLayout(
-    backStack: MutableList<NavKey>,
+    entries: List<PageMotionEntry>,
+    motion: PageMotionController,
     rightWeight: Float,
     primaryContent: @Composable () -> Unit,
-    emptyContent: @Composable () -> Unit,
-    customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)?,
-    motion: PageMotionController,
 ) {
     val layoutDirection = LocalLayoutDirection.current
-    val navigator = LocalNavigator.current
     val systemBarInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     val primaryPadding = PaddingValues(
@@ -209,27 +197,18 @@ private fun UnifiedSplitLayout(
         bottom = systemBarInsets.calculateBottomPadding()
     )
 
-    val holdTransition = remember { HyperXNavTransitions.holdTransitionSpec<NavKey>() }
-    val holdPredictive = remember { HyperXNavTransitions.holdPredictivePopTransitionSpec<NavKey>() }
-    val entryProvider = remember<(NavKey) -> NavEntry<NavKey>>(emptyContent, customEntryProvider) {
-        { key ->
-            when (key) {
-                is HyperXRoute.Main -> NavEntry(key) { emptyContent() }
-                else -> customEntryProvider?.invoke(key) ?: NavEntry(key) {}
-            }
-        }
-    }
     Row(
         modifier = Modifier
             .fillMaxSize()
             .background(MiuixTheme.colorScheme.surface)
     ) {
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).pageMotionInput(motion, active = true)
+            .then(if (motion.inputBlocked) Modifier.clearAndSetSemantics {} else Modifier)) {
             CompositionLocalProvider(
                 LocalPageMode provides PageLayoutMode.SPLIT_PRIMARY,
                 LocalLayoutPadding provides primaryPadding
             ) {
-                primaryContent()
+                MotionPageScope(HyperXRoute.Main, active = true) { primaryContent() }
             }
         }
 
@@ -240,22 +219,7 @@ private fun UnifiedSplitLayout(
             LocalPageMode provides PageLayoutMode.SPLIT_SECONDARY,
             LocalLayoutPadding provides secondaryPadding
         ) {
-            PageMotionHost(
-                motion = motion,
-                backStackSize = backStack.size,
-                currentKey = backStack.lastOrNull(),
-                modifier = Modifier.weight(rightWeight),
-            ) {
-                NavDisplay(
-                    backStack = backStack,
-                    onBack = { navigator.pop() },
-                    transitionSpec = holdTransition,
-                    popTransitionSpec = holdTransition,
-                    predictivePopTransitionSpec = holdPredictive,
-                    transitionEffects = HyperXNavTransitions.SplitTransitionEffects,
-                    entryProvider = entryProvider
-                )
-            }
+            PageMotionHost(motion, entries, Modifier.weight(rightWeight))
         }
     }
 }

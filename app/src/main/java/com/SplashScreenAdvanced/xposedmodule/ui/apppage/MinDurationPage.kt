@@ -95,7 +95,7 @@ import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import dev.lackluster.hyperx.ui.animation.PageMotionTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.VerticalDivider
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -159,7 +159,12 @@ fun MinDurationPage() {
     val coroutineScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
 
-    BackHandler(true) {
+    val hasUnsavedChanges = !isLoading && (
+        appInfoList.filter { it.isChecked.value }.map { it.packageName }.toSet().notEqualsTo(tmpCheckedList) ||
+            appInfoList.filter { it.config.value != null && it.config.value != emptyMapString }
+                .map { "${it.packageName}_${it.config.value}" }.toSet().notEqualsTo(tmpConfigMap.toSet())
+        )
+    BackHandler(dev.lackluster.hyperx.ui.animation.LocalPageActive.current && hasUnsavedChanges) {
         val currentCheckedList = appInfoList.filter { it.isChecked.value }.map {
             it.packageName
         }.toSet()

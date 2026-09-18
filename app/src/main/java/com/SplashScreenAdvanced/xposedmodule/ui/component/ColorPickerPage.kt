@@ -126,7 +126,7 @@ import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TopAppBar
+import dev.lackluster.hyperx.ui.animation.PageMotionTopAppBar as TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -184,6 +184,13 @@ fun ColorPickerPage(pkgName: String) {
         rgbColorState = remember { mutableIntStateOf(defaultColor) },
         hsvColorState = remember { defaultColor.toHSVColorList().toMutableStateList() }
     )
+
+    androidx.activity.compose.BackHandler(
+        dev.lackluster.hyperx.ui.animation.LocalPageActive.current &&
+            appColorConfig.getDefaultBGColor(currentDarkMode.value) != pickedColor.colorInt
+    ) {
+        modifiedDialogVisibility.value = true
+    }
 
     // 显示内容脚手架（模糊由布局内部处理）
     HyperXScaffold(

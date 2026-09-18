@@ -9,7 +9,12 @@ class Navigator(
     private val motion: PageMotionController? = null,
 ) {
     fun push(key: NavKey) {
-        motion?.onNavigateForward(key)
+        if (key == backStack.lastOrNull() || motion?.canPush == false) return
+        if (key in backStack) {
+            popUntil { it == key }
+            return
+        }
+        if (motion?.onNavigateForward(key) == false) return
         backStack.add(key)
     }
 
