@@ -72,9 +72,9 @@ internal class PageMotionFrameBuffer {
 }
 
 internal object PageEnterMotionSpec {
-    const val ENTER_EASING_X1 = 0.4f
-    const val ENTER_EASING_Y1 = 0f
-    const val ENTER_EASING_X2 = 0.2f
+    const val ENTER_EASING_X1 = 0.05f
+    const val ENTER_EASING_Y1 = 0.7f
+    const val ENTER_EASING_X2 = 0.1f
     const val ENTER_EASING_Y2 = 1f
 
     const val CLOSE_EASING_X1 = 0.4f

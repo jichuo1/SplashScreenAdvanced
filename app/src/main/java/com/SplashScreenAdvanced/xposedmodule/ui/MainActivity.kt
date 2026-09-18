@@ -18,6 +18,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
+import com.SplashScreenAdvanced.xposedmodule.fairmemory.FairMemorySessionStore
 import com.SplashScreenAdvanced.xposedmodule.provider.AppPreferenceActions
 import com.SplashScreenAdvanced.xposedmodule.state.GlobalUIViewModel
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.BackgroundExceptPage
@@ -60,6 +61,7 @@ class MainActivity : HyperXActivity() {
         val uiConfig by globalUiVm.configFlow.collectAsState()
 
         val appPreferenceActions: AppPreferenceActions = koinInject()
+        val startBackStack = remember { FairMemorySessionStore.consumeRestoreBackStack(this) }
         val primaryContent = remember<@Composable () -> Unit> { { MainPage() } }
         val emptyContent = remember<@Composable () -> Unit> {
             {
@@ -112,6 +114,8 @@ class MainActivity : HyperXActivity() {
                 primaryContent = primaryContent,
                 emptyContent = emptyContent,
                 customEntryProvider = customEntryProvider,
+                startBackStack = startBackStack,
+                onDestinationChanged = { FairMemorySessionStore.remember(it) },
             )
         }
     }

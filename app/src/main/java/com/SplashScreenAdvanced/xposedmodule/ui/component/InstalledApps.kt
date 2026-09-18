@@ -75,3 +75,8 @@ suspend fun loadInstalledApps(context: Context): List<InstalledApp> {
         }
     }
 }
+
+internal fun clearInstalledAppsCache() {
+    cache = null
+    cachedAt = 0L
+}

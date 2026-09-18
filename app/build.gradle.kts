@@ -192,6 +192,8 @@ dependencies {
     implementation(libs.betterandroid.system.extension)
     implementation(libs.dexkit)
     implementation(libs.androidx.profileinstaller)
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 // getGitHeadRefsSuffix 随 CI flavor 一起移除：它唯一的用途是把 git sha 拼进 CI flavor 的
