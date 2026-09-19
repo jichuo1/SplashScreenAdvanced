@@ -80,6 +80,12 @@
     <string name="icon_enhance_standard">标准</string>
     <string name="icon_enhance_high">高质量</string>
     <string name="icon_enhance_ultra">极致</string>
+    <string name="sr_factory">离线超分工厂</string>
+    <string name="sr_factory_tips">扫描已安装应用的启动遮罩图标并预先处理，之后打开应用直接复用缓存。仅在手动发起时运行。</string>
+    <string name="sr_scan_channel">图标超分工厂</string>
+    <string name="sr_scan_title">正在准备启动遮罩图标</string>
+    <string name="sr_scan_preparing">正在统计应用…</string>
+    <string name="sr_scan_progress">已完成 %1$d / %2$d</string>
     <string name="use_miui_large_icon">使用小米大图标</string>
     <string name="remove_icon_stroke">移除小米图标描边</string>
     <string name="use_icon_pack">使用图标包</string>

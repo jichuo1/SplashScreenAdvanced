@@ -25,6 +25,8 @@ import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
+import com.SplashScreenAdvanced.xposedmodule.utils.sr.IconCacheStore
+import com.SplashScreenAdvanced.xposedmodule.utils.sr.IconScanService
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.navigation.Navigator
@@ -135,6 +137,20 @@ private fun CommonSettingsGroup() {
             DropDownEntry(value = 3, title = stringResource(R.string.icon_enhance_ultra))
         ),
         key = Preferences.Icon.ENHANCE_LEVEL
+    )
+    // 离线超分工厂: 手动触发一次批量预处理, 产物经 ContentProvider 供 SystemUI 侧复用
+    val scanState = remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        scanState.value = withContext(Dispatchers.IO) {
+            val index = IconCacheStore.readIndex(context)
+            val mb = IconCacheStore.totalBytes(context) / 1024f / 1024f
+            "${index.entries.size} 个应用 · ${"%.1f".format(mb)} MB"
+        }
+    }
+    TextPreference(
+        title = stringResource(R.string.sr_factory),
+        summary = stringResource(R.string.sr_factory_tips) + "\n" + scanState.value,
+        onClick = { IconScanService.start(context) }
     )
 
     if (DeviceUtils.isHyperOS) {

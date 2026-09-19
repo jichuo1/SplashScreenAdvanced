@@ -6,6 +6,11 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
 
+    <!-- 离线超分工厂: 批量处理可能持续数十秒, 需要前台服务保证可完成 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-permission
         android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         tools:node="remove" />
@@ -43,6 +48,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+
+        <!--
+            离线超分缓存的只读通道
+
+            必须 exported: 使用方 SystemUI 属于 system_app 域, SELinux 不允许它直接读取本应用
+            私有目录, 只能走 Binder。不加自定义权限是因为"加签名级权限反而让 SystemUI 读不到",
+            而缓存内容本身是应用图标这一公开信息。
+        -->
+        <provider
+            android:name=".utils.sr.IconCacheProvider"
+            android:authorities="com.SplashScreenAdvanced.xposedmodule.iconcache"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <service
+            android:name=".utils.sr.IconScanService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>
