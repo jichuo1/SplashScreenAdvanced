@@ -121,6 +121,21 @@ private fun CommonSettingsGroup() {
         summary = stringResource(R.string.replace_icon_tips),
         key = Preferences.Icon.ENABLE_REPLACE_ICON
     )
+    // 图标画质增强
+    //
+    // 用档位而非开关: DropDownEntry 的下标语义与 Preferences.Icon.ENHANCE_LEVEL 的取值一一对应,
+    // 取值会被 IconEnhanceEngine 直接当作处理强度(档位越高重采样与锐化越强)。
+    DropDownPreference(
+        title = stringResource(R.string.icon_enhance),
+        summary = stringResource(R.string.icon_enhance_tips),
+        entries = listOf(
+            DropDownEntry(value = 0, title = stringResource(R.string.icon_enhance_off)),
+            DropDownEntry(value = 1, title = stringResource(R.string.icon_enhance_standard)),
+            DropDownEntry(value = 2, title = stringResource(R.string.icon_enhance_high)),
+            DropDownEntry(value = 3, title = stringResource(R.string.icon_enhance_ultra))
+        ),
+        key = Preferences.Icon.ENHANCE_LEVEL
+    )
 
     if (DeviceUtils.isHyperOS) {
         // 移除小米图标描边

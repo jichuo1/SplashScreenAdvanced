@@ -36,6 +36,7 @@ import com.SplashScreenAdvanced.xposedmodule.utils.convertToSquareDrawable
 import com.SplashScreenAdvanced.xposedmodule.utils.createShadowedIcon
 import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
 import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
+import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconEnhanceEngine
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
 import com.SplashScreenAdvanced.xposedmodule.wrapper.NoStrokeAdaptiveIconDrawable
@@ -296,6 +297,43 @@ object IconHookHandler : BaseHookHandler() {
         // 强制使图标背景被判断为复杂, 以防止安卓抹去简单的图标背景
         SystemUIHooker.Members.iconColor_constructor.addAfterHook {
             ReflectCache.setField(instance!!, "mIsBgComplex", true)
+        }
+
+        // 图标画质增强: 地基修复 + 位图重采样
+        //
+        // 1) 地基修复 —— 宿主默认把图标栅格化成 starting_surface_default_icon_size(108dp)、再
+        //    放大到 starting_surface_icon_size(160dp) 绘制(1.48x 位图放大), 而高密度设备上
+        //    loadInDetail 恒为 false。强制走目标尺寸分支即可消除这次放大: 矢量图标是无损重渲染,
+        //    位图图标也少一次重采样。
+        // 2) 画质增强 —— 对位图源用 Mitchell + 边缘感知锐化替代系统双线性; 引擎遇到矢量源会返回
+        //    null(交给地基修复), 因此这里无需自行判断类型。
+        //
+        // 开关关闭或参数结构异常时直接放行, 完全不改变宿主行为。
+        SystemUIHooker.Members.immobileIconDrawableConstructor.addBeforeHook({
+            prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0
+        }) {
+            // 构造签名: (Drawable, int srcIconSize, int iconSize, boolean loadInDetail, Handler)
+            if (args.size < 4) return@addBeforeHook
+
+            // 1) 地基修复: 仅当宿主当前选择"按源尺寸栅格化"时改写
+            if (args[3] == false) args(3).set(true)
+
+            // 2) 画质增强: args[2] 是宿主算好的最终绘制尺寸
+            val src = args[0] as? Drawable ?: return@addBeforeHook
+            val targetSize = args[2] as? Int ?: return@addBeforeHook
+            if (targetSize <= 0) return@addBeforeHook
+
+            // 返回 null 时保留原 Drawable, 即只享受地基修复
+            val enhanced = IconEnhanceEngine.enhance(
+                src = src,
+                targetSize = targetSize,
+                cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}",
+            )
+
+            enhanced?.let {
+                args(0).set(it)
+                printLog { "IconEnhanceEngine(): enhanced $currentPackageName @ ${targetSize}px" }
+            }
         }
     }
 
