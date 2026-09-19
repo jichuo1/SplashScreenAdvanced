@@ -30,4 +30,22 @@ object DeviceUtils {
                 runCatching { "com.color.os.ColorBuild".toClass() }.isSuccess ||
                 runCatching { "oplus.R".toClass() }.isSuccess
     }
+
+    /**
+     * 是否为 AfterlifeOS
+     *
+     * 该 ROM 把 AOSP 主线的 splash 改动 backport 进了 Android 14 分支, 是启动遮罩 chooseStyle
+     * 适配需要覆盖的典型对象。判据来自其 vendor_afterlife/config/version.mk 导出的 ro.afterlife.*。
+     *
+     * 当前适配**不**按 ROM 分支 (任何 ROM 上都只在「强制开启启动遮罩」开启时才改写参数, 见
+     * GenerateHookHandler 中 chooseStyle 处的说明), 这里保留一个可判定的 ROM 标识, 供后续需要
+     * 差异化处理时直接使用, 而非在当前流程里做无谓分支。
+     */
+    val isAfterlifeOS: Boolean by lazy {
+        runCatching {
+            val systemProperties = "android.os.SystemProperties".toClass()
+            val get = systemProperties.getMethod("get", String::class.java)
+            !(get.invoke(null, "ro.afterlife.version") as? String).isNullOrEmpty()
+        }.getOrDefault(false)
+    }
 }

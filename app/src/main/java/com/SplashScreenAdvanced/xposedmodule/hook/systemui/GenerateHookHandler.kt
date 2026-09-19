@@ -131,6 +131,27 @@ object GenerateHookHandler : BaseHookHandler() {
             }
         }
 
+        // ---------- ROM 兼容: 强制样式落到最终决策点 ----------
+        // makeSplashScreenContentView 的 suggestType 只是入参, 会被 backport 了新版 splash 代码的
+        // 三方 ROM (如 AfterlifeOS) 按 canUseIcon() 重映射成 SOLID_COLOR; 而 chooseStyle() 写入的
+        // mSuggestType 才是 SplashViewBuilder.build() 唯一的判断依据, 强制必须落在这一层。
+        // 本 Hook 无条件安装, 但只在开关开启时才改写参数, 其余 ROM 行为保持不变。
+        SystemUIHooker.Members.chooseStyle_SplashViewBuilder.addBeforeHook({ true }) {
+            if (!prefs.get(Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN)) return@addBeforeHook
+            if (exceptCurrentApp || currentPackageName.isEmpty()) return@addBeforeHook
+
+            args(0).set(StartingWindowInfo.STARTING_WINDOW_TYPE_SPLASH_SCREEN)
+            printLog { "chooseStyle(): force STARTING_WINDOW_TYPE_SPLASH_SCREEN for $currentPackageName" }
+        }
+
+        // 兜底: canUseIcon() 为 false 时 ROM 会把 SPLASH_SCREEN 降级成 SOLID_COLOR(纯色且不绘制图标)
+        SystemUIHooker.Members.canUseIcon_SplashscreenContentDrawer.addBeforeHook({ true }) {
+            if (!prefs.get(Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN)) return@addBeforeHook
+            if (exceptCurrentApp || currentPackageName.isEmpty()) return@addBeforeHook
+
+            resultTrue()
+        }
+
         // 遮罩最小持续时间, 也是 Hook 结束位置, 清除缓存的应用信息
         SystemUIHooker.Members.removeStartingWindow.addReplaceHook({ true }) {
             if (exceptCurrentApp || !isHooking) callOriginal()

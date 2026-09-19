@@ -116,6 +116,32 @@ object SystemUIHooker {
             startingWindowViewBuilderClass
                 ?.resolve()?.optional()?.firstMethodOrNull { name = "createIconDrawable" }?.self
         }
+        /**
+         * 强制样式落到最终决策点
+         *
+         * 部分三方 ROM (如 AfterlifeOS) 会把 AOSP 主线的 splash 改动 backport 回来: 在其
+         * makeSplashScreenContentView() 中按 canUseIcon() 把 suggestType 重映射为
+         * SOLID_COLOR, 而 SplashViewBuilder.build() 见到 SOLID_COLOR 会把 mFinalIconSize
+         * 直接置 0 —— 于是"强制开启启动遮罩"只剩纯色、拿不到图标。
+         *
+         * chooseStyle() 写入的 mSuggestType 是 build() 唯一的判断依据, 改写它即可绕过上游
+         * 全部重映射。该方法在 AOSP 14 原生同样存在, 所以这里不做 ROM 区分。
+         */
+        val chooseStyle_SplashViewBuilder = HookManager {
+            startingWindowViewBuilderClass
+                ?.resolve()?.optional()?.firstMethodOrNull {
+                    name = "chooseStyle"
+                    parameterCount = 1
+                }?.self
+        }
+        /** 消除 ROM 的 suggestType → splashType 降级分支; AOSP 14 无此方法, 解析为 null 即不安装 */
+        val canUseIcon_SplashscreenContentDrawer = HookManager {
+            splashscreenContentDrawerClass
+                ?.resolve()?.optional()?.firstMethodOrNull {
+                    name = "canUseIcon"
+                    parameterCount = 1
+                }?.self
+        }
         val iconColor_constructor = HookManager {
             val outerName = splashscreenContentDrawerClass?.name
             HostDexLookup.findClass(
