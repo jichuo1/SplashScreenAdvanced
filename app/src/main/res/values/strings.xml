@@ -74,6 +74,12 @@
     <string name="replace_icon">替换图标获取方式</string>
     <string name="add_icon_blur_bg">为缩小的图标添加模糊背景</string>
     <string name="replace_icon_tips">开启此选项后，Splash Screen 的图标可以跟随主题设定。多数主题图标分辨率较低，经过放大后图标会比较模糊。</string>
+    <string name="icon_enhance">图标画质增强</string>
+    <string name="icon_enhance_tips">按最终显示尺寸重新栅格化图标，并对位图图标做高质量重采样，消除系统默认放大造成的模糊与锯齿。档位越高锐化越强，耗时也略有增加。</string>
+    <string name="icon_enhance_off">关闭</string>
+    <string name="icon_enhance_standard">标准</string>
+    <string name="icon_enhance_high">高质量</string>
+    <string name="icon_enhance_ultra">极致</string>
     <string name="use_miui_large_icon">使用小米大图标</string>
     <string name="remove_icon_stroke">移除小米图标描边</string>
     <string name="use_icon_pack">使用图标包</string>

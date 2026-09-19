@@ -39,6 +39,16 @@ object Preferences {
         val ENABLE_ADD_ICON_BLUR_BG = PreferenceKey("enable_add_blur_bg", false)
         val ICON_PACK_PACKAGE_NAME = PreferenceKey("icon_pack_package_name", "None")
         val SHRINK_ICON = PreferenceKey("shrink_icon", 0)
+
+        /**
+         * 图标画质增强档位
+         *
+         * 0 关闭 / 1 标准 / 2 高质量 / 3 极致。
+         *
+         * 一期只实现"地基修复"(强制按最终显示尺寸栅格化), 即 level > 0 时生效; 更高的档位
+         * 在后续版本接入超采样与高质量重采样。档位沿用同一个键, 后续扩展无需数据迁移。
+         */
+        val ENHANCE_LEVEL = PreferenceKey("icon_enhance_level", 1)
     }
 
     /** 背景相关 */

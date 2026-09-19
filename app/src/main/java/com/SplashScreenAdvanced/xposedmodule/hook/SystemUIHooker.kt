@@ -142,6 +142,24 @@ object SystemUIHooker {
                     parameterCount = 1
                 }?.self
         }
+        /**
+         * 图标栅格化尺寸修正的落点
+         *
+         * 宿主把 splash 图标先栅格化成 starting_surface_default_icon_size(108dp)、再放大到
+         * starting_surface_icon_size(160dp) 绘制(1.48x 位图放大), 且高密度设备上 loadInDetail
+         * 恒为 false(SplashscreenContentDrawer$HighResIconProvider 的 currentDpi < DENSITY_XHIGH
+         * 判定) —— 这是图标模糊的直接原因, 好在图标源本身通常够清晰(如 108dp@xxxhdpi = 432px
+         * 对 160dp@420dpi = 420px)。
+         *
+         * 该类是 adaptive / 非 adaptive / 自带 splash icon 三条分支的唯一汇合点, 构造签名为
+         * (Drawable, int srcIconSize, int iconSize, boolean loadInDetail, Handler preDrawHandler)。
+         */
+        val immobileIconDrawableConstructor = HookManager {
+            HostDexLookup.findClass(
+                "com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory\$ImmobileIconDrawable",
+                query = DexHostQueries.immobileIconDrawable,
+            )?.resolve()?.optional()?.firstConstructorOrNull()?.self
+        }
         val iconColor_constructor = HookManager {
             val outerName = splashscreenContentDrawerClass?.name
             HostDexLookup.findClass(

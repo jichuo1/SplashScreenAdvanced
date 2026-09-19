@@ -136,6 +136,23 @@ internal object DexHostQueries {
         }
     }
 
+    /**
+     * 图标栅格化尺寸修正的兜底查询
+     *
+     * 目标是 SplashscreenIconDrawableFactory$ImmobileIconDrawable —— adaptive / 非 adaptive /
+     * 自带 splash icon 三条分支的唯一汇合点。特征方法是私有的 preDrawIcon(Drawable, int);
+     * 这里刻意不加 paramCount 约束: 该方法名在 AOSP 中唯一, 放宽签名可在 ROM 改动参数时仍然命中,
+     * 真正需要的只是"定位到类", 构造解析由调用侧完成。
+     */
+    val immobileIconDrawable: DexKitBridge.() -> ClassData? = {
+        firstClass("com.android.wm.shell.startingsurface") {
+            addMethod { name("preDrawIcon") }
+        } ?: firstClass {
+            addMethod { name("preDrawIcon") }
+            className("IconDrawable", StringMatchType.Contains)
+        }
+    }
+
     fun startingWindowViewBuilder(outerName: String?): DexKitBridge.() -> ClassData? = {
         firstClass("com.android.wm.shell.startingsurface") {
             if (outerName != null) className(outerName + "$", StringMatchType.StartsWith)
