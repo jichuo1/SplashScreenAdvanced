@@ -36,6 +36,7 @@ import com.SplashScreenAdvanced.xposedmodule.utils.convertToSquareDrawable
 import com.SplashScreenAdvanced.xposedmodule.utils.createShadowedIcon
 import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
 import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
+import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconCacheClient
 import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconEnhanceEngine
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
@@ -323,8 +324,11 @@ object IconHookHandler : BaseHookHandler() {
             val targetSize = args[2] as? Int ?: return@addBeforeHook
             if (targetSize <= 0) return@addBeforeHook
 
-            // 返回 null 时保留原 Drawable, 即只享受地基修复
-            val enhanced = IconEnhanceEngine.enhance(
+            // 优先取离线超分缓存(命中时比实时路径更快), 未命中再走实时引擎;
+            // 两者都返回 null 时保留原 Drawable, 即只享受地基修复。
+            val enhanced = appContext?.let { ctx ->
+                IconCacheClient.fetch(ctx, currentPackageName, targetSize)
+            } ?: IconEnhanceEngine.enhance(
                 src = src,
                 targetSize = targetSize,
                 cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}",
