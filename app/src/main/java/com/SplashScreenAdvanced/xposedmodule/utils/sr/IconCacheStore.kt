@@ -50,6 +50,11 @@ internal object IconCacheStore {
         prettyPrint = false
     }
 
+    private val indexLock = Any()
+
+    @Volatile
+    private var indexCache: Index? = null
+
     private fun cacheDir(context: Context): File =
         File(context.filesDir, DIR_NAME).apply { mkdirs() }
 
@@ -57,22 +62,47 @@ internal object IconCacheStore {
 
     fun fileFor(context: Context, name: String): File = File(cacheDir(context), name)
 
-    fun readIndex(context: Context): Index = runCatching {
-        val f = indexFile(context)
-        if (!f.isFile) return@runCatching Index()
-        json.decodeFromString(Index.serializer(), f.readText())
-    }.getOrDefault(Index())
+    /** 缓存目录下的全部文件（供扫描服务清理孤儿文件使用） */
+    fun cacheFiles(context: Context): List<File> =
+        cacheDir(context).listFiles()?.toList() ?: emptyList()
 
-    private fun writeIndex(context: Context, index: Index): Boolean = runCatching {
-        val f = indexFile(context)
-        val tmp = File(f.parentFile, "${f.name}.tmp")
-        tmp.writeText(json.encodeToString(Index.serializer(), index))
-        if (!tmp.renameTo(f)) {
-            tmp.copyTo(f, overwrite = true)
-            tmp.delete()
+    /**
+     * 读取索引
+     *
+     * 进程内缓存是必要的: `IconCacheProvider.openFile` 每次跨进程读取都会走到这里, 而索引有
+     * 上百条、几十 KB —— 反复"读文件 + JSON 解析"会直接压在 SystemUI 的启动路径上。
+     *
+     * 失效策略: [writeIndex] 成功时同步替换缓存, 因此模块进程内不会读到过期数据。SystemUI
+     * 侧不读索引(只拿 FD), 不需要跨进程失效。
+     */
+    fun readIndex(context: Context): Index {
+        indexCache?.let { return it }
+        return synchronized(indexLock) {
+            indexCache?.let { return it }
+            val loaded = runCatching {
+                val f = indexFile(context)
+                if (!f.isFile) Index() else json.decodeFromString(Index.serializer(), f.readText())
+            }.getOrDefault(Index())
+            indexCache = loaded
+            loaded
         }
-        true
-    }.getOrDefault(false)
+    }
+
+    private fun writeIndex(context: Context, index: Index): Boolean {
+        val ok = runCatching {
+            val f = indexFile(context)
+            val tmp = File(f.parentFile, "${f.name}.tmp")
+            tmp.writeText(json.encodeToString(Index.serializer(), index))
+            if (!tmp.renameTo(f)) {
+                tmp.copyTo(f, overwrite = true)
+                tmp.delete()
+            }
+            true
+        }.getOrDefault(false)
+        // 只在落盘成功后替换缓存, 否则内存与磁盘会不一致
+        if (ok) synchronized(indexLock) { indexCache = index }
+        return ok
+    }
 
     /**
      * 写入一条缓存（文件 + 索引）
@@ -105,6 +135,7 @@ internal object IconCacheStore {
             cacheDir(context).listFiles()?.forEach { it.delete() }
             indexFile(context).delete()
         }
+        synchronized(indexLock) { indexCache = Index() }
     }
 
     fun totalBytes(context: Context): Long =
