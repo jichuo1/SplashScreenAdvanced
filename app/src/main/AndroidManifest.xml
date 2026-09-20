@@ -58,7 +58,7 @@
         -->
         <provider
             android:name=".utils.sr.IconCacheProvider"
-            android:authorities="com.SplashScreenAdvanced.xposedmodule.iconcache"
+            android:authorities="${applicationId}.iconcache"
             android:exported="true"
             android:grantUriPermissions="false" />
 

@@ -86,6 +86,7 @@
     <string name="sr_scan_title">正在准备启动遮罩图标</string>
     <string name="sr_scan_preparing">正在统计应用…</string>
     <string name="sr_scan_progress">已完成 %1$d / %2$d</string>
+    <string name="sr_cancel">取消</string>
     <string name="use_miui_large_icon">使用小米大图标</string>
     <string name="remove_icon_stroke">移除小米图标描边</string>
     <string name="use_icon_pack">使用图标包</string>

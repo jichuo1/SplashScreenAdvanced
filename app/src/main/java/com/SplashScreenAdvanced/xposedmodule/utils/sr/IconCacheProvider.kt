@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import java.io.FileNotFoundException
 
 /**
@@ -34,7 +35,14 @@ import java.io.FileNotFoundException
 class IconCacheProvider : ContentProvider() {
 
     companion object {
-        const val AUTHORITY = "com.SplashScreenAdvanced.xposedmodule.iconcache"
+        /**
+         * 与 AndroidManifest 里的 `${applicationId}.iconcache` 必须一致。
+         *
+         * 这里从 [BuildConfig] 推导而不是写字面量: 包名是构建期注入的单一事实来源, 一旦有人
+         * 改了 applicationId, 字面量就会与 Provider 实际注册的 authority 悄悄漂移, 而症状是
+         * "缓存永远未命中"这种极难定位的静默失败。
+         */
+        val AUTHORITY: String = BuildConfig.APPLICATION_ID + ".iconcache"
         private const val PATH_ICON = "icon"
         private const val CODE_ICON = 1
 

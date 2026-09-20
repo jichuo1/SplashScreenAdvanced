@@ -3,6 +3,7 @@ package com.SplashScreenAdvanced.xposedmodule.utils.sr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -24,6 +25,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 离线超分工厂的扫描服务
@@ -44,6 +46,9 @@ class IconScanService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** 是否已有扫描在跑（防重入） */
+    private val running = AtomicBoolean(false)
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -53,10 +58,27 @@ class IconScanService : Service() {
             buildNotification(0, 0, null),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
-        scope.launch {
-            runCatching { runScan() }
+
+        // 取消请求: 收摊即可, onDestroy 会取消扫描协程
+        if (intent?.action == ACTION_CANCEL) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // 防重入: 用户连点入口会多次触发 startForegroundService, 若每个 onStartCommand 都起一轮
+        // 扫描, 多个实例会并发读写同一份索引 —— 索引互相覆盖、缓存文件成倍堆积(实测可达 5 倍以上,
+        // 见 sweepOrphans 的说明)。这里只允许一轮真正执行。
+        if (!running.compareAndSet(false, true)) return START_NOT_STICKY
+
+        scope.launch {
+            try {
+                runScan()
+            } finally {
+                running.set(false)
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
         return START_NOT_STICKY
     }
@@ -127,6 +149,23 @@ class IconScanService : Service() {
         }
 
         notify(buildNotification(scanned, total, null))
+        sweepOrphans()
+    }
+
+    /**
+     * 清理孤儿文件
+     *
+     * 索引里没有记录的缓存文件属于历史残留(旧版本遗留, 或曾经并发写入产生的副本)。放在扫描
+     * **末尾**执行: 此时索引是最新的, 不会误删本轮刚写入的文件; 被中断的扫描不会走到这里,
+     * 因此取消操作也不会误删。
+     */
+    private fun sweepOrphans() {
+        runCatching {
+            val keep = IconCacheStore.readIndex(this).entries.values.mapTo(HashSet()) { it.file }
+            IconCacheStore.cacheFiles(this).forEach { file ->
+                if (file.name !in keep) file.delete()
+            }
+        }
     }
 
     // ---------------------------------------------------------------- 图标加载
@@ -203,8 +242,25 @@ class IconScanService : Service() {
             builder.setContentText(getString(R.string.sr_scan_preparing))
             builder.setProgress(0, 0, true)
         }
+        cancelAction()?.let {
+            builder.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.sr_cancel),
+                it,
+            )
+        }
         return builder.build()
     }
+
+    /** 通知上的"取消"按钮: 拉起 [ACTION_CANCEL], 由 [onStartCommand] 负责收摊 */
+    private fun cancelAction(): PendingIntent? = runCatching {
+        PendingIntent.getService(
+            this,
+            0,
+            Intent(this, IconScanService::class.java).setAction(ACTION_CANCEL),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }.getOrNull()
 
     private fun notify(notification: Notification) {
         runCatching {
@@ -217,6 +273,7 @@ class IconScanService : Service() {
         private const val NOTIFICATION_ID = 0x5301
         private const val NOTIFY_INTERVAL_MS = 200L
         private const val DEFAULT_ICON_DP = 160
+        private const val ACTION_CANCEL = "com.SplashScreenAdvanced.xposedmodule.action.CANCEL_ICON_SCAN"
 
         fun start(context: android.content.Context) {
             runCatching {
