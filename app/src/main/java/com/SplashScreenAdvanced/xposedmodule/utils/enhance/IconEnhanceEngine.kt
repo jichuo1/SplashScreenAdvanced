@@ -2,6 +2,7 @@ package com.SplashScreenAdvanced.xposedmodule.utils.enhance
 
 import android.graphics.Bitmap
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.VectorDrawable
@@ -133,13 +134,16 @@ internal object IconEnhanceEngine {
         var pixels = Resampler.rasterize(src, rasterSize) ?: return null
         pixels = Resampler.premultiply(pixels)
 
-        // 只有确实需要放大时才走 Mitchell; 源已达目标尺寸时保持 1:1, 不做无谓重采样
+        // 只有确实需要放大时才走 Mitchell; 源已达目标尺寸时保持 1:1, 不做无谓重采样。
+        //
+        // 锐化必须与放大绑定, 不能无条件执行: 锐化补偿的是"重采样造成的边缘软化", 源分辨率
+        // 本就达标时再锐化只会让边缘过冲, 在深色背景上表现为一圈亮边(负收益)。
         if (rasterSize < targetSize && SystemClock.uptimeMillis() < deadline) {
             pixels = Resampler.upscaleMitchell(pixels, rasterSize, rasterSize, targetSize, targetSize)
-        }
 
-        if (SystemClock.uptimeMillis() < deadline) {
-            pixels = Resampler.unsharpMask(pixels, targetSize, targetSize, sharpenAmount(lv), SHARPEN_TAU)
+            if (SystemClock.uptimeMillis() < deadline) {
+                pixels = Resampler.unsharpMask(pixels, targetSize, targetSize, sharpenAmount(lv), SHARPEN_TAU)
+            }
         }
 
         pixels = Resampler.unpremultiply(pixels)
@@ -154,10 +158,19 @@ internal object IconEnhanceEngine {
      * 对源本就足够清晰的图标几乎无副作用）。
      */
     private fun isVectorLike(drawable: Drawable): Boolean = when (val d = unwrapForeground(drawable)) {
-        is AdaptiveIconDrawable -> unwrapForeground(d.foreground ?: return false) is VectorDrawable
-        is VectorDrawable -> true
-        else -> false
+        is AdaptiveIconDrawable -> unwrapForeground(d.foreground ?: return false).isVectorDrawable()
+        else -> d.isVectorDrawable()
     }
+
+    /**
+     * 矢量类 Drawable 判定
+     *
+     * `AnimatedVectorDrawable` **并不继承** `VectorDrawable`（它直接继承 Drawable 并实现
+     * Animatable），只判 `VectorDrawable` 会让这类源被当成位图走一遍重采样, 而它本质是矢量,
+     * 本可由地基修复做到无损重渲染。
+     */
+    private fun Drawable.isVectorDrawable(): Boolean =
+        this is VectorDrawable || this is AnimatedVectorDrawable
 
     private fun unwrapForeground(drawable: Drawable): Drawable =
         if (drawable is AdaptiveIconDrawable || drawable is VectorDrawable) drawable
