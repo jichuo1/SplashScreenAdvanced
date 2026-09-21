@@ -120,15 +120,34 @@ internal object IconEnhanceEngine {
     /** 离线固定使用最高档强度 */
     private const val OFFLINE_LEVEL = 3
 
+    /**
+     * AdaptiveIconDrawable 的 view port 缩放
+     *
+     * AOSP 定义为 `DEFAULT_VIEW_PORT_SCALE = 1 / (1 + 2 * EXTRA_INSET_PERCENTAGE)`, 代入
+     * `EXTRA_INSET_PERCENTAGE = 0.25` 得 2/3。用于把 [AdaptiveIconDrawable.getIntrinsicWidth]
+     * 还原成子层的真实像素。
+     */
+    private const val ADAPTIVE_VIEW_PORT_SCALE = 2f / 3f
+
     // ---------------------------------------------------------------- 内部实现
 
     private fun render(src: Drawable, targetSize: Int, lv: Int): Bitmap? {
         val deadline = SystemClock.uptimeMillis() + budgetMs(lv)
 
-        // 以源的原生分辨率为起点: 超出目标的部分没有意义, 还会把噪声一并放大
+        // 以源的原生分辨率为起点: 超出目标的部分没有意义, 还会把噪声一并放大。
+        //
+        // 自适应图标要额外还原一次: AdaptiveIconDrawable.getIntrinsicWidth() 返回的是
+        // "子层最大尺寸 x DEFAULT_VIEW_PORT_SCALE(约 0.667)", 描述的是图标在 launcher 网格里的
+        // 显示尺寸, 而不是前景的实际像素。直接拿它当起点会把起点压到真实资源的 2/3 以下
+        // (例: 432px 的前景被读成 288px), 之后不得不再放大一次, 白白丢掉细节。
         val raw = unwrapForeground(src)
         val intrinsic = maxOf(raw.intrinsicWidth, raw.intrinsicHeight)
-        val rasterSize = (if (intrinsic <= 0) targetSize else min(intrinsic, targetSize))
+        val availablePixels = if (raw is AdaptiveIconDrawable && intrinsic > 0) {
+            (intrinsic / ADAPTIVE_VIEW_PORT_SCALE).toInt()
+        } else {
+            intrinsic
+        }
+        val rasterSize = (if (availablePixels <= 0) targetSize else min(availablePixels, targetSize))
             .coerceAtLeast(1)
 
         var pixels = Resampler.rasterize(src, rasterSize) ?: return null

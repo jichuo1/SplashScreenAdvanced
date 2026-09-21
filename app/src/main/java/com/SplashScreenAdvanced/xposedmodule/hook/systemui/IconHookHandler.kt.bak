@@ -317,57 +317,44 @@ object IconHookHandler : BaseHookHandler() {
 
         // 图标画质增强之一: 地基修复
         //
-        // 宿主默认把图标栅格化成 starting_surface_default_icon_size(108dp)、再放大到
-        // starting_surface_icon_size(160dp) 绘制(1.48x 位图放大), 而高密度设备上 loadInDetail
-        // 恒为 false。强制走"按目标尺寸栅格化"分支即可消除这次放大: 矢量图标是无损重渲染,
-        // 位图图标也少一次重采样。
+        // 1) 地基修复 —— 宿主默认把图标栅格化成 starting_surface_default_icon_size(108dp)、再
+        //    放大到 starting_surface_icon_size(160dp) 绘制(1.48x 位图放大), 而高密度设备上
+        //    loadInDetail 恒为 false。强制走目标尺寸分支即可消除这次放大: 矢量图标是无损重渲染,
+        //    位图图标也少一次重采样。
+        // 2) 画质增强 —— 对位图源用 Mitchell + 边缘感知锐化替代系统双线性; 引擎遇到矢量源会返回
+        //    null(交给地基修复), 因此这里无需自行判断类型。
         //
-        // 这里只改一个布尔入参, 开销为零, 可以安全地留在主线程。
+        // 开关关闭或参数结构异常时直接放行, 完全不改变宿主行为。
         SystemUIHooker.Members.immobileIconDrawableConstructor.addBeforeHook({
             prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0
         }) {
             // 构造签名: (Drawable, int srcIconSize, int iconSize, boolean loadInDetail, Handler)
             if (args.size < 4) return@addBeforeHook
+
+            // 1) 地基修复: 仅当宿主当前选择"按源尺寸栅格化"时改写
             if (args[3] == false) args(3).set(true)
 
-            // 记下这次栅格化的归属, 供后台线程上的 preDrawIcon 取用
-            (args[0] as? Drawable)?.let { pendingEnhanceTargets[it] = currentEnhanceTarget() }
-        }
-
-        // 图标画质增强之二: 位图重采样
-        //
-        // 挂在 preDrawIcon 而不是构造器: 宿主把栅格化 post 到了 preDrawHandler(非主线程), 构造器
-        // 却运行在 makeSplashScreenContentView 的同步区间里 —— 在那里做 12~40ms 的重采样会直接
-        // 推迟启动遮罩的出现。preDrawIcon 既不在主线程, 拿到的 size 也正是最终绘制尺寸。
-        //
-        // 缓存未命中且引擎返回 null 时保留原 Drawable, 即只享受地基修复; 开关关闭时两者都不挂。
-        SystemUIHooker.Members.preDrawIcon_ImmobileIconDrawable.addBeforeHook({
-            prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0
-        }) {
-            // 签名: preDrawIcon(Drawable, int size)
-            if (args.size < 2) return@addBeforeHook
+            // 2) 画质增强: args[2] 是宿主算好的最终绘制尺寸
             val src = args[0] as? Drawable ?: return@addBeforeHook
-            val targetSize = args[1] as? Int ?: return@addBeforeHook
+            val targetSize = args[2] as? Int ?: return@addBeforeHook
             if (targetSize <= 0) return@addBeforeHook
 
-            // 取不到归属说明这次栅格化不是本次启动遮罩产生的, 直接放行
-            val target = pendingEnhanceTargets.remove(src) ?: return@addBeforeHook
-            val pkg = target.substringBefore("|")
-
-            // 优先取离线超分缓存(命中时比实时路径更快), 未命中再走实时引擎
-            val enhanced = appContext?.let { ctx -> IconCacheClient.fetch(ctx, pkg, targetSize) }
-                ?: IconEnhanceEngine.enhance(src = src, targetSize = targetSize, cacheKey = target)
+            // 优先取离线超分缓存(命中时比实时路径更快), 未命中再走实时引擎;
+            // 两者都返回 null 时保留原 Drawable, 即只享受地基修复。
+            val enhanced = appContext?.let { ctx ->
+                IconCacheClient.fetch(ctx, currentPackageName, targetSize)
+            } ?: IconEnhanceEngine.enhance(
+                src = src,
+                targetSize = targetSize,
+                cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}",
+            )
 
             enhanced?.let {
                 args(0).set(it)
-                printLog { "IconEnhanceEngine(): enhanced $pkg @ ${targetSize}px" }
+                printLog { "IconEnhanceEngine(): enhanced $currentPackageName @ ${targetSize}px" }
             }
         }
     }
-
-    /** 本次启动遮罩的归属标识（包名|组件|sourceDir） */
-    private fun currentEnhanceTarget(): String =
-        "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}"
 
     /**
      * 处理图标 Drawable 的方法
