@@ -93,8 +93,12 @@ class IconScanService : Service() {
     private suspend fun runScan() {
         val pm = packageManager
         val target = targetIconSizePx()
-        // 以两倍目标尺寸去请求资源: 资源包里通常有更高密度的一份, 取到后再由引擎收敛
-        val requestDensity = (target * 2).coerceIn(320, 960)
+        // 宿主可能按基准尺寸、也可能按"基准 x 1.2"绘制同一个图标(取决于前景的非透明比例,
+        // 该判定只在运行期做, 离线无法预知), 因此两支都产出才能保证命中
+        val sizes = listOf(target, (target * NO_BACKGROUND_SCALE).toInt()).distinct()
+        val wantedSizes = sizes.toSet()
+        // 以最大目标尺寸的两倍去请求资源: 资源包里通常有更高密度的一份, 取到后再由引擎收敛
+        val requestDensity = ((sizes.maxOrNull() ?: target) * 2).coerceIn(320, 960)
 
         // 用 getInstalledPackages 而非 getInstalledApplications: 版本号(longVersionCode)在
         // PackageInfo 上, 后者需要为每个应用再单独查询一次, 百来个应用就是百来次额外 IPC
@@ -116,27 +120,34 @@ class IconScanService : Service() {
             if (pkg == packageName) continue   // 跳过模块自身
 
             val cached = index.entries[pkg]
+            // 除版本与尺寸外还要确认文件确实存在: 缓存文件可能被系统清理或外部删除, 此时应当
+            // 重建, 而不是让索引指向空文件(只做元数据比对的话这种缺失永远不会自愈)
             val upToDate = cached != null &&
                     cached.versionCode == packageInfo.longVersionCode &&
-                    cached.targetSize == target
+                    cached.variants.map { it.size }.toSet() == wantedSizes &&
+                    cached.allFiles().all { IconCacheStore.fileFor(this, it).isFile }
             if (upToDate) {
                 processed++
             } else {
                 val drawable = loadIcon(pm, app, requestDensity)
-                val bitmap = drawable?.let { IconEnhanceEngine.enhanceOffline(it, target) }
-                val bytes = bitmap?.let { encodeLosslessWebp(it) }
-                bitmap?.recycle()
-                if (bytes != null) {
+                val variants = if (drawable == null) {
+                    emptyList()
+                } else {
+                    sizes.mapNotNull { size -> renderVariant(drawable, pkg, size) }
+                }
+                // 只有全部尺寸都产出成功才更新索引, 否则下次扫描会重做(而不是留下半套变体)
+                if (variants.size == sizes.size) {
                     val entry = IconCacheStore.Entry(
-                        file = IconCacheStore.fileNameFor(pkg, System.currentTimeMillis()),
+                        file = variants.first().file,
                         versionCode = packageInfo.longVersionCode,
-                        targetSize = target,
+                        targetSize = variants.first().size,
                         createdAt = System.currentTimeMillis(),
+                        variants = variants,
                     )
-                    // 先落新文件再删旧文件: 反过来的话 put 失败就把已有缓存也弄丢了
-                    if (IconCacheStore.put(this, pkg, entry, bytes)) {
+                    // 先落文件再更新索引: 反过来的话写文件失败就把已有缓存也弄丢了
+                    if (IconCacheStore.putEntry(this, pkg, entry)) {
                         processed++
-                        cached?.let { IconCacheStore.fileFor(this, it.file).delete() }
+                        cached?.allFiles()?.forEach { IconCacheStore.fileFor(this, it).delete() }
                     }
                 }
             }
@@ -161,7 +172,10 @@ class IconScanService : Service() {
      */
     private fun sweepOrphans() {
         runCatching {
-            val keep = IconCacheStore.readIndex(this).entries.values.mapTo(HashSet()) { it.file }
+            // 必须收集**全部**变体文件: 只收主文件会把其它尺寸的缓存当成孤儿删掉, 使每轮扫描
+            // 都要重建, 永远收敛不了
+            val keep = IconCacheStore.readIndex(this).entries.values
+                .flatMapTo(HashSet()) { it.allFiles() }
             IconCacheStore.cacheFiles(this).forEach { file ->
                 if (file.name !in keep) file.delete()
             }
@@ -202,6 +216,23 @@ class IconScanService : Service() {
             (DEFAULT_ICON_DP * res.displayMetrics.density).toInt()
         }
         return px.coerceIn(64, 1024)
+    }
+
+    /** 渲染并落盘一个尺寸的变体; 任一步失败返回 null, 由调用方决定是否整体放弃该应用 */
+    private fun renderVariant(drawable: Drawable, pkg: String, size: Int): IconCacheStore.Variant? {
+        var bitmap: Bitmap? = null
+        val bytes = runCatching {
+            bitmap = IconEnhanceEngine.enhanceOffline(drawable, size)
+            bitmap?.let { encodeLosslessWebp(it) }
+        }.getOrNull()
+        bitmap?.recycle()
+        if (bytes == null) return null
+        val name = IconCacheStore.fileNameFor(pkg, size, System.currentTimeMillis())
+        return if (IconCacheStore.putFile(this, name, bytes)) {
+            IconCacheStore.Variant(size, name)
+        } else {
+            null
+        }
     }
 
     /** WebP **无损**编码: 有损会引入新伪影, 与提升画质的目标相悖 */
@@ -273,6 +304,16 @@ class IconScanService : Service() {
         private const val NOTIFICATION_ID = 0x5301
         private const val NOTIFY_INTERVAL_MS = 200L
         private const val DEFAULT_ICON_DP = 160
+
+        /**
+         * 宿主在"只画自适应前景"时对图标的放大系数
+         *
+         * 取自 AOSP `splash_icon_no_background_scale_factor`, 源码注释写明了它的来历
+         * ("outer is 108 and inner is 72, so we scale by 192/160"), 即 1.2。
+         * 该资源属于 WMShell, 模块进程读不到, 只能按常量固化; 若将来某 ROM 改了它, 后果只是
+         * 那一支走不到缓存(回退实时路径), 不会出错。
+         */
+        private const val NO_BACKGROUND_SCALE = 1.2f
         private const val ACTION_CANCEL = "com.SplashScreenAdvanced.xposedmodule.action.CANCEL_ICON_SCAN"
 
         fun start(context: android.content.Context) {

@@ -61,10 +61,10 @@ class IconCacheProvider : ContentProvider() {
 
         val entry = IconCacheStore.readIndex(ctx).entries[pkg]
             ?: throw FileNotFoundException("no cache for $pkg")
-        if (requestedSize != null && entry.targetSize != requestedSize) {
-            throw FileNotFoundException("size mismatch for $pkg")
-        }
-        val file = IconCacheStore.fileFor(ctx, entry.file)
+        // 精确命中优先; 没有对应尺寸时容许取更大的一份(缩小绘制比放大清晰), 都不满足才算未命中
+        val fileName = entry.fileFor(requestedSize ?: entry.targetSize)
+            ?: throw FileNotFoundException("size mismatch for $pkg")
+        val file = IconCacheStore.fileFor(ctx, fileName)
         if (!file.isFile) throw FileNotFoundException("cache file missing for $pkg")
 
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)

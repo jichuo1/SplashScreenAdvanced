@@ -160,6 +160,24 @@ object SystemUIHooker {
                 query = DexHostQueries.immobileIconDrawable,
             )?.resolve()?.optional()?.firstConstructorOrNull()?.self
         }
+
+        /**
+         * 图标栅格化的实际执行点
+         *
+         * 宿主在构造 [ImmobileIconDrawable] 时只是 `preDrawHandler.post(() -> preDrawIcon(...))`,
+         * 真正的"把 drawable 画成位图"发生在这里、且**不在主线程**。因此画质增强挂在这里比挂在
+         * 构造器上更合适: 构造器处于 `makeSplashScreenContentView` 的同步区间, 在那做 12~40ms 的
+         * 重采样会直接推迟启动遮罩的出现; 而此刻拿到的 size 也正是最终绘制尺寸。
+         */
+        val preDrawIcon_ImmobileIconDrawable = HookManager {
+            HostDexLookup.findClass(
+                "com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory\$ImmobileIconDrawable",
+                query = DexHostQueries.immobileIconDrawable,
+            )?.resolve()?.optional()?.firstMethodOrNull {
+                name = "preDrawIcon"
+                parameterCount = 2
+            }?.self
+        }
         val iconColor_constructor = HookManager {
             val outerName = splashscreenContentDrawerClass?.name
             HostDexLookup.findClass(
