@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SplashScreen Advanced A</string>
+    <string name="xposed_desc">Personalizar Splash Screen, con libxposed moderno</string>
+
+    <!--主页-->
+    <string name="module_version">Versión del módulo: %s</string>
+    <string name="module_is_active">Módulo activado</string>
+    <string name="module_is_not_active">Módulo no activado</string>
+    <string name="module_is_updated_restart_phone_needed">Módulo actualizado; se requiere recarga o reinicio</string>
+    <string name="no_root">Conceda permiso de root</string>
+
+    <string name="xposed_framework_version">Activado por %1$s API %2$d</string>
+    <string name="main_activity_hint">Asegúrese de que el módulo esté activado antes de cambiar ajustes.\nLos cambios se aplican de inmediato, sin reiniciar.</string>
+
+    <string name="restart_title">Reinicio necesario</string>
+    <string name="restart_message">No es necesario reiniciar si «Marco del sistema» está desmarcado en el ámbito</string>
+    <string name="reboot">Reiniciar dispositivo</string>
+    <string name="restart_system_ui">Reiniciar SystemUI</string>
+    <string name="button_cancel">Cancelar</string>
+    <string name="button_abandonment">Descartar cambios</string>
+    <string name="button_reedit">Volver a editar</string>
+
+    <string name="enable_dev_settings">Opciones de desarrollador activadas</string>
+
+    <string name="basic_settings">Ajustes básicos</string>
+    <string name="custom_scope_settings">Ámbito</string>
+    <string name="icon_settings">Icono</string>
+    <string name="bottom_settings">Inferior</string>
+    <string name="background_settings">Fondo</string>
+    <string name="display_settings">Pantalla</string>
+    <string name="dev_settings">Opciones de desarrollador</string>
+
+
+    <!--Sub Settings-->
+    <string name="make_sure_active">Active el módulo antes de configurar</string>
+    <string name="enable_log">Activar registro</string>
+    <string name="enable_log_tips">El registro se desactiva automáticamente después de 24 horas</string>
+    <string name="hide_icon">Ocultar icono del launcher</string>
+    <string name="blur">Efecto de desenfoque</string>
+    <string name="blur_miuix_only">El desenfoque solo está disponible en el estilo MIUI; Material You usa superficies tonales</string>
+    <string name="ui_style">Estilo de interfaz</string>
+    <string name="ui_style_tips">El estilo MIUI mantiene formas hiperelípticas, escala al presionar y desenfoque superior; Material You sigue los colores del fondo de pantalla con esquinas redondeadas, efecto ripple y desplazamiento del sistema.</string>
+    <string name="ui_style_miuix">MIUI</string>
+    <string name="ui_style_material_you">Material You</string>
+    <string name="app_language">Idioma</string>
+    <string name="language_follow_system">Seguir el sistema</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_es">Español</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fr">Français</string>
+    <string name="split_view">Diseño adaptativo</string>
+    <string name="split_view_tips">En dispositivos de pantalla grande o en horizontal, la app cambia automáticamente a un diseño de dos paneles.</string>
+    <string name="min_duration">Duración mínima de la pantalla de inicio</string>
+    <string name="min_duration_tips">Nota: esto ralentiza el inicio de las apps. No lo configure salvo que sea necesario.</string>
+    <string name="backup_restore_title">Copia de seguridad y restauración</string>
+    <string name="backup">Copia de seguridad de ajustes</string>
+    <string name="restore">Restaurar ajustes</string>
+    <string name="save_failed">Error al guardar</string>
+    <string name="restore_failed">Error al restaurar</string>
+    <string name="restore_successful">Restaurado correctamente</string>
+    <string name="no_browser">No se encontró ninguna app para abrir este enlace</string>
+    <string name="custom_scope">Ámbito personalizado del módulo</string>
+    <string name="custom_scope_message">No olvide configurar la lista de apps ^_^</string>
+    <string name="exception_mode">Modo de exclusión</string>
+    <string name="custom_scope_exception_mode_message">El módulo %s a las apps seleccionadas</string>
+    <string name="will_not">no se aplica</string>
+    <string name="will_only">solo se aplica</string>
+    <string name="exception_mode_message">El ajuste actual se aplica a las siguientes apps %s</string>
+    <string name="not_chosen">no seleccionadas</string>
+    <string name="chosen">seleccionadas</string>
+    <string name="exception_mode_list">Configurar lista de apps</string>
+    <string name="replace_to_empty_splash_screen">Sustituir apps fuera del ámbito por una pantalla de inicio vacía</string>
+    <string name="replace_to_empty_splash_screen_tips">Si no se activa, el módulo no procesa las apps fuera del ámbito.</string>
+    <string name="draw_round_corner">Dibujar esquinas redondeadas del icono</string>
+    <string name="shrink_icon">Reducir icono</string>
+    <string name="not_shrink_icon">No reducir icono</string>
+    <string name="shrink_low_resolution_icon">Reducir solo iconos de baja resolución</string>
+    <string name="shrink_all_icon">Reducir todos los iconos</string>
+    <string name="replace_icon">Cambiar origen del icono</string>
+    <string name="add_icon_blur_bg">Añadir fondo desenfocado al icono reducido</string>
+    <string name="replace_icon_tips">Con esta opción, el icono de Splash Screen puede seguir el tema. La mayoría de los iconos temáticos tienen baja resolución y se ven borrosos al ampliarse.</string>
+    <string name="icon_enhance">Mejora de calidad del icono</string>
+    <string name="icon_enhance_tips">Rasteriza de nuevo los iconos al tamaño de visualización final y remuestrea los iconos de mapa de bits con alta calidad, eliminando el desenfoque y los dientes de sierra del escalado del sistema. Niveles más altos dan más nitidez pero tardan un poco más.</string>
+    <string name="icon_enhance_off">Desactivado</string>
+    <string name="icon_enhance_standard">Estándar</string>
+    <string name="icon_enhance_high">Alta calidad</string>
+    <string name="icon_enhance_ultra">Ultra</string>
+    <string name="sr_factory">Fábrica de superresolución sin conexión</string>
+    <string name="sr_factory_tips">Escanea los iconos de pantalla de inicio de las apps instaladas y los preprocesa; los resultados en caché se reutilizan al abrir la app. Solo se ejecuta al iniciarlo manualmente.</string>
+    <string name="sr_scan_channel">Fábrica de superresolución de iconos</string>
+    <string name="sr_scan_title">Preparando iconos de pantalla de inicio</string>
+    <string name="sr_scan_preparing">Contando apps…</string>
+    <string name="sr_scan_progress">Completado %1$d / %2$d</string>
+    <string name="sr_cancel">Cancelar</string>
+    <string name="icon_cache_stats">%1$d apps · %2$.1f MB</string>
+    <string name="use_miui_large_icon">Usar iconos grandes de Xiaomi</string>
+    <string name="remove_icon_stroke">Quitar trazo del icono de Xiaomi</string>
+    <string name="use_icon_pack">Usar paquete de iconos</string>
+    <string name="icon_pack_is_removed">El paquete de iconos fue eliminado, selecciónelo de nuevo</string>
+    <string name="default_style">Ignorar iconos definidos por las apps</string>
+    <string name="default_style_tips">Con esta opción, las apps seleccionadas se tratan como si no hubieran definido un icono de Splash Screen. También resuelve estos problemas:\n1. Iconos cuadrados al usar temas de terceros.\n2. Iconos cuadrados porque la app no puso el fondo del icono transparente.</string>
+    <string name="hide_splash_screen_icon">No mostrar icono</string>
+    <string name="default_style_list">Configurar lista de apps</string>
+    <string name="remove_branding_image">Quitar imagen inferior</string>
+    <string name="remove_branding_image_tips">Con esta opción, se quita la imagen de marca (Branding Image) inferior del Splash Screen en las apps de la lista</string>
+    <string name="remove_branding_image_list">Configurar lista de eliminación</string>
+    <string name="change_bg_color">Sustituir color de fondo</string>
+    <string name="not_change_bg_color">No sustituir color de fondo</string>
+    <string name="from_icon">Desde el icono</string>
+    <string name="from_monet">Monet</string>
+    <string name="from_custom">Color personalizado</string>
+    <string name="color_mode">Modo de color</string>
+    <string name="color_mode_tips">Al elegir «Seguir el sistema», active también «Ignorar modo oscuro de MIUI» más abajo.</string>
+    <string name="light_color">Claro</string>
+    <string name="dark_color">Oscuro</string>
+    <string name="follow_system">Seguir el sistema</string>
+    <string name="set_custom_bg_color">Color de fondo personalizado</string>
+    <string name="skip_app_with_bg_color">Omitir apps que ya definieron color de fondo</string>
+    <string name="change_bg_color_list">Configurar lista de exclusión</string>
+    <string name="configure_bg_colors_individually">Configurar color de fondo por app</string>
+    <string name="ignore_dark_mode">Ignorar modo oscuro forzado de MIUI</string>
+    <string name="ignore_dark_mode_tips">En modo oscuro, MIUI sustituye forzosamente el fondo del splash screen por un color fijo. Active esta opción para quitar esa limitación.</string>
+    <string name="remove_bg_drawable">Quitar fondo de captura de pantalla</string>
+    <string name="remove_bg_drawable_tips">Si el fondo del Splash Screen es una captura dentro de la app, active esta opción para quitarlo.</string>
+    <string name="force_show_splash_screen">Forzar pantalla de inicio</string>
+    <string name="force_show_splash_screen_tips">Si algunas apps no muestran Splash Screen, active esta opción y añádalas a la lista.\nNota: requiere marcar «Marco del sistema» en el ámbito del gestor de LSPosed y reiniciar el dispositivo.</string>
+    <string name="force_show_splash_screen_list">Configurar lista de apps</string>
+    <string name="reduce_splash_screen">Reducir pantallas de inicio innecesarias</string>
+    <string name="reduce_splash_screen_tips">Reduce las pantallas de inicio mostradas al entrar en subprocesos de apps por culpa de la lista «Forzar pantalla de inicio», p. ej. mini videos de WeChat, mini programas de Alipay.</string>
+    <string name="force_enable_splash_screen">Forzar activación de pantalla de inicio</string>
+    <string name="force_enable_splash_screen_tips">Si el módulo aparece activado pero no funciona, pruebe esta opción.\nSi el módulo funciona con normalidad, «no» la active.\nPosibles efectos:\n1. La pantalla de inicio puede aparecer donde no es necesaria.\n2. Las imágenes de fondo definidas por la app pueden no mostrarse.</string>
+    <string name="hot_start_compatible">Aplicar pantalla de inicio a arranques en caliente</string>
+    <string name="hot_start_compatible_tips">Debe usarse junto con «Forzar activación de pantalla de inicio». Nota: requiere marcar «Marco del sistema» en el ámbito del gestor de LSPosed y reiniciar el dispositivo.</string>
+    <string name="disable_splash_screen">Desactivar Splash Screen por completo</string>
+    <string name="disable_splash_screen_tips">Con esta opción, los demás ajustes del módulo quedan inútiles, así que no hace falta marcar «SystemUI» en el ámbito. Nota: requiere marcar «Marco del sistema» en el ámbito del gestor de LSPosed y reiniciar el dispositivo.</string>
+
+    <!--应用配置界面-->
+    <string name="custom_scope_title">Lista de ámbito</string>
+    <string name="default_style_title">Lista de iconos ignorados</string>
+    <string name="background_except_title">Lista de exclusión</string>
+    <string name="background_image_title">Lista de eliminación</string>
+    <string name="force_show_splash_screen_title">Lista de apps</string>
+    <string name="min_duration_title">Duración mínima</string>
+    <string name="hide_splash_screen_icon_title">Ocultar icono</string>
+    <string name="select_system_apps">Seleccionar apps del sistema</string>
+    <string name="clear_selected_apps">Limpiar apps seleccionadas</string>
+    <string name="save_successful">Guardado</string>
+    <string name="search_hint">Buscar por nombre de app o paquete</string>
+    <string name="save_hint">Pulse el botón guardar para aplicar; los cambios son inmediatos.</string>
+    <string name="min_duration_sub_setting_hint">Toque la parte izquierda para definir la duración y la casilla para activarla.\nPulse el botón guardar para aplicar; los cambios son inmediatos.</string>
+    <string name="custom_bg_color_sub_setting_hint">No cambie de modo de color antes de guardar o perderá la configuración.\nPulse el botón guardar para aplicar; los cambios son inmediatos.</string>
+    <string name="loading">Cargando…</string>
+    <string name="save">Guardar</string>
+    <string name="not_saved_title">Cambios sin guardar</string>
+    <string name="not_saved_hint">Sus cambios aún no se han guardado. ¿Descartarlos?</string>
+    <string name="set_default_min_duration">Duración mínima predeterminada</string>
+    <string name="min_duration_separate_configuration">Configurar duración mínima por app</string>
+    <string name="set_min_duration">Definir duración mínima de la pantalla de inicio</string>
+    <string name="not_set_min_duration">Sin definir</string>
+    <string name="set_min_duration_unit">Unidad: ms, rango: 0–2000</string>
+
+    <!--颜色配置界面-->
+    <string name="please_select">Mantenga pulsado el icono para tomar un color, o elija abajo:</string>
+    <string name="manual_input">Entrada manual</string>
+    <string name="manual_input_hint">Introduzca un código de color hexadecimal</string>
+    <string name="color_input_invalid">Introduzca un código de color válido</string>
+    <string name="rgb_color_space">Espacio de color RGB</string>
+    <string name="hsv_color_space">Espacio de color HSV</string>
+    <string name="rgb_r">R</string>
+    <string name="rgb_g">G</string>
+    <string name="rgb_b">B</string>
+    <string name="hue">Tono</string>
+    <string name="saturation">Saturación</string>
+    <string name="value">Luminosidad</string>
+    <string name="undo_modification">Deshacer este cambio</string>
+    <string name="reset">Restaurar predeterminado</string>
+    <string name="target_color_mode">Modo de destino del color</string>
+    <string name="target_color_mode_tips">Elija a qué modo se aplica el color configurado; claro y oscuro se configuran por separado.</string>
+    <string name="target_color_mode_light">Modo claro</string>
+    <string name="target_color_mode_dark">Modo oscuro</string>
+
+    <!--关于页面-->
+    <string name="version">v%s</string>
+    <string name="thanks_to">Gracias a %s</string>
+    <string name="about">Acerca de</string>
+    <string name="open_source_repo">Repositorio de código abierto</string>
+    <string name="upstream_project">Proyecto original</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
+    <string name="open_source_license">Licencias de código abierto</string>
+
+    <!--开发者选项-->
+    <string name="dev_icon_round_corner_rate">Tasa de esquina redondeada del icono</string>
+    <string name="sr_scan_notification_denied">Permiso de notificación denegado: el escaneo continuará sin mostrar el progreso</string>
+    <string name="icon_enhance_gpu">Aceleración por hardware</string>
+    <string name="icon_enhance_gpu_tips">Mejora de iconos acelerada por GPU: remuestreo AGSL y superresolución con ncnn/Vulkan en la fábrica sin conexión; vuelve a la CPU automáticamente</string>
+</resources>

@@ -34,3 +34,7 @@
 
 # DexKit JNI / query models are used from SystemUI and system_server
 -keep class org.luckypray.dexkit.** { *; }
+
+# ncnn JNI bridge: native symbol names encode the fully-qualified class name,
+# renaming NcnnSr or its external methods would break JNI binding silently
+-keep class com.SplashScreenAdvanced.xposedmodule.utils.sr.NcnnSr { *; }

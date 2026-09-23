@@ -2,18 +2,14 @@
 
 package com.SplashScreenAdvanced.xposedmodule.utils
 
-import android.content.Context
-import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Path
+import android.graphics.ColorFilter
+import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.createBitmap
-import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.palette.graphics.Palette
 
@@ -105,71 +101,45 @@ fun Drawable.drawableDominantColor(isLight: Boolean, sampleSize: Int = PALETTE_M
 }
 
 /**
- * 缩小图标, 以避免后续使用 setRenderEffect 模糊图标时出现毛边问题
+ * 将给定的 Drawable 包装为居中方形 Drawable，**不做栅格化**
  *
- * @receiver 需要创建阴影的 Drawable
- * @param context 上下文，用于获取资源
- * @param oriIconSize 原始图标大小
- * @param blurIconSize 待模糊图标大小
- * @param cornerRadius 模糊图标圆角大小
- * @return 待模糊图标 Drawable
- */
-fun Drawable.createShadowedIcon(
-    context: Context,
-    oriIconSize: Int,
-    blurIconSize: Int,
-    cornerRadius: Float
-): Drawable {
-    val originalSize = intrinsicWidth
-    val ratio = (oriIconSize.toDouble() / originalSize).coerceAtMost(1.0).toFloat()
-    val scaledSize = (originalSize * ratio).toInt()
-    val shadowSize = blurIconSize / 4
-    val shadowBitmap = createBitmap(scaledSize + shadowSize, scaledSize + shadowSize)
-    val canvas = Canvas(shadowBitmap)
-    val offset = (shadowSize / 2).toFloat()
-
-    val checkpoint = canvas.saveLayerAlpha(0f, 0f, shadowBitmap.width.toFloat(), shadowBitmap.height.toFloat(), 90)
-    canvas.translate(offset, offset)
-    canvas.clipPath(
-        Path().apply {
-            addRoundRect(
-                RectF(0f, 0f, scaledSize.toFloat(), scaledSize.toFloat()),
-                cornerRadius, cornerRadius, Path.Direction.CW
-            )
-        }
-    )
-    val originalBounds = Rect(bounds)
-    setBounds(0, 0, scaledSize, scaledSize)
-    draw(canvas)
-    bounds = originalBounds
-    canvas.restoreToCount(checkpoint)
-
-    return shadowBitmap.toDrawable(context.resources)
-}
-
-/**
- * 将给定的 Drawable 转换为一个新的正方形 Drawable，其空白区域用透明色填充。
+ * 旧实现会先栅格化源、再画进一张 `max(w,h)` 的方形位图 —— 每次调用付一次位图分配
+ * + 软件 Canvas 绘制。包装实现零分配零拷贝: 源由宿主最终的栅格化统一绘制。
  *
- * @receiver 需要转换的 Drawable
- * @param resources 应用程序的资源，用于将 Bitmap 转换回 Drawable。
- * @return 返回一个新的正方形 Drawable，其空白区域用透明色填充。
+ * @receiver 需要转换的 Drawable（一般是 MIUI 大图标的 1x2/2x1 规格）
+ * @return 方形 Drawable；源本身已是方形或尺寸非法时原样返回
  */
-fun Drawable.convertToSquareDrawable(resources: Resources): Drawable {
-    val originalBitmap = if (this is BitmapDrawable) {
-        bitmap
-    } else {
-        createBitmap(intrinsicWidth, intrinsicHeight).also { bitmap ->
-            val canvas = Canvas(bitmap)
-            setBounds(0, 0, canvas.width, canvas.height)
-            draw(canvas)
+fun Drawable.convertToSquareDrawable(): Drawable {
+    val src = this
+    val w = src.intrinsicWidth
+    val h = src.intrinsicHeight
+    if (w <= 0 || h <= 0 || w == h) return src
+    val side = maxOf(w, h)
+
+    return object : Drawable() {
+        override fun draw(canvas: Canvas) = src.draw(canvas)
+
+        override fun onBoundsChange(b: Rect) {
+            super.onBoundsChange(b)
+            // 与旧位图实现一致: 方形区域边长取 max(w,h), 源按原始比例居中
+            val cw = w * b.width() / side
+            val ch = h * b.height() / side
+            val l = b.left + (b.width() - cw) / 2
+            val t = b.top + (b.height() - ch) / 2
+            src.setBounds(l, t, l + cw, t + ch)
         }
+
+        override fun getIntrinsicWidth() = side
+        override fun getIntrinsicHeight() = side
+        override fun setAlpha(alpha: Int) {
+            src.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: ColorFilter?) {
+            src.colorFilter = colorFilter
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity() = PixelFormat.TRANSLUCENT
     }
-
-    val size = maxOf(originalBitmap.width, originalBitmap.height)
-    val squareBitmap = createBitmap(size, size)
-    val canvas = Canvas(squareBitmap)
-    val x = (size - originalBitmap.width) / 2
-    val y = (size - originalBitmap.height) / 2
-    canvas.drawBitmap(originalBitmap, x.toFloat(), y.toFloat(), null)
-    return squareBitmap.toDrawable(resources)
 }

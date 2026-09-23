@@ -59,10 +59,15 @@ object HookExt {
 
     /**
      * 加载 HookHandler
+     *
+     * 逐个隔离执行: 单个 handler 注册期抛异常时 (如宿主成员缺失导致 NPE), 后续 handler
+     * 与 Members 安装循环仍要继续。若在此整体抛出, isHooked 已置位、attachHook 已自摘除,
+     * 缺失的功能在本进程生命周期内将永远无法装上
      */
     fun loadHookHandler(vararg hookHandler: BaseHookHandler) {
         hookHandler.forEach {
-            it.onHook()
+            runCatching { it.onHook() }
+                .onFailure { e -> XMLog.e(e) }
         }
     }
 

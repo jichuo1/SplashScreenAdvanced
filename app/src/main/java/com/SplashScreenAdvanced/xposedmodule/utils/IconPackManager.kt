@@ -24,75 +24,88 @@ import java.util.Locale
  */
 class IconPackManager(private val mContext: Context, private val packageName: String? = null) {
 
+    /**
+     * "已尝试过加载" 标记 (volatile: 是 [mPackagesDrawables]/[iconPackRes] 的发布屏障,
+     * 读到 true 的线程保证能看到 load() 内完成的全部写入)
+     *
+     * 无论成败都在 [load] 末尾置位: 图标包被卸载时 getResourcesForApplication 抛
+     * NameNotFoundException, 若失败不置位, 每次应用启动都会在关键路径上重跑 binder 查询
+     */
+    @Volatile
     private var mLoaded = false
     private val mPackagesDrawables = HashMap<String?, String?>()
     private var iconPackRes: Resources? = null
 
     @SuppressLint("DiscouragedApi")
     private fun load() {
-        // 先置位再加载: 这是"已尝试加载", 不是"加载成功"。
-        // 原先只在成功路径末尾置 true, 图标包被卸载时 getResourcesForApplication 抛
-        // NameNotFoundException, mLoaded 永远是 false —— 于是每次应用启动都会在启动关键路径上
-        // 重跑一次 binder 查询并再抛一次异常。失败同样需要被缓存
-        mLoaded = true
+        // 后台预热线程与启动遮罩路径可能并发进入, 必须互斥:
+        // HashMap 写时不允许并发读 (扩容期间并发读可能死循环/丢条目)
+        synchronized(this) {
+            if (mLoaded) return
 
-        // load appfilter.xml from the icon pack package
-        val pm = mContext.packageManager
-        // 解析完必须释放: XmlResourceParser 与 assets 流都持有原生资源,
-        // 而本类在常驻的 SystemUI 进程里使用, 漏掉就是一直挂着
-        var parser: XmlResourceParser? = null
-        var appFilterStream: InputStream? = null
-        try {
-            val xpp: XmlPullParser?
-            val res = pm.getResourcesForApplication(packageName!!)
-            iconPackRes = res
-            val appFilterID = res.getIdentifier("appfilter", "xml", packageName)
-            if (appFilterID > 0) {
-                parser = res.getXml(appFilterID)
-                xpp = parser
-            } else {
-                // no resource found, try to open it from assests folder
-                xpp = try {
-                    appFilterStream = res.assets.open("appfilter.xml")
-                    val factory = XmlPullParserFactory.newInstance()
-                    factory.isNamespaceAware = true
-                    factory.newPullParser().apply { setInput(appFilterStream, "utf-8") }
-                } catch (_: IOException) {
-                    //XMLog.d { "No appfilter.xml file" }
-                    null
-                }
-            }
-            if (xpp != null) {
-                var eventType = xpp.eventType
-                while (eventType != XmlPullParser.END_DOCUMENT) {
-                    if (eventType == XmlPullParser.START_TAG) {
-                        if (xpp.name == "item") {
-                            var componentName: String? = null
-                            var drawableName: String? = null
-                            for (i in 0 until xpp.attributeCount) {
-                                if (xpp.getAttributeName(i) == "component") {
-                                    componentName = xpp.getAttributeValue(i)
-                                } else if (xpp.getAttributeName(i) == "drawable") {
-                                    drawableName = xpp.getAttributeValue(i)
-                                }
-                            }
-                            if (!mPackagesDrawables.containsKey(componentName)) {
-                                mPackagesDrawables[componentName] = drawableName
-                            }
+            // load appfilter.xml from the icon pack package
+            val pm = mContext.packageManager
+            try {
+                // 解析完必须释放: XmlResourceParser 与 assets 流都持有原生资源,
+                // 而本类在常驻的 SystemUI 进程里使用, 漏掉就是一直挂着
+                var parser: XmlResourceParser? = null
+                var appFilterStream: InputStream? = null
+                try {
+                    val xpp: XmlPullParser?
+                    val res = pm.getResourcesForApplication(packageName!!)
+                    iconPackRes = res
+                    val appFilterID = res.getIdentifier("appfilter", "xml", packageName)
+                    if (appFilterID > 0) {
+                        parser = res.getXml(appFilterID)
+                        xpp = parser
+                    } else {
+                        // no resource found, try to open it from assests folder
+                        xpp = try {
+                            appFilterStream = res.assets.open("appfilter.xml")
+                            val factory = XmlPullParserFactory.newInstance()
+                            factory.isNamespaceAware = true
+                            factory.newPullParser().apply { setInput(appFilterStream, "utf-8") }
+                        } catch (_: IOException) {
+                            //XMLog.d { "No appfilter.xml file" }
+                            null
                         }
                     }
-                    eventType = xpp.next()
+                    if (xpp != null) {
+                        var eventType = xpp.eventType
+                        while (eventType != XmlPullParser.END_DOCUMENT) {
+                            if (eventType == XmlPullParser.START_TAG) {
+                                if (xpp.name == "item") {
+                                    var componentName: String? = null
+                                    var drawableName: String? = null
+                                    for (i in 0 until xpp.attributeCount) {
+                                        if (xpp.getAttributeName(i) == "component") {
+                                            componentName = xpp.getAttributeValue(i)
+                                        } else if (xpp.getAttributeName(i) == "drawable") {
+                                            drawableName = xpp.getAttributeValue(i)
+                                        }
+                                    }
+                                    if (!mPackagesDrawables.containsKey(componentName)) {
+                                        mPackagesDrawables[componentName] = drawableName
+                                    }
+                                }
+                            }
+                            eventType = xpp.next()
+                        }
+                    }
+                } catch (_: PackageManager.NameNotFoundException) {
+                    //XMLog.d { "Cannot load icon pack" }
+                } catch (_: XmlPullParserException) {
+                    //XMLog.d { "Cannot parse icon pack appfilter.xml" }
+                } catch (e: IOException) {
+                    e.printStackTrace()
+                } finally {
+                    runCatching { parser?.close() }
+                    runCatching { appFilterStream?.close() }
                 }
+            } finally {
+                // 无论成败都置位(见字段注释); 置位在所有写入之后, 保证 volatile 发布语义
+                mLoaded = true
             }
-        } catch (_: PackageManager.NameNotFoundException) {
-            //XMLog.d { "Cannot load icon pack" }
-        } catch (_: XmlPullParserException) {
-            //XMLog.d { "Cannot parse icon pack appfilter.xml" }
-        } catch (e: IOException) {
-            e.printStackTrace()
-        } finally {
-            runCatching { parser?.close() }
-            runCatching { appFilterStream?.close() }
         }
     }
 

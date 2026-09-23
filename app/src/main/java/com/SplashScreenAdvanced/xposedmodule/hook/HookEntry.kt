@@ -6,6 +6,7 @@ import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import io.github.libxposed.api.XposedInterface
@@ -32,9 +33,18 @@ class HookEntry : XposedModule() {
         this.processName = processName
         this.isSystemServer = isSystemServer
         XMLog.init(this)
-        RemotePreferences.init(this)
+        runCatching { RemotePreferences.init(this) }
+            .onFailure { XMLog.e(it) }
         Preferences.Log.ENABLE_LOG.observe { XMLog.isDebugEnabled = it }
         Preferences.Log.ENABLE_LOG_TIMESTAMP.observe { XMLog.debugEnabledAtMillis = it }
+        // 非门控初始化日志：无论 enable_log 与否都会写入模块日志，用于确认各进程注入状态与远端偏好可读性
+        val prefSummary = runCatching {
+            "force_enable=${Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get()}, " +
+                    "force_show=${Preferences.Display.FORCE_SHOW_SPLASH_SCREEN.get()}, " +
+                    "force_show_list=${Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST.get().size}, " +
+                    "custom_scope=${Preferences.Scope.ENABLE_CUSTOM_SCOPE.get()}"
+        }.getOrElse { "unreadable: ${it.javaClass.simpleName}" }
+        XMLog.i { "[Init] loaded in $processName (systemServer=$isSystemServer); $prefSummary" }
     }
 
     override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {

@@ -39,13 +39,16 @@ fun Context.toast(@StringRes stringID: Int, duration: Int = Toast.LENGTH_SHORT) 
  * 原实现只关了 stdin 就返回: [Process] 从不 waitFor / destroy, 留下僵尸进程和三个未回收的
  * 管道 fd; stdout / stderr 也不排空, su 输出稍多就会把子进程堵死。
  *
+ * 注意必须单流排空: stderr 合并进 stdout 后一次读完。若分流顺序读取, 子进程 stderr 写满
+ * 管道缓冲会阻塞在写 stderr, 而父进程阻塞在读 stdout —— 双向死锁
+ *
  * @param command Shell 命令
  * @return 退出码; 取不到 (如没有 su) 返回 null
  */
 fun execShell(command: String): Int? {
     var process: Process? = null
     return try {
-        process = Runtime.getRuntime().exec("su")
+        process = ProcessBuilder("su").redirectErrorStream(true).start()
         DataOutputStream(process.outputStream).use { out ->
             // 补上换行与 exit: 部分 su 实现要读到换行才会执行该行
             out.writeBytes("$command\n")
@@ -54,7 +57,6 @@ fun execShell(command: String): Int? {
         }
         // 排空输出, 避免管道缓冲区写满后子进程阻塞
         process.inputStream.use { it.readBytes() }
-        process.errorStream.use { it.readBytes() }
         process.waitFor()
     } catch (t: Throwable) {
         t.printStackTrace()

@@ -92,6 +92,8 @@ class IconScanService : Service() {
 
     private suspend fun runScan() {
         val pm = packageManager
+        // NN 后端在扫描线程上初始化一次; 失败不阻断 —— 引擎会落到 AGSL/CPU 重采样管线
+        runCatching { NcnnSr.init(this) }
         val target = targetIconSizePx()
         // 宿主可能按基准尺寸、也可能按"基准 x 1.2"绘制同一个图标(取决于前景的非透明比例,
         // 该判定只在运行期做, 离线无法预知), 因此两支都产出才能保证命中

@@ -17,7 +17,12 @@ import java.lang.reflect.Method
 class HookManager(private val createCondition: Boolean = true, block: () -> Executable?) {
 
     companion object {
-        /** 默认不执行 Hook；获取到包名后会被替换为「仅作用域内应用才执行」*/
+        /**
+         * 默认不执行 Hook；获取到包名后会被替换为「仅作用域内应用才执行」
+         *
+         * 注意 add*Hook 的默认值是 `{ defaultExecCondition() }` —— 调用时才读这个 var,
+         * 因此替换它的时机只需早于任何一次 hook 触发, 与 handler 注册顺序无关
+         */
         var defaultExecCondition: (() -> Boolean) = { false }
     }
 
@@ -54,19 +59,19 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
     /** 若 member 是方法，返回其返回类型，否则 null */
     val returnType get() = (member as? Method)?.returnType
 
-    fun addBeforeHook(execCondition: (() -> Boolean) = defaultExecCondition, block: HookParam.() -> Unit): HookManager {
+    fun addBeforeHook(execCondition: (() -> Boolean) = { defaultExecCondition() }, block: HookParam.() -> Unit): HookManager {
         beforeHooks += { if (execCondition()) block() }
         return this
     }
 
-    fun addAfterHook(execCondition: (() -> Boolean) = defaultExecCondition, block: HookParam.() -> Unit): HookManager {
+    fun addAfterHook(execCondition: (() -> Boolean) = { defaultExecCondition() }, block: HookParam.() -> Unit): HookManager {
         afterHooks += { if (execCondition()) block() }
         return this
     }
 
     /** ReplaceHook 只能存在一个，后加的覆盖先加的；条件不满足时调用原方法 */
     fun addReplaceHook(
-        execCondition: (() -> Boolean) = defaultExecCondition,
+        execCondition: (() -> Boolean) = { defaultExecCondition() },
         block: HookParam.() -> Any?
     ): HookManager {
         replaceHook = { if (execCondition()) block() else callOriginal() }

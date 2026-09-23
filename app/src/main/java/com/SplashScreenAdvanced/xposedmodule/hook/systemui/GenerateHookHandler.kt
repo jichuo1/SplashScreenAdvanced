@@ -68,6 +68,9 @@ object GenerateHookHandler : BaseHookHandler() {
 
     private const val HOOKING_TIMEOUT_MS = 60_000L
 
+    /** 首次触发 `makeSplashScreenContentView` 时落一条非门控日志，用于区分「Hook 未安装」与「安装了但宿主从未调用」 */
+    private val firstContentViewLogged = java.util.concurrent.atomic.AtomicBoolean(false)
+
     /** 延迟调用 removeStartingWindow 原方法 */
     private val delayScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -92,6 +95,9 @@ object GenerateHookHandler : BaseHookHandler() {
 
         // Hook 起始位置, 获取应用信息
         SystemUIHooker.Members.makeSplashScreenContentView.addBeforeHook({ true }) {
+            if (firstContentViewLogged.compareAndSet(false, true)) {
+                XMLog.i { "****** makeSplashScreenContentView(): first invocation" }
+            }
             var activityInfo: ActivityInfo?
 
             if (args[1]!! is ActivityInfo)

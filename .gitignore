@@ -17,9 +17,10 @@ local.properties
 .idea/*
 .kotlin/
 
-# 本地日志、临时文件及内存分析转储
+# 本地日志、临时文件、编辑器备份及内存分析转储
 *.log
 *.tmp
+*.bak
 *.hprof
 
 # Python (发布工具链的测试产物)
@@ -32,3 +33,8 @@ __pycache__/
 *.keystore
 *.cer
 keystore-base64.txt
+
+# 本地下载的 NDK 工具链(仅编译用, 不入库); 编译产物 libsrncnn.so 与 vendored libncnn.so
+# 仍在 app/src/main/jniLibs/ 下正常跟踪
+third_party/android-ndk-r27d.zip
+third_party/android-ndk-r27d/

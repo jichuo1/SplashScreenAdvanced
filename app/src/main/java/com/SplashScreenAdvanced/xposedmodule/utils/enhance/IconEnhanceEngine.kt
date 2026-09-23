@@ -8,8 +8,10 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.VectorDrawable
 import android.os.SystemClock
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
+import com.SplashScreenAdvanced.xposedmodule.utils.sr.NcnnSr
 import kotlin.math.min
 
 /**
@@ -114,7 +116,7 @@ internal object IconEnhanceEngine {
      */
     fun enhanceOffline(drawable: Drawable, targetSize: Int): Bitmap? = runCatching {
         if (targetSize <= 0) return@runCatching null
-        render(drawable, targetSize, OFFLINE_LEVEL)
+        render(drawable, targetSize, OFFLINE_LEVEL, budgeted = false)
     }.getOrNull()
 
     /** 离线固定使用最高档强度 */
@@ -131,8 +133,9 @@ internal object IconEnhanceEngine {
 
     // ---------------------------------------------------------------- 内部实现
 
-    private fun render(src: Drawable, targetSize: Int, lv: Int): Bitmap? {
-        val deadline = SystemClock.uptimeMillis() + budgetMs(lv)
+    private fun render(src: Drawable, targetSize: Int, lv: Int, budgeted: Boolean = true): Bitmap? {
+        // 离线扫描路径传 budgeted=false: 实时路径需要预算兜底防长尾, 离线则以质量为先跑完全程
+        val deadline = if (budgeted) SystemClock.uptimeMillis() + budgetMs(lv) else Long.MAX_VALUE
 
         // 以源的原生分辨率为起点: 超出目标的部分没有意义, 还会把噪声一并放大。
         //
@@ -147,8 +150,36 @@ internal object IconEnhanceEngine {
         } else {
             intrinsic
         }
-        val rasterSize = (if (availablePixels <= 0) targetSize else min(availablePixels, targetSize))
-            .coerceAtLeast(1)
+        val vectorSource = isVectorLike(src)
+        // 矢量源可无损栅格化到任意尺寸: 离线路径直接以目标尺寸为起点, 避免
+        // "96px intrinsic 的矢量先栅格化再放大"白白丢掉无损特性。实时路径不受影响 ——
+        // enhance() 入口已把矢量源整体跳过, 这里 budgeted=true 时维持原 min() 语义
+        val rasterSize = (
+            if (!budgeted && vectorSource) targetSize
+            else if (availablePixels <= 0) targetSize
+            else min(availablePixels, targetSize)
+        ).coerceAtLeast(1)
+
+        // NN 学习型超分（仅离线路径, budgeted=false）: 开关开启且已初始化时优先走
+        // ncnn+Vulkan; 未初始化/推理失败均返回 null, 透明落到下面的 AGSL/CPU 管线。
+        // 矢量源跳过 —— 它按目标尺寸栅格化本就无损, NN 纯属浪费
+        if (!budgeted && rasterSize < targetSize &&
+            Preferences.Icon.ENHANCE_GPU.get() && !vectorSource
+        ) {
+            enhanceLearned(src, rasterSize, targetSize)?.let { return it }
+        }
+
+        // GPU 路径: 开关开启时优先走 AGSL 离屏管线;
+        // 探测失败/渲染失败均返回 null, 透明回退到下面的 CPU 内核
+        if (Preferences.Icon.ENHANCE_GPU.get()) {
+            GpuResampler.enhance(
+                src = src,
+                rasterSize = rasterSize,
+                dstSize = targetSize,
+                sharpenAmount = if (rasterSize < targetSize) sharpenAmount(lv) else 0f,
+                sharpenTau = SHARPEN_TAU / 255f,
+            )?.let { return it }
+        }
 
         var pixels = Resampler.rasterize(src, rasterSize) ?: return null
         pixels = Resampler.premultiply(pixels)
@@ -167,6 +198,30 @@ internal object IconEnhanceEngine {
 
         pixels = Resampler.unpremultiply(pixels)
         return Resampler.toBitmap(pixels, targetSize)
+    }
+
+    /**
+     * 离线 NN 超分: `rasterize(≤目标一半)` → ncnn x2 → 尺寸不符时 Mitchell 收敛到目标
+     *
+     * x2 模型的最优输入是"目标的一半"; 源原生分辨率不足时按原生喂入, 输出小于目标再
+     * 用 Mitchell 收敛。NN 输出不再追加锐化 —— 细节重建已由模型完成, 再锐化只会过冲。
+     */
+    private fun enhanceLearned(src: Drawable, rasterSize: Int, targetSize: Int): Bitmap? {
+        if (!NcnnSr.isReady) return null
+        val inSize = min(rasterSize, (targetSize + 1) / 2)
+        val pixels = Resampler.rasterize(src, inSize) ?: return null
+        val inBmp = Resampler.toBitmap(pixels, inSize)
+        val out = NcnnSr.enhance(inBmp)
+        inBmp.recycle()
+        if (out == null) return null
+        val outSize = out.width
+        if (outSize == targetSize) return out
+        // getPixels 返回的是位图存储原值(预乘域), 恰为 upscaleMitchell 的输入契约;
+        // toBitmap 的 setPixels 同样是原始拷贝 —— 预乘值进、预乘值存, 链路自洽
+        val opx = IntArray(outSize * outSize).also { out.getPixels(it, 0, outSize, 0, 0, outSize, outSize) }
+        out.recycle()
+        val scaled = Resampler.upscaleMitchell(opx, outSize, outSize, targetSize, targetSize)
+        return Resampler.toBitmap(scaled, targetSize)
     }
 
     /**
@@ -193,9 +248,5 @@ internal object IconEnhanceEngine {
 
     private fun unwrapForeground(drawable: Drawable): Drawable =
         if (drawable is AdaptiveIconDrawable || drawable is VectorDrawable) drawable
-        else runCatching {
-            drawable.javaClass.getDeclaredField("mForegroundDrawable")
-                .apply { isAccessible = true }
-                .get(drawable) as? Drawable
-        }.getOrNull() ?: drawable
+        else ReflectCache.getField<Drawable>(drawable, "mForegroundDrawable") ?: drawable
 }
