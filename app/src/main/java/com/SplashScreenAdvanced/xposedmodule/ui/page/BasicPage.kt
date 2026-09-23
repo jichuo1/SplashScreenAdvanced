@@ -1,11 +1,14 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.page
 
+import android.app.LocaleManager
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.os.LocaleList
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -110,6 +113,51 @@ private fun ModuleAppSettings() {
         key = Preferences.Module.UI_STYLE,
         ignoreModuleActiveStatus = true,
     )
+    // 语言：跟随系统 / 简体中文 / 繁體中文 / English。
+    // 走 LocaleManager.setApplicationLocales（minSdk 34 恒可用），由系统持久化并自动重建界面，
+    // 不占用远端偏好键；当前选中值直接以系统保存的应用语言为准。
+    val localeManager = remember { context.getSystemService(LocaleManager::class.java) }
+    val appLocale = localeManager?.applicationLocales?.takeIf { !it.isEmpty }?.get(0)
+    val selectedLanguage = remember {
+        mutableStateOf(
+            when {
+                appLocale?.language == "zh" ->
+                    if (appLocale.script == "Hant" || appLocale.country in arrayOf("TW", "HK", "MO")) 2 else 1
+                appLocale?.language == "en" -> 3
+                appLocale?.language == "ja" -> 4
+                appLocale?.language == "es" -> 5
+                appLocale?.language == "ru" -> 6
+                appLocale?.language == "fr" -> 7
+                else -> 0
+            }
+        )
+    }
+    DropDownPreference(
+        title = stringResource(R.string.app_language),
+        entries = listOf(
+            DropDownEntry(0, stringResource(R.string.language_follow_system)),
+            DropDownEntry(1, stringResource(R.string.language_zh_cn)),
+            DropDownEntry(2, stringResource(R.string.language_zh_tw)),
+            DropDownEntry(3, stringResource(R.string.language_en)),
+            DropDownEntry(4, stringResource(R.string.language_ja)),
+            DropDownEntry(5, stringResource(R.string.language_es)),
+            DropDownEntry(6, stringResource(R.string.language_ru)),
+            DropDownEntry(7, stringResource(R.string.language_fr)),
+        ),
+        selectedIndex = selectedLanguage,
+        ignoreModuleActiveStatus = true,
+    ) { index ->
+        localeManager?.applicationLocales = when (index) {
+            1 -> LocaleList.forLanguageTags("zh-CN")
+            2 -> LocaleList.forLanguageTags("zh-TW")
+            3 -> LocaleList.forLanguageTags("en")
+            4 -> LocaleList.forLanguageTags("ja")
+            5 -> LocaleList.forLanguageTags("es")
+            6 -> LocaleList.forLanguageTags("ru")
+            7 -> LocaleList.forLanguageTags("fr")
+            else -> LocaleList.getEmptyLocaleList()
+        }
+    }
     // 模糊效果。
     // 这两项不需要 onCheckedChange 再手动同步一份状态: key 的写入会经
     // GlobalPreferencesRepository.update 落到 uiConfigFlow, 各页面统一从

@@ -53,6 +53,14 @@ object AndroidHooker {
             parameterCount = 0
         }?.toTyped<Boolean>()
 
+        // 统计成员解析结果, 末尾统一汇报——ROM 改动签名(如参数个数变化)时静默不装,
+        // 无日志则无法区分「Hook 没装」与「装了但偏好为 false」
+        var resolvedCount = 0
+        var unresolvedCount = 0
+        fun HookManager.counted(): HookManager = also {
+            if (it.member == null) unresolvedCount++ else resolvedCount++
+        }
+
         /**
          * 强制显示遮罩
          *
@@ -65,7 +73,7 @@ object AndroidHooker {
                 name = "validateStartingWindowTheme"
                 parameterCount = 3
             }?.self
-        }.addBeforeHook({ true }) {
+        }.counted().addBeforeHook({ true }) {
             val pkgName = args(1).string()
             // 惰性求值: 功能未启用 / 不在列表时, 不触发 launchedFromSystemSurface 反射调用
             val isForceShowSS = Preferences.Display.FORCE_SHOW_SPLASH_SCREEN.get()
@@ -83,7 +91,7 @@ object AndroidHooker {
                 name = "showStartingWindow"
                 parameterCount = 7
             }?.self
-        }.addBeforeHook({ true }) {
+        }.counted().addBeforeHook({ true }) {
             val currentPkgName = instance!!.getField<String>("packageName")
 
             val isDisableSS = Preferences.Display.DISABLE_SPLASH_SCREEN.get()
@@ -97,12 +105,15 @@ object AndroidHooker {
                 name = "getStartingWindowType"
                 parameterCount = 7
             }?.self
-        }.addBeforeHook({ true }) {
+        }.counted().addBeforeHook({ true }) {
             val isHotStartCompatible = Preferences.Display.ENABLE_HOT_START_COMPATIBLE.get()
                     && Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get()
                     && args(1).boolean()
             if (isHotStartCompatible) result = 2
             printLog { "[Android] getStartingWindowType():${if (isHotStartCompatible) "" else " not"} set result to 2" }
         }.startHook(module)
+
+        // 非门控: 汇报 system_server 侧 Hook 安装情况 (与 SystemUI 侧 installHooks 汇报对应)
+        XMLog.i { "[Android] installHooks finished: resolved=$resolvedCount, unresolved=$unresolvedCount" }
     }
 }

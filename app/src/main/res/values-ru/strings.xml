@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SplashScreen Advanced A</string>
+    <string name="xposed_desc">Настройка Splash Screen на базе современного libxposed</string>
+
+    <!--主页-->
+    <string name="module_version">Версия модуля: %s</string>
+    <string name="module_is_active">Модуль активирован</string>
+    <string name="module_is_not_active">Модуль не активирован</string>
+    <string name="module_is_updated_restart_phone_needed">Модуль обновлён, требуется перезагрузка или перезапуск</string>
+    <string name="no_root">Предоставьте права root</string>
+
+    <string name="xposed_framework_version">Активировано: %1$s API %2$d</string>
+    <string name="main_activity_hint">Перед изменением настроек убедитесь, что модуль активирован.\nИзменения применяются сразу, перезагрузка не требуется.</string>
+
+    <string name="restart_title">Требуется перезапуск</string>
+    <string name="restart_message">Перезагрузка не требуется, если «Системная платформа» не отмечена в области</string>
+    <string name="reboot">Перезагрузить устройство</string>
+    <string name="restart_system_ui">Перезапустить SystemUI</string>
+    <string name="button_cancel">Отмена</string>
+    <string name="button_abandonment">Отменить изменения</string>
+    <string name="button_reedit">Вернуться к редактированию</string>
+
+    <string name="enable_dev_settings">Параметры разработчика включены</string>
+
+    <string name="basic_settings">Основные настройки</string>
+    <string name="custom_scope_settings">Область</string>
+    <string name="icon_settings">Значок</string>
+    <string name="bottom_settings">Низ</string>
+    <string name="background_settings">Фон</string>
+    <string name="display_settings">Отображение</string>
+    <string name="dev_settings">Параметры разработчика</string>
+
+
+    <!--Sub Settings-->
+    <string name="make_sure_active">Перед настройкой убедитесь, что модуль активирован</string>
+    <string name="enable_log">Включить журнал</string>
+    <string name="enable_log_tips">Журнал автоматически отключается через 24 часа</string>
+    <string name="hide_icon">Скрыть значок в лаунчере</string>
+    <string name="blur">Эффект размытия</string>
+    <string name="blur_miuix_only">Размытие доступно только в стиле MIUI; Material You использует тональные поверхности</string>
+    <string name="ui_style">Стиль интерфейса</string>
+    <string name="ui_style_tips">Стиль MIUI сохраняет гиперэллиптические формы, масштабирование при нажатии и верхнее размытие; Material You следует цветам обоев и использует скругленные углы, рябь и системную прокрутку.</string>
+    <string name="ui_style_miuix">MIUI</string>
+    <string name="ui_style_material_you">Material You</string>
+    <string name="app_language">Язык</string>
+    <string name="language_follow_system">Как в системе</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_es">Español</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fr">Français</string>
+    <string name="split_view">Адаптивный макет</string>
+    <string name="split_view_tips">На устройствах с большим экраном или в альбомной ориентации приложение автоматически переключается на двухпанельный макет.</string>
+    <string name="min_duration">Минимальная длительность заставки</string>
+    <string name="min_duration_tips">Примечание: это замедляет запуск приложений. Не настраивайте без необходимости.</string>
+    <string name="backup_restore_title">Резервное копирование и восстановление</string>
+    <string name="backup">Резервное копирование настроек</string>
+    <string name="restore">Восстановить настройки</string>
+    <string name="save_failed">Ошибка сохранения</string>
+    <string name="restore_failed">Ошибка восстановления</string>
+    <string name="restore_successful">Восстановлено успешно</string>
+    <string name="no_browser">Не найдено приложение для открытия этой ссылки</string>
+    <string name="custom_scope">Пользовательская область модуля</string>
+    <string name="custom_scope_message">Не забудьте настроить список приложений ^_^</string>
+    <string name="exception_mode">Режим исключения</string>
+    <string name="custom_scope_exception_mode_message">Модуль %s к выбранным приложениям</string>
+    <string name="will_not">не применяется</string>
+    <string name="will_only">применяется только</string>
+    <string name="exception_mode_message">Текущая настройка применяется к следующим %s приложениям</string>
+    <string name="not_chosen">невыбранным</string>
+    <string name="chosen">выбранным</string>
+    <string name="exception_mode_list">Настроить список приложений</string>
+    <string name="replace_to_empty_splash_screen">Заменять приложения вне области пустой заставкой</string>
+    <string name="replace_to_empty_splash_screen_tips">Если отключено, модуль не обрабатывает приложения вне области.</string>
+    <string name="draw_round_corner">Рисовать скругленные углы значка</string>
+    <string name="shrink_icon">Уменьшить значок</string>
+    <string name="not_shrink_icon">Не уменьшать значок</string>
+    <string name="shrink_low_resolution_icon">Уменьшать только значки низкого разрешения</string>
+    <string name="shrink_all_icon">Уменьшать все значки</string>
+    <string name="replace_icon">Изменить источник значка</string>
+    <string name="add_icon_blur_bg">Добавить размытый фон уменьшенному значку</string>
+    <string name="replace_icon_tips">С этой опцией значок Splash Screen может следовать теме. У большинства тематических значков низкое разрешение, и при увеличении они выглядят размытыми.</string>
+    <string name="icon_enhance">Улучшение качества значка</string>
+    <string name="icon_enhance_tips">Повторно растрирует значки в конечном размере отображения и выполняет высококачественную передискретизацию растровых значков, устраняя размытие и зубцы от системного масштабирования. Более высокий уровень даёт больше резкости, но занимает немного больше времени.</string>
+    <string name="icon_enhance_off">Выключено</string>
+    <string name="icon_enhance_standard">Стандарт</string>
+    <string name="icon_enhance_high">Высокое качество</string>
+    <string name="icon_enhance_ultra">Ультра</string>
+    <string name="sr_factory">Офлайн-фабрика суперразрешения</string>
+    <string name="sr_factory_tips">Сканирует значки заставок установленных приложений и обрабатывает их заранее; при запуске используется готовый кэш. Запускается только вручную.</string>
+    <string name="sr_scan_channel">Фабрика суперразрешения значков</string>
+    <string name="sr_scan_title">Подготовка значков заставок</string>
+    <string name="sr_scan_preparing">Подсчёт приложений…</string>
+    <string name="sr_scan_progress">Выполнено %1$d / %2$d</string>
+    <string name="sr_cancel">Отмена</string>
+    <string name="icon_cache_stats">%1$d прил. · %2$.1f МБ</string>
+    <string name="use_miui_large_icon">Использовать большие значки Xiaomi</string>
+    <string name="remove_icon_stroke">Убрать обводку значков Xiaomi</string>
+    <string name="use_icon_pack">Использовать пакет значков</string>
+    <string name="icon_pack_is_removed">Пакет значков удалён, выберите заново</string>
+    <string name="default_style">Игнорировать значки, заданные приложениями</string>
+    <string name="default_style_tips">С этой опцией выбранные приложения обрабатываются так, будто они не задавали значок Splash Screen. Также решает следующие проблемы:\n1. Квадратные значки при сторонних темах.\n2. Квадратные значки из-за непрозрачного фона значка у приложения.</string>
+    <string name="hide_splash_screen_icon">Не показывать значок</string>
+    <string name="default_style_list">Настроить список приложений</string>
+    <string name="remove_branding_image">Убрать нижнее изображение</string>
+    <string name="remove_branding_image_tips">С этой опцией у приложений из списка убирается нижнее изображение бренда (Branding Image) на Splash Screen</string>
+    <string name="remove_branding_image_list">Настроить список удаления</string>
+    <string name="change_bg_color">Заменить цвет фона</string>
+    <string name="not_change_bg_color">Не заменять цвет фона</string>
+    <string name="from_icon">Из значка</string>
+    <string name="from_monet">Monet</string>
+    <string name="from_custom">Свой цвет</string>
+    <string name="color_mode">Цветовой режим</string>
+    <string name="color_mode_tips">При выборе «Как в системе» также включите «Игнорировать тёмный режим MIUI» ниже.</string>
+    <string name="light_color">Светлый</string>
+    <string name="dark_color">Тёмный</string>
+    <string name="follow_system">Как в системе</string>
+    <string name="set_custom_bg_color">Свой цвет фона</string>
+    <string name="skip_app_with_bg_color">Пропускать приложения, задавшие цвет фона</string>
+    <string name="change_bg_color_list">Настроить список исключений</string>
+    <string name="configure_bg_colors_individually">Настроить цвет фона по приложениям</string>
+    <string name="ignore_dark_mode">Игнорировать принудительный тёмный режим MIUI</string>
+    <string name="ignore_dark_mode_tips">В тёмном режиме MIUI принудительно заменяет фон заставки фиксированным цветом. Эта опция снимает ограничение.</string>
+    <string name="remove_bg_drawable">Убрать фон-скриншот</string>
+    <string name="remove_bg_drawable_tips">Если фон Splash Screen — скриншот из приложения, включите для удаления.</string>
+    <string name="force_show_splash_screen">Принудительно показывать заставку</string>
+    <string name="force_show_splash_screen_tips">Если некоторые приложения не показывают Splash Screen, включите опцию и добавьте их в список.\nВнимание: требуется отметить «Системная платформа» в области в LSPosed-менеджере и перезагрузить устройство.</string>
+    <string name="force_show_splash_screen_list">Настроить список приложений</string>
+    <string name="reduce_splash_screen">Уменьшить лишние заставки</string>
+    <string name="reduce_splash_screen_tips">Уменьшает заставки при входе в дочерние процессы приложений из списка «Принудительно показывать заставку», например мини-видео WeChat, мини-программы Alipay.</string>
+    <string name="force_enable_splash_screen">Принудительно включить заставку</string>
+    <string name="force_enable_splash_screen_tips">Если модуль активирован, но не работает, попробуйте эту опцию.\nЕсли модуль работает нормально — «не» включайте её.\nВозможные побочные эффекты:\n1. Заставка может появляться там, где она не нужна.\n2. Фоновые изображения Splash Screen, заданные приложением, могут не отображаться.</string>
+    <string name="hot_start_compatible">Применять заставку при горячем запуске</string>
+    <string name="hot_start_compatible_tips">Используется вместе с «Принудительно включить заставку». Внимание: требуется отметить «Системная платформа» в области в LSPosed-менеджере и перезагрузить устройство.</string>
+    <string name="disable_splash_screen">Полностью отключить Splash Screen</string>
+    <string name="disable_splash_screen_tips">С этой опцией остальные настройки модуля бесполезны, поэтому отмечать «SystemUI» в области не нужно. Внимание: требуется отметить «Системная платформа» в области в LSPosed-менеджере и перезагрузить устройство.</string>
+
+    <!--应用配置界面-->
+    <string name="custom_scope_title">Список области</string>
+    <string name="default_style_title">Список игнорируемых значков</string>
+    <string name="background_except_title">Список исключений</string>
+    <string name="background_image_title">Список удаления</string>
+    <string name="force_show_splash_screen_title">Список приложений</string>
+    <string name="min_duration_title">Минимальная длительность</string>
+    <string name="hide_splash_screen_icon_title">Скрыть значок</string>
+    <string name="select_system_apps">Выбрать системные приложения</string>
+    <string name="clear_selected_apps">Снять выбор приложений</string>
+    <string name="save_successful">Сохранено</string>
+    <string name="search_hint">Поиск по имени приложения или пакета</string>
+    <string name="save_hint">Нажмите кнопку сохранения — настройки применятся сразу.</string>
+    <string name="min_duration_sub_setting_hint">Нажмите слева, чтобы задать длительность, и флажок — чтобы включить.\nНажмите кнопку сохранения — настройки применятся сразу.</string>
+    <string name="custom_bg_color_sub_setting_hint">Не переключайте цветовой режим до сохранения, иначе настройка будет потеряна.\nНажмите кнопку сохранения — настройки применятся сразу.</string>
+    <string name="loading">Загрузка…</string>
+    <string name="save">Сохранить</string>
+    <string name="not_saved_title">Настройки не сохранены</string>
+    <string name="not_saved_hint">Изменения ещё не сохранены. Отменить их?</string>
+    <string name="set_default_min_duration">Минимальная длительность по умолчанию</string>
+    <string name="min_duration_separate_configuration">Настроить минимальную длительность по приложениям</string>
+    <string name="set_min_duration">Задать минимальную длительность заставки</string>
+    <string name="not_set_min_duration">Не задано</string>
+    <string name="set_min_duration_unit">Единица: мс, диапазон: 0–2000</string>
+
+    <!--颜色配置界面-->
+    <string name="please_select">Удерживайте значок, чтобы взять цвет, или выберите ниже:</string>
+    <string name="manual_input">Ручной ввод</string>
+    <string name="manual_input_hint">Введите шестнадцатеричный код цвета</string>
+    <string name="color_input_invalid">Введите корректный код цвета</string>
+    <string name="rgb_color_space">Цветовое пространство RGB</string>
+    <string name="hsv_color_space">Цветовое пространство HSV</string>
+    <string name="rgb_r">R</string>
+    <string name="rgb_g">G</string>
+    <string name="rgb_b">B</string>
+    <string name="hue">Оттенок</string>
+    <string name="saturation">Насыщенность</string>
+    <string name="value">Яркость</string>
+    <string name="undo_modification">Отменить это изменение</string>
+    <string name="reset">Сбросить по умолчанию</string>
+    <string name="target_color_mode">Режим применения цвета</string>
+    <string name="target_color_mode_tips">Выберите, к какому режиму применяется настроенный цвет; светлый и тёмный настраиваются отдельно.</string>
+    <string name="target_color_mode_light">Светлый режим</string>
+    <string name="target_color_mode_dark">Тёмный режим</string>
+
+    <!--关于页面-->
+    <string name="version">v%s</string>
+    <string name="thanks_to">Благодарность %s</string>
+    <string name="about">О приложении</string>
+    <string name="open_source_repo">Репозиторий с открытым кодом</string>
+    <string name="upstream_project">Исходный проект</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
+    <string name="open_source_license">Лицензии открытого кода</string>
+
+    <!--开发者选项-->
+    <string name="dev_icon_round_corner_rate">Коэффициент скругления значка</string>
+    <string name="sr_scan_notification_denied">Нет разрешения на уведомления — сканирование продолжится без отображения прогресса</string>
+    <string name="icon_enhance_gpu">Аппаратное ускорение</string>
+    <string name="icon_enhance_gpu_tips">GPU-ускорение значков: передискретизация AGSL и обученное суперразрешение ncnn/Vulkan в офлайн-фабрике; при недоступности возвращается на CPU</string>
+</resources>

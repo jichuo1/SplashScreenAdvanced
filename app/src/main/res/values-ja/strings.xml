@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SplashScreen Advanced A</string>
+    <string name="xposed_desc">Splash Screen をカスタマイズ、モダンな libxposed を使用</string>
+
+    <!--主页-->
+    <string name="module_version">モジュールバージョン：%s</string>
+    <string name="module_is_active">モジュールは有効です</string>
+    <string name="module_is_not_active">モジュールは無効です</string>
+    <string name="module_is_updated_restart_phone_needed">モジュールが更新されました。再読み込みまたは再起動が必要です</string>
+    <string name="no_root">Root 権限を付与してください</string>
+
+    <string name="xposed_framework_version">%1$s API %2$d により有効化</string>
+    <string name="main_activity_hint">設定を変更する前に、モジュールが有効になっていることを確認してください。\n変更はすぐに反映されます。再起動は不要です。</string>
+
+    <string name="restart_title">再起動が必要です</string>
+    <string name="restart_message">スコープで「システムフレームワーク」にチェックが入っていない場合、再起動は不要です</string>
+    <string name="reboot">デバイスを再起動</string>
+    <string name="restart_system_ui">SystemUI を再起動</string>
+    <string name="button_cancel">キャンセル</string>
+    <string name="button_abandonment">変更を破棄</string>
+    <string name="button_reedit">編集に戻る</string>
+
+    <string name="enable_dev_settings">開発者向けオプションが有効になりました</string>
+
+    <string name="basic_settings">基本設定</string>
+    <string name="custom_scope_settings">スコープ</string>
+    <string name="icon_settings">アイコン</string>
+    <string name="bottom_settings">下部</string>
+    <string name="background_settings">背景</string>
+    <string name="display_settings">表示</string>
+    <string name="dev_settings">開発者向けオプション</string>
+
+
+    <!--Sub Settings-->
+    <string name="make_sure_active">設定する前にモジュールが有効であることを確認してください</string>
+    <string name="enable_log">ログを有効化</string>
+    <string name="enable_log_tips">ログは 24 時間後に自動的に無効になります</string>
+    <string name="hide_icon">ランチャーアイコンを非表示</string>
+    <string name="blur">ぼかし効果</string>
+    <string name="blur_miuix_only">ぼかし効果は MIUI スタイルでのみ利用可能です。Material You はトーンカラーのサーフェスを使用します</string>
+    <string name="ui_style">UI スタイル</string>
+    <string name="ui_style_tips">MIUI スタイルは超楕円形、押下時スケーリング、上部ぼかしを維持します。Material You は壁紙の色に合わせ、角丸、リップル、システムのオーバースクロール効果を使用します。</string>
+    <string name="ui_style_miuix">MIUI</string>
+    <string name="ui_style_material_you">Material You</string>
+    <string name="app_language">言語</string>
+    <string name="language_follow_system">システムに従う</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_es">Español</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fr">Français</string>
+    <string name="split_view">アダプティブレイアウト</string>
+    <string name="split_view_tips">大画面デバイスや横向き時、アプリは自動的にデュアルペインレイアウトに切り替わります。</string>
+    <string name="min_duration">スプラッシュスクリーンの最小表示時間</string>
+    <string name="min_duration_tips">注意：この設定はアプリの起動を遅くします。特に必要がなければ設定しないでください。</string>
+    <string name="backup_restore_title">バックアップと復元</string>
+    <string name="backup">設定をバックアップ</string>
+    <string name="restore">設定を復元</string>
+    <string name="save_failed">保存に失敗しました</string>
+    <string name="restore_failed">復元に失敗しました</string>
+    <string name="restore_successful">復元に成功しました</string>
+    <string name="no_browser">このリンクを開けるアプリが見つかりません</string>
+    <string name="custom_scope">カスタムモジュールスコープ</string>
+    <string name="custom_scope_message">アプリリストの設定を忘れずに ^_^</string>
+    <string name="exception_mode">除外モード</string>
+    <string name="custom_scope_exception_mode_message">モジュールは選択したアプリに%s</string>
+    <string name="will_not">適用されません</string>
+    <string name="will_only">のみ適用されます</string>
+    <string name="exception_mode_message">現在の設定は以下の%sアプリにのみ適用されます</string>
+    <string name="not_chosen">未選択の</string>
+    <string name="chosen">選択済みの</string>
+    <string name="exception_mode_list">アプリリストを設定</string>
+    <string name="replace_to_empty_splash_screen">スコープ外のアプリを空白のスプラッシュスクリーンに置き換え</string>
+    <string name="replace_to_empty_splash_screen_tips">このオプションを有効にしない場合、モジュールはスコープ外のアプリを処理しません。</string>
+    <string name="draw_round_corner">アイコンの角丸を描画</string>
+    <string name="shrink_icon">アイコンを縮小</string>
+    <string name="not_shrink_icon">アイコンを縮小しない</string>
+    <string name="shrink_low_resolution_icon">低解像度のアイコンのみ縮小</string>
+    <string name="shrink_all_icon">すべてのアイコンを縮小</string>
+    <string name="replace_icon">アイコン取得方法を置き換え</string>
+    <string name="add_icon_blur_bg">縮小したアイコンにぼかし背景を追加</string>
+    <string name="replace_icon_tips">このオプションを有効にすると、Splash Screen のアイコンをテーマに合わせられます。多くのテーマアイコンは解像度が低く、拡大するとぼやけます。</string>
+    <string name="icon_enhance">アイコン画質強化</string>
+    <string name="icon_enhance_tips">最終表示サイズでアイコンを再ラスタライズし、ビットマップアイコンを高品質にリサンプリングします。システム標準の拡大によるぼやけやジャギーを解消します。レベルが高いほどシャープ化が強くなり、処理時間も少し増えます。</string>
+    <string name="icon_enhance_off">オフ</string>
+    <string name="icon_enhance_standard">標準</string>
+    <string name="icon_enhance_high">高品質</string>
+    <string name="icon_enhance_ultra">最高</string>
+    <string name="sr_factory">オフライン超解像ファクトリー</string>
+    <string name="sr_factory_tips">インストール済みアプリのスプラッシュスクリーンアイコンをスキャンして事前処理し、起動時にキャッシュを再利用します。手動で開始したときのみ実行されます。</string>
+    <string name="sr_scan_channel">アイコン超解像ファクトリー</string>
+    <string name="sr_scan_title">スプラッシュスクリーンアイコンを準備中</string>
+    <string name="sr_scan_preparing">アプリを集計中…</string>
+    <string name="sr_scan_progress">%1$d / %2$d 完了</string>
+    <string name="sr_cancel">キャンセル</string>
+    <string name="icon_cache_stats">%1$d 個のアプリ · %2$.1f MB</string>
+    <string name="use_miui_large_icon">Xiaomi 大アイコンを使用</string>
+    <string name="remove_icon_stroke">Xiaomi アイコンのストロークを除去</string>
+    <string name="use_icon_pack">アイコンパックを使用</string>
+    <string name="icon_pack_is_removed">アイコンパックが削除されました。再度選択してください</string>
+    <string name="default_style">アプリが設定したアイコンを無視</string>
+    <string name="default_style_tips">このオプションを有効にすると、選択したアプリが Splash Screen に対応していてもアイコン未設定として扱います。次の問題も解決できます：\n1、サードパーティテーマ使用時にアイコンが角張る問題。\n2、アイコン背景を透明に設定していないアプリによる角張り問題。</string>
+    <string name="hide_splash_screen_icon">アイコンを表示しない</string>
+    <string name="default_style_list">アプリリストを設定</string>
+    <string name="remove_branding_image">下部の画像を除去</string>
+    <string name="remove_branding_image_tips">このオプションを有効にすると、リスト内アプリの Splash Screen 下部の Branding Image が除去されます</string>
+    <string name="remove_branding_image_list">除去リストを設定</string>
+    <string name="change_bg_color">背景色を置き換え</string>
+    <string name="not_change_bg_color">背景色を置き換えない</string>
+    <string name="from_icon">アイコンから取得</string>
+    <string name="from_monet">モネから取得</string>
+    <string name="from_custom">カスタムカラー</string>
+    <string name="color_mode">カラーモード</string>
+    <string name="color_mode_tips">「システムに従う」を選択した場合は、下の「MIUI のダークモードを無視」も有効にしてください。</string>
+    <string name="light_color">ライト</string>
+    <string name="dark_color">ダーク</string>
+    <string name="follow_system">システムに従う</string>
+    <string name="set_custom_bg_color">カスタム背景色</string>
+    <string name="skip_app_with_bg_color">背景色を自分で設定したアプリをスキップ</string>
+    <string name="change_bg_color_list">除外リストを設定</string>
+    <string name="configure_bg_colors_individually">アプリごとに背景色を設定</string>
+    <string name="ignore_dark_mode">MIUI の強制ダークモードを無視</string>
+    <string name="ignore_dark_mode_tips">ダークモード時、MIUI はスプラッシュスクリーンの背景を固定色に強制置き換えします。このオプションでその制限を解除します。</string>
+    <string name="remove_bg_drawable">スクリーンショット背景を除去</string>
+    <string name="remove_bg_drawable_tips">Splash Screen の背景がアプリ内スクリーンショットの場合、このオプションで除去できます。</string>
+    <string name="force_show_splash_screen">スプラッシュスクリーンを強制表示</string>
+    <string name="force_show_splash_screen_tips">一部のアプリで Splash Screen が表示されない場合、このオプションを有効にしてアプリリストに追加してください。\n注意：LSPosed マネージャーのスコープで「システムフレームワーク」にチェックを入れて再起動する必要があります。</string>
+    <string name="force_show_splash_screen_list">アプリリストを設定</string>
+    <string name="reduce_splash_screen">不要なスプラッシュスクリーンを削減</string>
+    <string name="reduce_splash_screen_tips">「スプラッシュスクリーンを強制表示」リストによってアプリのサブプロセス起動時にも表示されてしまうスプラッシュスクリーンを減らします（例：WeChat のミニ動画、Alipay のミニプログラム）。</string>
+    <string name="force_enable_splash_screen">スプラッシュスクリーンを強制有効化</string>
+    <string name="force_enable_splash_screen_tips">モジュールが有効と表示されるのに動作しない場合、このオプションを試してください。\nモジュールが正常に動作している場合は「有効にしない」でください。\n有効にした場合の副作用：\n1、Splash Screen が不要な場面でも表示されることがあります。\n2、アプリが設定した Splash Screen 背景画像が表示されないことがあります。</string>
+    <string name="hot_start_compatible">ホットスタートにもスプラッシュスクリーンを適用</string>
+    <string name="hot_start_compatible_tips">このオプションは「スプラッシュスクリーンを強制有効化」と併用する必要があります。注意：LSPosed マネージャーのスコープで「システムフレームワーク」にチェックを入れて再起動する必要があります。</string>
+    <string name="disable_splash_screen">Splash Screen を完全に無効化</string>
+    <string name="disable_splash_screen_tips">このオプションを有効にすると、モジュール内の他の設定は意味をなさなくなるため、スコープで「SystemUI」にチェックする必要はありません。注意：LSPosed マネージャーのスコープで「システムフレームワーク」にチェックを入れて再起動する必要があります。</string>
+
+    <!--应用配置界面-->
+    <string name="custom_scope_title">スコープリスト</string>
+    <string name="default_style_title">アイコン無視リスト</string>
+    <string name="background_except_title">除外リスト</string>
+    <string name="background_image_title">除去リスト</string>
+    <string name="force_show_splash_screen_title">アプリリスト</string>
+    <string name="min_duration_title">最小表示時間</string>
+    <string name="hide_splash_screen_icon_title">アイコンを非表示</string>
+    <string name="select_system_apps">システムアプリを選択</string>
+    <string name="clear_selected_apps">選択をクリア</string>
+    <string name="save_successful">保存しました</string>
+    <string name="search_hint">アプリ名・パッケージ名で検索</string>
+    <string name="save_hint">保存ボタンを押すと設定が適用され、すぐに有効になります。</string>
+    <string name="min_duration_sub_setting_hint">左側をタップして表示時間を設定、チェックボックスで有効化します。\n保存ボタンを押すと設定が適用され、すぐに有効になります。</string>
+    <string name="custom_bg_color_sub_setting_hint">保存前にカラーモードを切り替えないでください。設定が失われます。\n保存ボタンを押すと設定が適用され、すぐに有効になります。</string>
+    <string name="loading">読み込み中…</string>
+    <string name="save">保存</string>
+    <string name="not_saved_title">設定が未保存です</string>
+    <string name="not_saved_hint">変更した設定はまだ保存されていません。変更を破棄しますか？</string>
+    <string name="set_default_min_duration">デフォルトの最小表示時間</string>
+    <string name="min_duration_separate_configuration">アプリごとに最小表示時間を設定</string>
+    <string name="set_min_duration">スプラッシュスクリーンの最小表示時間を設定</string>
+    <string name="not_set_min_duration">未設定</string>
+    <string name="set_min_duration_unit">単位：ミリ秒、範囲：0–2000</string>
+
+    <!--颜色配置界面-->
+    <string name="please_select">アイコンを長押しして色を取得するか、以下から選択：</string>
+    <string name="manual_input">手動入力</string>
+    <string name="manual_input_hint">16 進数のカラーコードを入力してください</string>
+    <string name="color_input_invalid">正しいカラーコードを入力してください</string>
+    <string name="rgb_color_space">RGB カラー空間</string>
+    <string name="hsv_color_space">HSV カラー空間</string>
+    <string name="rgb_r">R</string>
+    <string name="rgb_g">G</string>
+    <string name="rgb_b">B</string>
+    <string name="hue">色相</string>
+    <string name="saturation">彩度</string>
+    <string name="value">明度</string>
+    <string name="undo_modification">今回の変更を取り消し</string>
+    <string name="reset">デフォルトに戻す</string>
+    <string name="target_color_mode">色の適用モード</string>
+    <string name="target_color_mode_tips">設定するカラーモードを選択します。ライトとダークモードは個別に設定します。</string>
+    <string name="target_color_mode_light">ライトモード</string>
+    <string name="target_color_mode_dark">ダークモード</string>
+
+    <!--关于页面-->
+    <string name="version">v%s</string>
+    <string name="thanks_to">謝辞 %s</string>
+    <string name="about">アプリについて</string>
+    <string name="open_source_repo">オープンソースリポジトリ</string>
+    <string name="upstream_project">上流プロジェクト</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
+    <string name="open_source_license">オープンソースライセンス</string>
+
+    <!--开发者选项-->
+    <string name="dev_icon_round_corner_rate">アイコン角丸率</string>
+    <string name="sr_scan_notification_denied">通知権限が拒否されました — スキャンは継続しますが進捗は表示されません</string>
+    <string name="icon_enhance_gpu">ハードウェアアクセラレーション</string>
+    <string name="icon_enhance_gpu_tips">GPU によるアイコン強化：AGSL 再サンプリングに加え、オフライン工場では ncnn/Vulkan 学習型超解像を使用。利用できない場合は自動的に CPU へフォールバックします</string>
+</resources>

@@ -50,6 +50,14 @@ object Preferences {
          * 离线超分工厂的产物与该档位无关, 始终按最高质量生成。
          */
         val ENHANCE_LEVEL = PreferenceKey("icon_enhance_level", 1)
+
+        /**
+         * 画质增强走 GPU (AGSL RuntimeShader 离屏管线) 而非 CPU IntArray 内核
+         *
+         * 管线探测失败或运行期连续失败时自动回退 CPU 内核; 该开关是给"个别 ROM
+         * 离屏渲染输出异常"留的手动逃生门
+         */
+        val ENHANCE_GPU = PreferenceKey("icon_enhance_gpu", true)
     }
 
     /** 背景相关 */

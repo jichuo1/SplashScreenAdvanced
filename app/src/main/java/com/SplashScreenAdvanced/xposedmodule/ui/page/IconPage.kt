@@ -1,5 +1,9 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.page
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -36,6 +40,7 @@ import dev.lackluster.hyperx.ui.preference.ItemPosition
 import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
 import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
@@ -127,6 +132,7 @@ private fun CommonSettingsGroup() {
     //
     // 用档位而非开关: DropDownEntry 的下标语义与 Preferences.Icon.ENHANCE_LEVEL 的取值一一对应,
     // 取值会被 IconEnhanceEngine 直接当作处理强度(档位越高重采样与锐化越强)。
+    val enhanceLevel = rememberPreferenceState(Preferences.Icon.ENHANCE_LEVEL)
     DropDownPreference(
         title = stringResource(R.string.icon_enhance),
         summary = stringResource(R.string.icon_enhance_tips),
@@ -136,21 +142,53 @@ private fun CommonSettingsGroup() {
             DropDownEntry(value = 2, title = stringResource(R.string.icon_enhance_high)),
             DropDownEntry(value = 3, title = stringResource(R.string.icon_enhance_ultra))
         ),
-        key = Preferences.Icon.ENHANCE_LEVEL
+        selectedIndex = enhanceLevel
     )
+    // 硬件加速仅在增强开启时有意义; 与档位选择器同进出
+    AnimatedVisibility(
+        visible = enhanceLevel.value != 0,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        SwitchPreference(
+            title = stringResource(R.string.icon_enhance_gpu),
+            summary = stringResource(R.string.icon_enhance_gpu_tips),
+            key = Preferences.Icon.ENHANCE_GPU
+        )
+    }
     // 离线超分工厂: 手动触发一次批量预处理, 产物经 ContentProvider 供 SystemUI 侧复用
     val scanState = remember { mutableStateOf("") }
+    // 轮询刷新统计行: 扫描进行中条目数与体积都在变, 页面停留期间每 2s 重读一次
+    // (读的是进程内索引缓存 + 一次目录遍历, 开销可忽略)
     LaunchedEffect(Unit) {
-        scanState.value = withContext(Dispatchers.IO) {
-            val index = IconCacheStore.readIndex(context)
-            val mb = IconCacheStore.totalBytes(context) / 1024f / 1024f
-            "${index.entries.size} 个应用 · ${"%.1f".format(mb)} MB"
+        while (true) {
+            scanState.value = withContext(Dispatchers.IO) {
+                val index = IconCacheStore.readIndex(context)
+                val mb = IconCacheStore.totalBytes(context) / 1024f / 1024f
+                context.getString(R.string.icon_cache_stats, index.entries.size, mb)
+            }
+            delay(2000)
         }
+    }
+    // POST_NOTIFICATIONS 仅声明不会自动授予: 被拒时扫描照常跑, 但进度/取消通知不显示
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) context.toast(R.string.sr_scan_notification_denied)
+        IconScanService.start(context)
     }
     TextPreference(
         title = stringResource(R.string.sr_factory),
         summary = stringResource(R.string.sr_factory_tips) + "\n" + scanState.value,
-        onClick = { IconScanService.start(context) }
+        onClick = {
+            if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                IconScanService.start(context)
+            } else {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     )
 
     if (DeviceUtils.isHyperOS) {

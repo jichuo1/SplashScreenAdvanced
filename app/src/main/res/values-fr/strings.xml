@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SplashScreen Advanced A</string>
+    <string name="xposed_desc">Personnaliser le Splash Screen, propulsé par libxposed moderne</string>
+
+    <!--主页-->
+    <string name="module_version">Version du module : %s</string>
+    <string name="module_is_active">Module activé</string>
+    <string name="module_is_not_active">Module non activé</string>
+    <string name="module_is_updated_restart_phone_needed">Module mis à jour ; rechargement ou redémarrage requis</string>
+    <string name="no_root">Veuillez accorder la permission root</string>
+
+    <string name="xposed_framework_version">Activé par %1$s API %2$d</string>
+    <string name="main_activity_hint">Assurez-vous que le module est activé avant de modifier les paramètres.\nLes modifications prennent effet immédiatement, sans redémarrage.</string>
+
+    <string name="restart_title">Redémarrage requis</string>
+    <string name="restart_message">Aucun redémarrage nécessaire si « Framework système » est décoché dans la portée</string>
+    <string name="reboot">Redémarrer l\'appareil</string>
+    <string name="restart_system_ui">Redémarrer SystemUI</string>
+    <string name="button_cancel">Annuler</string>
+    <string name="button_abandonment">Ignorer les modifications</string>
+    <string name="button_reedit">Retour à l\'édition</string>
+
+    <string name="enable_dev_settings">Options pour développeurs activées</string>
+
+    <string name="basic_settings">Paramètres de base</string>
+    <string name="custom_scope_settings">Portée</string>
+    <string name="icon_settings">Icône</string>
+    <string name="bottom_settings">Bas</string>
+    <string name="background_settings">Arrière-plan</string>
+    <string name="display_settings">Affichage</string>
+    <string name="dev_settings">Options pour développeurs</string>
+
+
+    <!--Sub Settings-->
+    <string name="make_sure_active">Veuillez activer le module avant de configurer</string>
+    <string name="enable_log">Activer le journal</string>
+    <string name="enable_log_tips">Le journal se désactive automatiquement après 24 heures</string>
+    <string name="hide_icon">Masquer l\'icône du lanceur</string>
+    <string name="blur">Effet de flou</string>
+    <string name="blur_miuix_only">Le flou n\'est disponible qu\'avec le style MIUI ; Material You utilise des surfaces tonales</string>
+    <string name="ui_style">Style d\'interface</string>
+    <string name="ui_style_tips">Le style MIUI conserve les formes hyper-elliptiques, le redimensionnement à la pression et le flou supérieur ; Material You suit les couleurs du fond d\'écran avec des coins arrondis, des ondulations et le défilement système.</string>
+    <string name="ui_style_miuix">MIUI</string>
+    <string name="ui_style_material_you">Material You</string>
+    <string name="app_language">Langue</string>
+    <string name="language_follow_system">Suivre le système</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_es">Español</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fr">Français</string>
+    <string name="split_view">Disposition adaptative</string>
+    <string name="split_view_tips">Sur les appareils à grand écran ou en mode paysage, l\'application bascule automatiquement vers une disposition à deux panneaux.</string>
+    <string name="min_duration">Durée minimale de l\'écran de démarrage</string>
+    <string name="min_duration_tips">Remarque : cela ralentit le lancement des applications. Ne le configurez que si nécessaire.</string>
+    <string name="backup_restore_title">Sauvegarde et restauration</string>
+    <string name="backup">Sauvegarder les paramètres</string>
+    <string name="restore">Restaurer les paramètres</string>
+    <string name="save_failed">Échec de l\'enregistrement</string>
+    <string name="restore_failed">Échec de la restauration</string>
+    <string name="restore_successful">Restauration réussie</string>
+    <string name="no_browser">Aucune application trouvée pour ouvrir ce lien</string>
+    <string name="custom_scope">Portée personnalisée du module</string>
+    <string name="custom_scope_message">N\'oubliez pas de configurer la liste d\'applications ^_^</string>
+    <string name="exception_mode">Mode d\'exclusion</string>
+    <string name="custom_scope_exception_mode_message">Le module %s les applications sélectionnées</string>
+    <string name="will_not">n\'affecte pas</string>
+    <string name="will_only">n\'affecte que</string>
+    <string name="exception_mode_message">Le paramètre actuel s\'applique aux applications %s</string>
+    <string name="not_chosen">non sélectionnées</string>
+    <string name="chosen">sélectionnées</string>
+    <string name="exception_mode_list">Configurer la liste d\'applications</string>
+    <string name="replace_to_empty_splash_screen">Remplacer les apps hors portée par un écran de démarrage vide</string>
+    <string name="replace_to_empty_splash_screen_tips">Si désactivée, le module ne traite pas les apps hors portée.</string>
+    <string name="draw_round_corner">Dessiner les coins arrondis de l\'icône</string>
+    <string name="shrink_icon">Réduire l\'icône</string>
+    <string name="not_shrink_icon">Ne pas réduire l\'icône</string>
+    <string name="shrink_low_resolution_icon">Réduire seulement les icônes basse résolution</string>
+    <string name="shrink_all_icon">Réduire toutes les icônes</string>
+    <string name="replace_icon">Changer la source de l\'icône</string>
+    <string name="add_icon_blur_bg">Ajouter un arrière-plan flou à l\'icône réduite</string>
+    <string name="replace_icon_tips">Avec cette option, l\'icône du Splash Screen peut suivre le thème. La plupart des icônes de thème sont en basse résolution et deviennent floues une fois agrandies.</string>
+    <string name="icon_enhance">Amélioration de la qualité de l\'icône</string>
+    <string name="icon_enhance_tips">Re-rasterise les icônes à la taille d\'affichage finale et rééchantillonne les icônes bitmap en haute qualité, éliminant le flou et le crénelage dus à l\'agrandissement système. Les niveaux élevés accentuent davantage mais prennent un peu plus de temps.</string>
+    <string name="icon_enhance_off">Désactivé</string>
+    <string name="icon_enhance_standard">Standard</string>
+    <string name="icon_enhance_high">Haute qualité</string>
+    <string name="icon_enhance_ultra">Ultra</string>
+    <string name="sr_factory">Usine de super-résolution hors ligne</string>
+    <string name="sr_factory_tips">Analyse les icônes d\'écran de démarrage des apps installées et les prétraite ; le cache est réutilisé au lancement. Ne s\'exécute que sur déclenchement manuel.</string>
+    <string name="sr_scan_channel">Usine de super-résolution d\'icônes</string>
+    <string name="sr_scan_title">Préparation des icônes d\'écran de démarrage</string>
+    <string name="sr_scan_preparing">Comptage des apps…</string>
+    <string name="sr_scan_progress">Terminé %1$d / %2$d</string>
+    <string name="sr_cancel">Annuler</string>
+    <string name="icon_cache_stats">%1$d apps · %2$.1f Mo</string>
+    <string name="use_miui_large_icon">Utiliser les grandes icônes Xiaomi</string>
+    <string name="remove_icon_stroke">Supprimer le contour des icônes Xiaomi</string>
+    <string name="use_icon_pack">Utiliser un pack d\'icônes</string>
+    <string name="icon_pack_is_removed">Le pack d\'icônes a été supprimé, veuillez le resélectionner</string>
+    <string name="default_style">Ignorer les icônes définies par les apps</string>
+    <string name="default_style_tips">Avec cette option, les apps sélectionnées sont traitées comme si elles n\'avaient pas défini d\'icône de Splash Screen. Résout aussi les problèmes suivants :\n1. Icônes carrées avec des thèmes tiers.\n2. Icônes carrées car l\'app n\'a pas mis le fond de l\'icône en transparent.</string>
+    <string name="hide_splash_screen_icon">Ne pas afficher l\'icône</string>
+    <string name="default_style_list">Configurer la liste d\'applications</string>
+    <string name="remove_branding_image">Supprimer l\'image du bas</string>
+    <string name="remove_branding_image_tips">Avec cette option, l\'image de marque (Branding Image) en bas du Splash Screen est supprimée pour les apps de la liste</string>
+    <string name="remove_branding_image_list">Configurer la liste de suppression</string>
+    <string name="change_bg_color">Remplacer la couleur d\'arrière-plan</string>
+    <string name="not_change_bg_color">Ne pas remplacer la couleur d\'arrière-plan</string>
+    <string name="from_icon">Depuis l\'icône</string>
+    <string name="from_monet">Monet</string>
+    <string name="from_custom">Couleur personnalisée</string>
+    <string name="color_mode">Mode couleur</string>
+    <string name="color_mode_tips">En choisissant « Suivre le système », activez aussi « Ignorer le mode sombre MIUI » ci-dessous.</string>
+    <string name="light_color">Clair</string>
+    <string name="dark_color">Sombre</string>
+    <string name="follow_system">Suivre le système</string>
+    <string name="set_custom_bg_color">Couleur d\'arrière-plan personnalisée</string>
+    <string name="skip_app_with_bg_color">Ignorer les apps ayant défini une couleur d\'arrière-plan</string>
+    <string name="change_bg_color_list">Configurer la liste d\'exclusion</string>
+    <string name="configure_bg_colors_individually">Configurer la couleur d\'arrière-plan par app</string>
+    <string name="ignore_dark_mode">Ignorer le mode sombre forcé de MIUI</string>
+    <string name="ignore_dark_mode_tips">En mode sombre, MIUI remplace de force l\'arrière-plan de l\'écran de démarrage par une couleur fixe. Cette option lève cette restriction.</string>
+    <string name="remove_bg_drawable">Supprimer l\'arrière-plan de capture</string>
+    <string name="remove_bg_drawable_tips">Si l\'arrière-plan du Splash Screen est une capture dans l\'app, activez cette option pour le supprimer.</string>
+    <string name="force_show_splash_screen">Forcer l\'affichage de l\'écran de démarrage</string>
+    <string name="force_show_splash_screen_tips">Si certaines apps n\'affichent pas de Splash Screen, activez cette option et ajoutez-les à la liste.\nRemarque : nécessite de cocher « Framework système » dans la portée du gestionnaire LSPosed et de redémarrer l\'appareil.</string>
+    <string name="force_show_splash_screen_list">Configurer la liste d\'applications</string>
+    <string name="reduce_splash_screen">Réduire les écrans de démarrage inutiles</string>
+    <string name="reduce_splash_screen_tips">Réduit les écrans de démarrage affichés à l\'entrée dans les sous-processus des apps à cause de la liste « Forcer l\'affichage », p. ex. mini-vidéos WeChat, mini-programmes Alipay.</string>
+    <string name="force_enable_splash_screen">Forcer l\'activation de l\'écran de démarrage</string>
+    <string name="force_enable_splash_screen_tips">Si le module semble activé mais ne fonctionne pas, essayez cette option.\nSi le module fonctionne normalement, « ne » l\'activez pas.\nEffets possibles :\n1. L\'écran de démarrage peut apparaître là où il n\'est pas nécessaire.\n2. Les images d\'arrière-plan définies par l\'app peuvent ne pas s\'afficher.</string>
+    <string name="hot_start_compatible">Appliquer l\'écran de démarrage aux démarrages à chaud</string>
+    <string name="hot_start_compatible_tips">À utiliser avec « Forcer l\'activation de l\'écran de démarrage ». Remarque : nécessite de cocher « Framework système » dans la portée du gestionnaire LSPosed et de redémarrer l\'appareil.</string>
+    <string name="disable_splash_screen">Désactiver complètement le Splash Screen</string>
+    <string name="disable_splash_screen_tips">Avec cette option, les autres réglages du module deviennent inutiles ; inutile donc de cocher « SystemUI » dans la portée. Remarque : nécessite de cocher « Framework système » dans la portée du gestionnaire LSPosed et de redémarrer l\'appareil.</string>
+
+    <!--应用配置界面-->
+    <string name="custom_scope_title">Liste de portée</string>
+    <string name="default_style_title">Liste des icônes ignorées</string>
+    <string name="background_except_title">Liste d\'exclusion</string>
+    <string name="background_image_title">Liste de suppression</string>
+    <string name="force_show_splash_screen_title">Liste d\'applications</string>
+    <string name="min_duration_title">Durée minimale</string>
+    <string name="hide_splash_screen_icon_title">Masquer l\'icône</string>
+    <string name="select_system_apps">Sélectionner les apps système</string>
+    <string name="clear_selected_apps">Effacer les apps sélectionnées</string>
+    <string name="save_successful">Enregistré</string>
+    <string name="search_hint">Rechercher par nom d\'app ou de paquet</string>
+    <string name="save_hint">Touchez le bouton d\'enregistrement pour appliquer ; effet immédiat.</string>
+    <string name="min_duration_sub_setting_hint">Touchez la partie gauche pour définir la durée, et la case pour l\'activer.\nTouchez le bouton d\'enregistrement pour appliquer ; effet immédiat.</string>
+    <string name="custom_bg_color_sub_setting_hint">Ne changez pas de mode couleur avant d\'enregistrer, sinon la configuration sera perdue.\nTouchez le bouton d\'enregistrement pour appliquer ; effet immédiat.</string>
+    <string name="loading">Chargement…</string>
+    <string name="save">Enregistrer</string>
+    <string name="not_saved_title">Modifications non enregistrées</string>
+    <string name="not_saved_hint">Vos modifications n\'ont pas été enregistrées. Les ignorer ?</string>
+    <string name="set_default_min_duration">Durée minimale par défaut</string>
+    <string name="min_duration_separate_configuration">Configurer la durée minimale par app</string>
+    <string name="set_min_duration">Définir la durée minimale de l\'écran de démarrage</string>
+    <string name="not_set_min_duration">Non défini</string>
+    <string name="set_min_duration_unit">Unité : ms, plage : 0–2000</string>
+
+    <!--颜色配置界面-->
+    <string name="please_select">Appui long sur l\'icône pour choisir une couleur, ou sélectionnez ci-dessous :</string>
+    <string name="manual_input">Saisie manuelle</string>
+    <string name="manual_input_hint">Saisissez un code couleur hexadécimal</string>
+    <string name="color_input_invalid">Veuillez saisir un code couleur valide</string>
+    <string name="rgb_color_space">Espace colorimétrique RGB</string>
+    <string name="hsv_color_space">Espace colorimétrique HSV</string>
+    <string name="rgb_r">R</string>
+    <string name="rgb_g">G</string>
+    <string name="rgb_b">B</string>
+    <string name="hue">Teinte</string>
+    <string name="saturation">Saturation</string>
+    <string name="value">Luminosité</string>
+    <string name="undo_modification">Annuler cette modification</string>
+    <string name="reset">Réinitialiser par défaut</string>
+    <string name="target_color_mode">Mode cible de la couleur</string>
+    <string name="target_color_mode_tips">Choisissez à quel mode s\'applique la couleur configurée ; clair et sombre se configurent séparément.</string>
+    <string name="target_color_mode_light">Mode clair</string>
+    <string name="target_color_mode_dark">Mode sombre</string>
+
+    <!--关于页面-->
+    <string name="version">v%s</string>
+    <string name="thanks_to">Merci à %s</string>
+    <string name="about">À propos</string>
+    <string name="open_source_repo">Dépôt open source</string>
+    <string name="upstream_project">Projet d\'origine</string>
+    <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
+    <string name="open_source_license">Licences open source</string>
+
+    <!--开发者选项-->
+    <string name="dev_icon_round_corner_rate">Taux d\'arrondi de l\'icône</string>
+    <string name="sr_scan_notification_denied">Permission de notification refusée — l\'analyse continuera sans afficher la progression</string>
+    <string name="icon_enhance_gpu">Accélération matérielle</string>
+    <string name="icon_enhance_gpu_tips">Amélioration des icônes accélérée par GPU : rééchantillonnage AGSL et super-résolution ncnn/Vulkan dans la fabrique hors ligne ; replie sur le CPU automatiquement</string>
+</resources>

@@ -289,6 +289,8 @@ object SystemUIHooker {
             // Context 已捕获、功能 Hook 已安装，此 hook 使命完成，自摘除避免后续空转
             attachHook.unhook()
         }.startHook(module)
+        // 非门控：确认 SystemUI 进程内入口已执行、attachBaseContext 目标是否解析成功
+        XMLog.i { "[SystemUI] init: attachBaseContext ${if (attachHook.member != null) "resolved" else "UNRESOLVED"}" }
     }
 
     /**
@@ -332,15 +334,22 @@ object SystemUIHooker {
         )
 
         // 执行 Hook；toggle 绑定的成员由各自的 bindInstallToggle 自管安装状态，跳过此无条件循环
+        var resolvedCount = 0
+        var unresolvedCount = 0
         Members.javaClass.declaredFields.forEach { field ->
             field.makeAccessible()
             val hookManager = field.get(null)
 
-            if (hookManager is HookManager && !hookManager.isToggleBound) try {
-                hookManager.startHook(module)
-            } catch (e: Throwable) {
-                XMLog.e(e)
+            if (hookManager is HookManager && !hookManager.isToggleBound) {
+                if (hookManager.member == null) unresolvedCount++ else resolvedCount++
+                try {
+                    hookManager.startHook(module)
+                } catch (e: Throwable) {
+                    XMLog.e(e)
+                }
             }
         }
+        // 非门控：汇报功能 Hook 安装情况，unresolved 多为目标方法在本 ROM 上不存在
+        XMLog.i { "[SystemUI] installHooks finished: resolved=$resolvedCount, unresolved=$unresolvedCount" }
     }
 }

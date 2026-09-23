@@ -33,7 +33,6 @@ import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
 import com.SplashScreenAdvanced.xposedmodule.utils.convertToSquareDrawable
-import com.SplashScreenAdvanced.xposedmodule.utils.createShadowedIcon
 import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
 import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
 import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconCacheClient
@@ -82,14 +81,24 @@ object IconHookHandler : BaseHookHandler() {
     private val pendingEnhanceTargets =
         Collections.synchronizedMap(WeakHashMap<Drawable, String>())
 
-    /** com.android.internal.R.dimen.starting_surface_icon_size 资源 id (进程内恒定, 解析一次) */
+    /**
+     * com.android.internal.R.dimen.starting_surface_icon_size 资源 id (进程内恒定, 解析一次)
+     *
+     * 解析失败返回 null 而不是抛出: lazy 不缓存异常, 若直接 !! 则每次取尺寸都重抛 NPE;
+     * 返回 null 后由 [startingSurfaceIconSizePx] 回退到 AOSP 缺省 160dp
+     */
     private val startingSurfaceIconSizeResId by lazy {
-        $$"com.android.internal.R$dimen".toClass(loader = appClassLoader).resolve()
-            .firstField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)!!
+        runCatching {
+            $$"com.android.internal.R$dimen".toClass(loader = appClassLoader).resolve()
+                .firstField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)
+        }.getOrNull()
     }
 
     private val startingSurfaceIconSizePx by lazy {
-        appResources!!.getDimensionPixelSize(startingSurfaceIconSizeResId)
+        val res = appResources
+        val resId = startingSurfaceIconSizeResId
+        if (res != null && resId != null) res.getDimensionPixelSize(resId)
+        else ((160f * (res?.displayMetrics?.density ?: 3f)) + 0.5f).toInt()
     }
 
     /**
@@ -102,8 +111,14 @@ object IconHookHandler : BaseHookHandler() {
     @Volatile
     private var iconPackManagerCache: IconPackManager? = null
 
+    /**
+     * 图标包管理器（惰性构造）
+     *
+     * @Synchronized: 后台预热线程与启动遮罩路径可能并发进入, 构造本身虽廉价, 但允许重复
+     * 实例会让先构造的一方白跑一次 appfilter 解析然后被丢弃
+     */
     private val iconPackManager: IconPackManager?
-        get() = iconPackManagerCache ?: appContext?.let { ctx ->
+        @Synchronized get() = iconPackManagerCache ?: appContext?.let { ctx ->
             IconPackManager(ctx, prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME))
                 .also { iconPackManagerCache = it }
         }
@@ -144,6 +159,8 @@ object IconHookHandler : BaseHookHandler() {
         }
         Preferences.Icon.ENABLE_USE_MIUI_LARGE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
         Preferences.Icon.ENABLE_REPLACE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
+        // 档位变更时清增强缓存: key 虽含 lv 不会错配, 但旧档位条目会白占 LRU
+        Preferences.Icon.ENHANCE_LEVEL.observe(fireImmediately = false) { IconEnhanceEngine.clearCache() }
 
         SystemUIHooker.Members.getWindowAttrs.addAfterHook {
 
@@ -195,22 +212,39 @@ object IconHookHandler : BaseHookHandler() {
             val iconView = ReflectCache.getField<ImageView>(splashScreenView, "mIconView")
                 ?: return@addAfterHook
 
-            // 创建模糊背景 View
+            // 创建模糊背景 View —— 纯 View 层实现, 全部走 GPU:
+            // 放大图标经圆角轮廓裁剪后由 RenderEffect 模糊向外溢出, 不再预烘软件位图
+            // (原 createShadowedIcon 每次启动付一次 ~3MB 位图分配 + saveLayerAlpha/clipPath 软件绘制)
             if (needBlurBg) {
-                val blurIconSize = (appResources!!.getDimensionPixelSize(startingSurfaceIconSizeResId) / 1.5).toInt()
+                val blurIconSize = (startingSurfaceIconSizePx / 1.5).toInt()
+                // 视图尺寸与原方案一致; 图标经 padding 限定绘制在中央 blurIconSize*2 区域,
+                // 四周留白供模糊溢出 (与原 shadowBitmap 中 scaledSize+shadowSize 布局等价)
                 val bgIconSize = blurIconSize * 4
+                val iconInset = blurIconSize
+                val cornerRadius = blurIconSize *
+                        getDevPrefs(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE) / 100f
 
-                val blurBgDrawable = appContext?.let { context ->
-                    currentIconDrawable?.createShadowedIcon(
-                        context,
-                        blurIconSize,
-                        blurIconSize * 4,
-                        blurIconSize * getDevPrefs(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE) / 100f
-                    )
-                }
-                if (blurBgDrawable != null) {
+                // 同一 Drawable 实例不能挂到两个 View (bounds 会互相覆盖),
+                // 经 constantState 复制一份; 复制失败(罕见)时跳过模糊背景, 不影响遮罩本身
+                val blurDrawable = currentIconDrawable?.constantState?.newDrawable()?.mutate()
+                if (blurDrawable != null) {
                     val iconBlurBGView = ImageView(appContext).apply {
-                        setImageDrawable(blurBgDrawable)
+                        setImageDrawable(blurDrawable)
+                        // padding 限定内容区 = 中央 blurIconSize*2 —— FIT_XY 下图标完整
+                        // 显示在该区域内 (若直接铺满视图再 clip, 看到的会是图标的中央裁切而非整体)
+                        setPadding(iconInset, iconInset, iconInset, iconInset)
+                        scaleType = ImageView.ScaleType.FIT_XY
+                        alpha = 90f / 255f   // ≈ 原 saveLayerAlpha(90)
+                        outlineProvider = object : ViewOutlineProvider() {
+                            override fun getOutline(view: View, outline: Outline) {
+                                outline.setRoundRect(
+                                    iconInset, iconInset,
+                                    view.width - iconInset, view.height - iconInset,
+                                    cornerRadius
+                                )
+                            }
+                        }
+                        clipToOutline = true
                         setRenderEffect(
                             RenderEffect.createBlurEffect(
                                 bgIconSize.toFloat() / 10,
@@ -353,15 +387,33 @@ object IconHookHandler : BaseHookHandler() {
             // 取不到归属说明这次栅格化不是本次启动遮罩产生的, 直接放行
             val target = pendingEnhanceTargets.remove(src) ?: return@addBeforeHook
             val pkg = target.substringBefore("|")
+            // target 格式 "pkg|component|sourceDir", sourceDir 随机段随应用更新而变,
+            // 并入缓存键后"更新 + 重扫"产出的新文件不会再被旧位图命中; 不读 currentApplicationInfo
+            // 是因为此刻它可能已被下一次启动覆盖(见 pendingEnhanceTargets 注释)
+            val sourceDir = target.substringAfterLast("|").takeIf { it.isNotEmpty() }
 
             // 优先取离线超分缓存(命中时比实时路径更快), 未命中再走实时引擎
-            val enhanced = appContext?.let { ctx -> IconCacheClient.fetch(ctx, pkg, targetSize) }
+            val enhanced = appContext?.let { ctx -> IconCacheClient.fetch(ctx, pkg, targetSize, sourceDir) }
                 ?: IconEnhanceEngine.enhance(src = src, targetSize = targetSize, cacheKey = target)
 
             enhanced?.let {
                 args(0).set(it)
                 printLog { "IconEnhanceEngine(): enhanced $pkg @ ${targetSize}px" }
             }
+        }
+
+        // 后台预热: 图标包 appfilter.xml 解析 (典型 10~50ms) + 离线缓存 Provider 探活。
+        // 前者避免首次启动遮罩在热路径上付解析成本(传空串必然 miss, 只触发 load());
+        // 后者避免 openFileDescriptor 在首启遮罩上同步冷启动模块进程(可达 ~0.5-1s)
+        val needIconPackWarmup = prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME) != "None"
+        val needProviderPrewarm = prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0
+        if (needIconPackWarmup || needProviderPrewarm) {
+            Thread({
+                runCatching {
+                    if (needIconPackWarmup) iconPackManager?.getIconByComponentName("")
+                    if (needProviderPrewarm) appContext?.let { IconCacheClient.prewarm(it) }
+                }
+            }, "SSA-IconWarmup").apply { isDaemon = true }.start()
         }
     }
 
@@ -464,7 +516,7 @@ object IconHookHandler : BaseHookHandler() {
 
                 // 转换成正方形图标
                 if (largeIconSize == "1x2" || largeIconSize == "2x1") {
-                    it.convertToSquareDrawable(appResources!!)
+                    it.convertToSquareDrawable()
                 } else {
                     it
                 }

@@ -22,6 +22,12 @@ class RemotePreferenceStore(
 
     private val snapshot = ConcurrentHashMap<String, Any>()
 
+    /**
+     * service 未绑定 / Binder 写入失败时暂存的写入，[flushPendingWrites] 在服务就绪后补写。
+     * 避免开关在 UI 上已翻转、远端却永远没写进去（module_configs 里连键都不存在）
+     */
+    private val pendingWrites = ConcurrentHashMap<String, Any>()
+
     private val _globalReloadEvent = MutableSharedFlow<Unit>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -33,6 +39,9 @@ class RemotePreferenceStore(
     init {
         scope.launch {
             xposedManager.serviceFlow.collect { service ->
+                if (service != null) {
+                    flushPendingWrites()
+                }
                 snapshot.clear()
                 if (service != null) {
                     _globalReloadEvent.emit(Unit)
@@ -73,25 +82,52 @@ class RemotePreferenceStore(
 
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> put(key: PreferenceKey<T>, value: T) {
-        val prefs = remotePrefs ?: return
-        prefs.edit {
-            if (value is Set<*>) {
-                putStringSet(key.name, value as Set<String>)
-            } else {
-                when (value) {
-                    is Boolean -> putBoolean(key.name, value)
-                    is Int -> putInt(key.name, value)
-                    is Long -> putLong(key.name, value)
-                    is Float -> putFloat(key.name, value)
-                    is String -> putString(key.name, value)
+        snapshot[key.name] = if (value is Set<*>) HashSet(value as Set<*>) else value
+        val prefs = remotePrefs
+        if (prefs == null || !writeTo(prefs, key.name, value)) {
+            pendingWrites[key.name] = value
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun writeTo(prefs: SharedPreferences, name: String, value: Any): Boolean {
+        return try {
+            prefs.edit {
+                if (value is Set<*>) {
+                    putStringSet(name, value as Set<String>)
+                } else {
+                    when (value) {
+                        is Boolean -> putBoolean(name, value)
+                        is Int -> putInt(name, value)
+                        is Long -> putLong(name, value)
+                        is Float -> putFloat(name, value)
+                        is String -> putString(name, value)
+                    }
                 }
             }
+            true
+        } catch (_: Throwable) {
+            false
         }
-        snapshot[key.name] = if (value is Set<*>) HashSet(value as Set<*>) else value
+    }
+
+    /** 服务绑定后补写所有暂存的写入；失败项保留在队列中等待下次绑定 */
+    private fun flushPendingWrites() {
+        if (pendingWrites.isEmpty()) return
+        val prefs = remotePrefs ?: return
+        val iterator = pendingWrites.entries.iterator()
+        while (iterator.hasNext()) {
+            val (name, value) = iterator.next()
+            if (writeTo(prefs, name, value)) {
+                iterator.remove()
+            }
+        }
     }
 
     fun setAll(map: Map<String, Any>) {
         snapshot.clear()
+        // 备份恢复是权威写入，丢弃之前暂存的队列，避免旧值在下次服务绑定时复活
+        pendingWrites.clear()
         remotePrefs?.edit(true) {
             map.forEach { (key, value) ->
                 when (value) {
@@ -129,6 +165,7 @@ class RemotePreferenceStore(
 
     fun clearAll() {
         snapshot.clear()
+        pendingWrites.clear()
         remotePrefs?.edit(true) {
             clear()
         }
