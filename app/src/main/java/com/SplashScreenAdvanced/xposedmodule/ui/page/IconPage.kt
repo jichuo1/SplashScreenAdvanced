@@ -157,15 +157,15 @@ private fun CommonSettingsGroup() {
         )
     }
     // 离线超分工厂: 手动触发一次批量预处理, 产物经 ContentProvider 供 SystemUI 侧复用
-    val scanState = remember { mutableStateOf("") }
+    val scanStats = remember { mutableStateOf<Pair<Int, Float>?>(null) }
     // 轮询刷新统计行: 扫描进行中条目数与体积都在变, 页面停留期间每 2s 重读一次
-    // (读的是进程内索引缓存 + 一次目录遍历, 开销可忽略)
+    // (读的是进程内索引缓存 + 一次目录遍历, 开销可忽略)。IO 线程只取原始数据,
+    // 字符串在组合期用 stringResource 格式化 —— 保证配置(语言)变更时能拿到新值
     LaunchedEffect(Unit) {
         while (true) {
-            scanState.value = withContext(Dispatchers.IO) {
-                val index = IconCacheStore.readIndex(context)
-                val mb = IconCacheStore.totalBytes(context) / 1024f / 1024f
-                context.getString(R.string.icon_cache_stats, index.entries.size, mb)
+            scanStats.value = withContext(Dispatchers.IO) {
+                IconCacheStore.readIndex(context).entries.size to
+                        IconCacheStore.totalBytes(context) / 1024f / 1024f
             }
             delay(2000)
         }
@@ -179,7 +179,10 @@ private fun CommonSettingsGroup() {
     }
     TextPreference(
         title = stringResource(R.string.sr_factory),
-        summary = stringResource(R.string.sr_factory_tips) + "\n" + scanState.value,
+        summary = stringResource(R.string.sr_factory_tips) + "\n" +
+                (scanStats.value?.let { (count, mb) ->
+                    stringResource(R.string.icon_cache_stats, count, mb)
+                } ?: ""),
         onClick = {
             if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
