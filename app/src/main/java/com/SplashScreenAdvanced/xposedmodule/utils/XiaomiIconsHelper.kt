@@ -3,6 +3,7 @@ package com.SplashScreenAdvanced.xposedmodule.utils
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
@@ -74,9 +75,61 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         )
     }
 
+    /**
+     * AOSP 风格 Dependency 的第三种解析形态
+     *
+     * `MiuiDependency.get(Class)` 在 HyperOS 2+ 的部分构建中被移除, 而 AOSP 形态的
+     * `Dependency` 只剩 `sDependency` 静态字段 + `getDependencyInner(Class)` 实例方法
+     * (customiuizer 等模块即用此路径)。返回值是 (方法, sDependency 实例) 对。
+     */
+    private val aospDependencyGetInner by lazy {
+        runCatching {
+            val dep = "com.android.systemui.Dependency".toClassOrNull(loader = classLoader)
+                ?: return@runCatching null
+            val sDep = dep.getDeclaredField("sDependency").apply { isAccessible = true }.get(null)
+                ?: return@runCatching null
+            sDep.javaClass.getDeclaredMethod("getDependencyInner", Class::class.java)
+                .apply { isAccessible = true } to sDep
+        }.getOrNull()
+    }
+
     private val appIconsManager by lazy {
         mDependencyGet?.invoke(null, appIconsManagerClazz)
             ?: mImplManagerGet?.invoke(null, appIconsManagerClazz)
+            ?: aospDependencyGetInner?.let { (method, sDep) ->
+                runCatching { method.invoke(sDep, appIconsManagerClazz) }.getOrNull()
+            }
+    }
+
+    /**
+     * MIUI 框架级主题图标 API
+     *
+     * `miui.content.res.IconCustomizer` 在 miui-framework 中, 随 boot classpath 进入 SystemUI
+     * 进程, MIUI 时代至 HyperOS 各版本均存在(boundo / Perfect-Icons / WOMMO 等模块在用)。
+     * 它是 AppIconsManager 失效时最稳的主题图标兜底。
+     */
+    private val iconCustomizerClazz by lazy {
+        "miui.content.res.IconCustomizer".toClassOrNull(loader = classLoader)
+    }
+
+    private val getCustomizedIconMethod by lazy {
+        runCatching {
+            iconCustomizerClazz?.getDeclaredMethod(
+                "getCustomizedIcon",
+                Context::class.java, String::class.java, String::class.java, Drawable::class.java
+            )?.apply { isAccessible = true }
+        }.getOrNull()
+    }
+
+    private val launcherApps by lazy {
+        runCatching { context.getSystemService(LauncherApps::class.java) }.getOrNull()
+    }
+
+    /** `UserHandle.of(int)` 是 @SystemApi 隐藏方法, 反射一次缓存 */
+    private val userHandleOf by lazy {
+        runCatching {
+            UserHandle::class.java.getDeclaredMethod("of", Int::class.java).apply { isAccessible = true }
+        }.getOrNull()
     }
 
     private val drawableUtilsClazz by lazy {
@@ -93,7 +146,10 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
 
     /** 当前是否启用 MIUI 完美图标 */
     val isSupportMIUIModeIcon by lazy {
-        Settings.System.getInt(context.contentResolver, "key_miui_mod_icon_enable", 0) == 1 || getFancyChildOrSelf != null
+        // HyperOS 4 上 key_miui_mod_icon_enable 与 DrawableUtils 任一缺失都不应判负:
+        // IconCustomizer 是框架级主题图标入口, 它存在即代表主题图标机制可用
+        Settings.System.getInt(context.contentResolver, "key_miui_mod_icon_enable", 0) == 1 ||
+                getFancyChildOrSelf != null || iconCustomizerClazz != null
     }
 
     // 以下成员进程内恒定, 解析一次复用; hasLargeIcon / getLargeIconSize / getLargeIconDrawable
@@ -262,28 +318,72 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
     /**
      * 从指定的应用程序包中获取完美的图标 Drawable
      *
+     * HyperOS 4 上 `AppIconsManager`/`loadAppIcon` 任一环节(类缺失、签名变更、DI 解析失败)
+     * 都会静默落到原始图标, 因此按可用性逐层回退:
+     * AppIconsManager -> IconCustomizer -> LauncherActivityInfo.getIcon(0) -> 原图标
+     *
      * @param packageName 要获取图标的应用程序包的包名。
      * @param userId 应用程序的用户 ID。
      * @param applicationInfo 应用程序的 ApplicationInfo 对象。
+     * @param className 当前启动 Activity 的类名, 用于 IconCustomizer 的组件级图标名解析。
      * @return 如果成功获取到完美图标，则返回一个 BitmapDrawable；如果发生错误，则回退到默认方式获取。
      */
     fun getFancyIconDrawable(
         packageName: String,
         userId: Int,
-        applicationInfo: ApplicationInfo?
-    ) = try {
-        val pm = SystemUIHooker.appContext!!.packageManager
-        loadAppIcon.invoke(
-            appIconsManager,
-            packageName,
-            userId,
-            applicationInfo,
-            pm
-        )
-    } catch (_: Throwable) {
-        val pm = SystemUIHooker.appContext!!.packageManager
-        getActivityIconOrApp(pm)
-    } as Drawable?
+        applicationInfo: ApplicationInfo?,
+        className: String? = null
+    ): Drawable? {
+        val pm = SystemUIHooker.appContext?.packageManager ?: return null
+        // original 只在下层兜底真正需要时才求值: loadAppIcon 命中的健康路径上
+        // 不应为拿不到的回退值白付一次 PM 图标加载 (binder + 解码)
+        val original by lazy(LazyThreadSafetyMode.NONE) {
+            runCatching { getActivityIconOrApp(pm) }.getOrNull()
+        }
+
+        // 1. MIUI SystemUI 内置完美图标
+        runCatching {
+            loadAppIcon.invoke(appIconsManager, packageName, userId, applicationInfo, pm) as? Drawable
+        }.getOrNull()?.let {
+            XMLog.i { "getFancyIconDrawable: AppIconsManager.loadAppIcon hit for $packageName" }
+            return it
+        }
+
+        // 2. 框架级主题图标: IconCustomizer.getCustomizedIcon(context, pkg, className, original)
+        runCatching {
+            getCustomizedIconMethod?.invoke(null, context, packageName, className, original) as? Drawable
+        }.getOrNull()?.let {
+            XMLog.i { "getFancyIconDrawable: IconCustomizer hit for $packageName/$className" }
+            return it
+        }
+
+        // 3. LauncherActivityInfo.getIcon(0): density=0 时 PackageManager 返回主题图标
+        getThemedIconViaLauncherApps(packageName, userId)?.let {
+            XMLog.i { "getFancyIconDrawable: LauncherActivityInfo.getIcon(0) hit for $packageName" }
+            return it
+        }
+
+        XMLog.w { "getFancyIconDrawable: all themed-icon layers missed for $packageName, fallback to original" }
+        return original
+    }
+
+    /**
+     * 经 `LauncherActivityInfo.getIcon(0)` 取主题图标 (ROM 无关)
+     *
+     * density=0 时 PackageManager 走主题资源解析, 指定具体 DPI 反而绕过主题——
+     * liyafe1997/AlwaysThemedIcon 在 MIUI 与 Flyme 上实测有效; 对无主题机制的 ROM
+     * (原生 AOSP/ColorOS/OriginOS/OneUI) 返回的等价于原图标, 调用方把它当
+     * "主题图标或原始图标"使用即可, 是无害的一次性 binder 调用。
+     *
+     * @param packageName 目标应用包名
+     * @param userId 目标应用所在 user (work profile 需传真实 userId, 不能用 SystemUI 自身的)
+     * @return 主题图标或原始图标; 无 launcher activity / 反射失败时 null
+     */
+    fun getThemedIconViaLauncherApps(packageName: String, userId: Int): Drawable? = runCatching {
+        val handle = userHandleOf?.invoke(null, userId) as? UserHandle
+        launcherApps?.getActivityList(packageName, handle ?: android.os.Process.myUserHandle())
+            ?.firstOrNull()?.getIcon(0)
+    }.getOrNull()
 
     /**
      * 返回给定包名的缓存时间。

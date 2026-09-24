@@ -17,6 +17,7 @@ import com.SplashScreenAdvanced.xposedmodule.hook.systemui.XiaomiHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.DexHostQueries
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.loadHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
+import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isColorOS
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
@@ -92,7 +93,18 @@ object SystemUIHooker {
 
         val makeSplashScreenContentView = HookManager {
             splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.firstMethodOrNull { name = "makeSplashScreenContentView" }?.self
+                ?.resolve()?.optional()?.let { resolver ->
+                    // 优先匹配参数含 ActivityInfo/StartingWindowInfo 的重载:
+                    // ROM 若加了同名重载, 无条件 firstMethodOrNull 可能钩到错误签名
+                    resolver.firstMethodOrNull {
+                        name = "makeSplashScreenContentView"
+                        parameters { types ->
+                            types.any {
+                                it == classOf<ActivityInfo>() || it.name.endsWith("StartingWindowInfo")
+                            }
+                        }
+                    } ?: resolver.firstMethodOrNull { name = "makeSplashScreenContentView" }
+                }?.self
         }
         val getWindowAttrs = HookManager {
             splashscreenContentDrawerClass
@@ -110,7 +122,7 @@ object SystemUIHooker {
         }
         val startingWindowViewBuilderConstructor = HookManager {
             startingWindowViewBuilderClass
-                ?.resolve()?.optional()?.firstConstructorOrNull { parameterCount { it in 2..3 } }?.self
+                ?.resolve()?.optional()?.firstConstructorOrNull { parameterCount { it >= 2 } }?.self
         }
         val createIconDrawable = HookManager {
             startingWindowViewBuilderClass
@@ -175,7 +187,7 @@ object SystemUIHooker {
                 query = DexHostQueries.immobileIconDrawable,
             )?.resolve()?.optional()?.firstMethodOrNull {
                 name = "preDrawIcon"
-                parameterCount = 2
+                parameterCount { it >= 2 }
             }?.self
         }
         val iconColor_constructor = HookManager {
@@ -190,12 +202,20 @@ object SystemUIHooker {
             HostDexLookup.findClass(
                 "com.android.launcher3.icons.IconProvider",
                 query = DexHostQueries.iconProvider,
-            )?.resolve()?.optional()?.firstMethodOrNull {
-                name = "getIcon"
-                parameterCount = 2
-                parameters { types ->
-                    Integer.TYPE in types &&
-                            (classOf<ActivityInfo>() in types || classOf<ComponentInfo>() in types)
+            )?.resolve()?.optional()?.let { resolver ->
+                resolver.firstMethodOrNull {
+                    name = "getIcon"
+                    parameterCount = 2
+                    parameters { types ->
+                        Integer.TYPE in types &&
+                                (classOf<ActivityInfo>() in types || classOf<ComponentInfo>() in types)
+                    }
+                } ?: resolver.firstMethodOrNull {
+                    // 签名细筛落空时的二级匹配: IconProvider 内所有 getIcon 重载返回的都是
+                    // 应用图标 Drawable, 回调里 result as Drawable 失败会被 HookManager 隔离
+                    name = "getIcon"
+                    parameterCount = 2
+                    parameters { types -> Integer.TYPE in types }
                 }
             }?.self
         }
@@ -252,7 +272,7 @@ object SystemUIHooker {
         val getIconExt_OplusShellStartingWindowManager = HookManager(isColorOS) {
             oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
                 name = "getIconExt"
-                parameterCount { it in 4..6 }
+                parameterCount { it >= 4 }
             }?.self
         }
         val getWindowAttrsIfPresent_OplusShellStartingWindowManager = HookManager(isColorOS) {
@@ -350,6 +370,6 @@ object SystemUIHooker {
             }
         }
         // 非门控：汇报功能 Hook 安装情况，unresolved 多为目标方法在本 ROM 上不存在
-        XMLog.i { "[SystemUI] installHooks finished: resolved=$resolvedCount, unresolved=$unresolvedCount" }
+        XMLog.i { "[SystemUI] installHooks finished: rom=${DeviceUtils.describeRom()}, resolved=$resolvedCount, unresolved=$unresolvedCount" }
     }
 }

@@ -185,6 +185,15 @@ object IconHookHandler : BaseHookHandler() {
 
         // 执行缩小图标
         SystemUIHooker.Members.createIconDrawable.addBeforeHook {
+            // 图标处理的最终落点 (ROM 无关兜底): 上游 hook 未解析、已解析但 ROM 改了调用链
+            // 而从未触发、ColorOS getIconExt 失效 —— 这些情形下传入的仍是未处理的原始图标。
+            // 用实例身份判定而非 hook 解析状态: 已处理过的 drawable 入参会与
+            // currentIconDrawable 同实例, 跳过避免二次处理
+            val iconIndex = args.indexOfFirst { it is Drawable }
+            if (iconIndex >= 0 && args[iconIndex] !== currentIconDrawable) {
+                printLog { "createIconDrawable(): icon not processed upstream, fallback processing" }
+                args(iconIndex).set(processIconDrawable(args[iconIndex] as Drawable))
+            }
             if (currentUseBigHyperOSLagerIcon == true) {
                 val size = ReflectCache.getField<Int>(instance!!, "mFinalIconSize") ?: 0
                 ReflectCache.setField(instance!!, "mFinalIconSize", (size * 1.35).toInt())
@@ -531,16 +540,30 @@ object IconHookHandler : BaseHookHandler() {
         val manager = iconPackManager ?: return null
 
         printLog { "getIcon(): use Icon Pack" }
-        return when {
-            currentPackageName == "com.android.contacts" && currentComponentName.isNotEmpty() ->
-                manager.getIconByComponentName("ComponentInfo{com.android.contacts/$currentComponentName}")
+        val componentKey =
+            if (currentComponentName.isNotEmpty()) "ComponentInfo{$currentPackageName/$currentComponentName}"
+            else null
+        // activity-alias 场景: currentComponentName 可能是目标 Activity, 而 appfilter 键的是
+        // 启动器组件(或反过来) —— targetActivity 变体与包级回退各自补一侧
+        val targetKey = currentActivityInfo?.targetActivity
+            ?.takeIf { it.isNotEmpty() && it != currentComponentName }
+            ?.let { "ComponentInfo{$currentPackageName/$it}" }
+        val hit = when {
+            currentPackageName == "com.android.contacts" && componentKey != null ->
+                manager.getIconByComponentName(componentKey)
 
-            currentComponentName.isNotEmpty() ->
-                manager.getIconByComponentName("ComponentInfo{$currentPackageName/$currentComponentName}")
+            componentKey != null ->
+                manager.getIconByComponentName(componentKey)
+                    ?: targetKey?.let { manager.getIconByComponentName(it) }
                     ?: manager.getIconByPackageName(currentPackageName)
 
             else -> manager.getIconByPackageName(currentPackageName)
         }
+        printLog {
+            "getIcon(): icon pack lookup ${if (hit != null) "hit" else "miss"} " +
+                    "(pkg=$currentPackageName, component=${componentKey ?: "-"})"
+        }
+        return hit
     }
 
     /**
@@ -571,12 +594,17 @@ object IconHookHandler : BaseHookHandler() {
             // 2、在 HyperOS 上尝试获取完美图标
             isHyperOS && miuiIcons.isSupportMIUIModeIcon -> miuiIcons.getFancyIconDrawable(
                 currentPackageName,
-                appUserId,
-                currentApplicationInfo
+                currentApplicationInfo?.uid?.let { it / 100000 } ?: appUserId,
+                currentApplicationInfo,
+                currentComponentName
             )
 
-            // 3、优先使用 ComponentName 获取 Activity 图标, 失败时回退到 Application 图标
-            else -> getActivityIconOrApp(pm)
+            // 3、LauncherActivityInfo.getIcon(0) 取主题图标 (Flyme 等主题在 PM 层生效的 ROM 有效,
+            //    无主题机制的 ROM 返回等价原图标), 失败时回退到 ComponentName/Application 图标
+            else -> miuiIcons.getThemedIconViaLauncherApps(
+                currentPackageName,
+                currentApplicationInfo?.uid?.let { it / 100000 } ?: appUserId
+            ) ?: getActivityIconOrApp(pm)
         }
     }
 

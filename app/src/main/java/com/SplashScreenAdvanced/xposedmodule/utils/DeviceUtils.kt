@@ -1,5 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.utils
 
+import android.os.Build
 import com.highcapable.kavaref.extension.toClass
 
 /**
@@ -47,5 +48,61 @@ object DeviceUtils {
             val get = systemProperties.getMethod("get", String::class.java)
             !(get.invoke(null, "ro.afterlife.version") as? String).isNullOrEmpty()
         }.getOrDefault(false)
+    }
+
+    private fun getSysProp(key: String): String = runCatching {
+        val systemProperties = "android.os.SystemProperties".toClass()
+        systemProperties.getMethod("get", String::class.java).invoke(null, key) as? String
+    }.getOrNull().orEmpty()
+
+    /**
+     * 主流 ROM 特征属性表 (key -> 标签)
+     *
+     * 仅用于诊断日志, 不做功能分支: 各 OEM/第三方 ROM 的识别属性来自公开项目
+     * (settingscompat / AndroidUtilCode / DevUtils) 与上游模块的长期积累;
+     * 属性命名按厂商习惯排列, 每个标签只取第一个非空命中。
+     */
+    private val romPropKeys = linkedMapOf(
+        "ro.mi.os.version.name" to "HyperOS",
+        "ro.miui.ui.version.name" to "MIUI",
+        "ro.build.version.oplusrom" to "ColorOS",
+        "ro.rom.version" to "OnePlus",
+        "ro.vivo.os.name" to "OriginOS",
+        "ro.vivo.os.version" to "OriginOS",
+        "ro.vivo.rom.version" to "FuntouchOS",
+        "ro.build.version.emui" to "EMUI",
+        "hw_sc.build.platform.version" to "HarmonyOS",
+        "ro.honor.build.display.id" to "MagicOS",
+        "ro.smartisan.version" to "SmartisanOS",
+        "ro.tranos.version" to "HiOS",
+        "ro.xos.version" to "XOS",
+        "ro.build.rom.id" to "Nubia",
+        "ro.build.MiFavor_version" to "MiFavor",
+        "ro.lineage.version" to "LineageOS",
+        "ro.crdroid.version" to "crDroid",
+        "ro.evolution.version" to "EvolutionX",
+        "ro.pe.version" to "PixelExperience",
+        "ro.rising.version" to "RisingOS",
+        "ro.afterlife.version" to "AfterlifeOS",
+        "ro.superior.version" to "SuperiorOS",
+        "ro.projectelixir.version" to "ProjectElixir",
+    )
+
+    /**
+     * 返回当前 ROM 的识别串, 用于 installHooks 诊断日志
+     *
+     * 形如 `HyperOS=OS3.0.300` / `ColorOS=15.0` / `EMUI=14.2.0` 的拼接;
+     * 全部落空时退化为 Build.MANUFACTURER, Flyme 用 Build.DISPLAY 判定(无独立属性)
+     */
+    fun describeRom(): String {
+        val seen = mutableSetOf<String>()
+        val tags = romPropKeys.mapNotNull { (key, label) ->
+            if (label in seen) return@mapNotNull null
+            getSysProp(key)
+                .takeIf { it.isNotEmpty() && !it.equals("unknown", ignoreCase = true) }
+                ?.let { seen += label; "$label=$it" }
+        }.toMutableList()
+        if (Build.DISPLAY.contains("flyme", ignoreCase = true)) tags += "Flyme=${Build.DISPLAY}"
+        return if (tags.isEmpty()) Build.MANUFACTURER else tags.joinToString("+")
     }
 }
