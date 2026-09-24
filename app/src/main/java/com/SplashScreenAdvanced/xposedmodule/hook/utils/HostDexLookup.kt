@@ -174,17 +174,30 @@ internal object DexHostQueries {
         firstClass("com.android.launcher3.icons") {
             addMethod { name("normalizeAndWrapToAdaptiveIcon") }
             addMethod { name("createIconBitmap") }
+        } ?: firstClass {
+            // 挪包兜底 (类被 ROM 移出 launcher3 包时仍能命中)
+            className("IconFactory", StringMatchType.Contains)
+            addMethod { name("createIconBitmap") }
         }
     }
 
     val iconProvider: DexKitBridge.() -> ClassData? = {
         firstClass("com.android.launcher3.icons") {
             addMethod { name("getIcon"); paramCount(2) }
+        } ?: firstClass {
+            // HyperOS 4 可能把 IconProvider 挪出 launcher3 包:
+            // 放宽到任意包名, 用类名 + getIcon 双参方法定位, 调用侧再做签名细筛
+            className("IconProvider", StringMatchType.Contains)
+            addMethod { name("getIcon"); paramCount(2) }
         }
     }
 
     val shellTaskOrganizer: DexKitBridge.() -> ClassData? = {
         firstClass("com.android.wm.shell") {
+            addMethod { name("removeStartingWindow") }
+        } ?: firstClass {
+            // 挪包兜底
+            className("TaskOrganizer", StringMatchType.Contains)
             addMethod { name("removeStartingWindow") }
         }
     }

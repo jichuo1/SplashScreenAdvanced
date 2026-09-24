@@ -98,17 +98,26 @@ object GenerateHookHandler : BaseHookHandler() {
             if (firstContentViewLogged.compareAndSet(false, true)) {
                 XMLog.i { "****** makeSplashScreenContentView(): first invocation" }
             }
-            var activityInfo: ActivityInfo?
-
-            if (args[1]!! is ActivityInfo)
-                activityInfo = args[1] as ActivityInfo
-            else {
-                val arg = args[1]!!
-                activityInfo = ReflectCache.getField<ActivityInfo>(arg, "targetActivityInfo")
-                if (activityInfo == null) {
-                    val taskInfo = ReflectCache.getField<Any>(arg, "taskInfo")!!
-                    activityInfo = ReflectCache.getField<ActivityInfo>(taskInfo, "topActivityInfo")!!
+            // args[1] 已知形态: 直接 ActivityInfo / 包装类的 targetActivityInfo 字段 /
+            // 包装类 taskInfo 字段里的 topActivityInfo。字段被 ROM 改名时用类型扫描兜底;
+            // 全失败也不能 NPE —— 否则 currentPackageName 永远空着, 整条图标链静默失效
+            var activityInfo: ActivityInfo? = args.getOrNull(1) as? ActivityInfo
+            if (activityInfo == null) {
+                val arg = args.getOrNull(1)
+                if (arg != null) {
+                    activityInfo = ReflectCache.getField<ActivityInfo>(arg, "targetActivityInfo")
+                        ?: ReflectCache.getField<Any>(arg, "taskInfo")
+                            ?.let { ReflectCache.getField<ActivityInfo>(it, "topActivityInfo") }
+                        ?: extractActivityInfo(arg)
                 }
+                // 最后兜底: 实参表其它位置的 ActivityInfo
+                if (activityInfo == null) {
+                    activityInfo = args.firstNotNullOfOrNull { it as? ActivityInfo }
+                }
+            }
+            if (activityInfo == null) {
+                XMLog.w { "makeSplashScreenContentView(): ActivityInfo extraction failed, args=${args.contentToString()}" }
+                return@addBeforeHook
             }
 
             isHooking = true
@@ -198,6 +207,28 @@ object GenerateHookHandler : BaseHookHandler() {
             resetCache()
             null
         }
+    }
+
+    /**
+     * 在包装对象中按类型扫描第一个 [ActivityInfo] 字段 (含父类)
+     *
+     * 供 ROM 改写字段名后的兜底解析: `targetActivityInfo`/`mTargetActivityInfo`/`activityInfo`
+     * 等命名都能命中, 与具体字段名解耦。
+     */
+    private fun extractActivityInfo(arg: Any): ActivityInfo? {
+        var cls: Class<*>? = arg.javaClass
+        while (cls != null) {
+            for (field in cls.declaredFields) {
+                if (ActivityInfo::class.java.isAssignableFrom(field.type)) {
+                    return runCatching {
+                        field.isAccessible = true
+                        field.get(arg) as? ActivityInfo
+                    }.getOrNull()
+                }
+            }
+            cls = cls.superclass
+        }
+        return null
     }
 
     /**
