@@ -106,8 +106,11 @@ BUILD_MAINTENANCE_PREFIXES = (
     "文档",
     "调整",
     "更新版本",
+    "提升版本号",
+    "结构优化",
+    "对项目结构",
+    "升级buildtool",
     "更新标题",
-    "适配",
     "修改",
     "同步",
     "验证",
@@ -129,14 +132,18 @@ def category_for_subject(subject: str) -> str:
             return category
     normalized = subject.strip().lower()
     localized_prefixes = (
-        ("新增", ("新增", "添加", "实现", "引入")),
+        ("新增", ("新增", "添加", "增加", "实现", "引入", "支持", "接入", "初步支持")),
         ("修复", ("修复", "解决", "纠正")),
-        ("优化", ("优化", "重构", "改进", "调整", "提升")),
+        ("优化", ("优化", "重构", "改进", "调整", "提升", "完善", "补全", "增强", "适配")),
     )
     for category, prefixes in localized_prefixes:
         if normalized.startswith(prefixes):
             return category
-    return "构建与维护"
+    if is_build_maintenance(subject):
+        return "构建与维护"
+    # 自由格式的中文标题（如「以新引擎重新构建…」）无法从前缀判断时，默认视为用户可感知的优化，
+    # 避免整版更新被折叠进「构建与维护」、用户章节全是「无」。
+    return "优化"
 
 
 def translate_description(desc: str) -> str:

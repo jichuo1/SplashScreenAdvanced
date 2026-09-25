@@ -120,12 +120,14 @@ jobs:
             -p 'test_*.py'
           test_dir="$RUNNER_TEMP/alpha-release-template-test"
           mkdir -p "$test_dir"
-          python3 .github/release-templates/generate_alpha_changelog.py \
+          python3 .github/release-templates/generate_release_notes.py \
+            --channel alpha \
+            --no-llm \
             --repo-root . \
             --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --release-tag v0.0.0-alpha.0 \
             --commit "$GITHUB_SHA" \
-            --output "$test_dir/ALPHA_CHANGELOG.md"
+            --changelog-output "$test_dir/ALPHA_CHANGELOG.md"
           python3 .github/release-templates/render_release_template.py \
             --template .github/release-templates/alpha.md \
             --output "$test_dir/RELEASE_NOTES.md" \
@@ -389,16 +391,32 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
           APK_FILENAME: ${{ steps.apk.outputs.apk_filename }}
           APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          # 更新说明按槽位 1 → 2 → 3 依次请求模型，全部失败回退规则版；密钥只来自仓库级 Secret。
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_LLM_1_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_1_API_KEY }}
+          RELEASE_NOTES_LLM_1_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_1_PROTOCOL }}
+          RELEASE_NOTES_LLM_1_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_1_BASE_URL || vars.RELEASE_NOTES_LLM_1_BASE_URL }}
+          RELEASE_NOTES_LLM_1_MODEL: ${{ vars.RELEASE_NOTES_LLM_1_MODEL }}
+          RELEASE_NOTES_LLM_2_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_2_API_KEY }}
+          RELEASE_NOTES_LLM_2_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_2_PROTOCOL }}
+          RELEASE_NOTES_LLM_2_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_2_BASE_URL || vars.RELEASE_NOTES_LLM_2_BASE_URL }}
+          RELEASE_NOTES_LLM_2_MODEL: ${{ vars.RELEASE_NOTES_LLM_2_MODEL }}
+          RELEASE_NOTES_LLM_3_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_3_API_KEY }}
+          RELEASE_NOTES_LLM_3_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_3_PROTOCOL }}
+          RELEASE_NOTES_LLM_3_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_3_BASE_URL || vars.RELEASE_NOTES_LLM_3_BASE_URL }}
+          RELEASE_NOTES_LLM_3_MODEL: ${{ vars.RELEASE_NOTES_LLM_3_MODEL }}
         run: |
           set -euo pipefail
 
           changelog_file="release-asset/ALPHA_CHANGELOG.md"
-          python3 .github/release-templates/generate_alpha_changelog.py \
+          python3 .github/release-templates/generate_release_notes.py \
+            --channel alpha \
             --repo-root . \
             --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --release-tag "$RELEASE_TAG" \
             --commit "$GITHUB_SHA" \
-            --output "$changelog_file"
+            --changelog-output "$changelog_file" \
+            --report-output "$GITHUB_STEP_SUMMARY"
 
           python3 .github/release-templates/render_release_template.py \
             --template .github/release-templates/alpha.md \

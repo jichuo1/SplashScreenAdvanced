@@ -13,9 +13,10 @@ on:
         required: true
         type: string
       release_summary:
-        description: Two to four sentences describing this Stable version and user-facing value
-        required: true
+        description: Optional two to four sentence overview; leave empty to let the release-note model write it
+        required: false
         type: string
+        default: ''
 
 concurrency:
   group: stable-release-${{ github.ref }}
@@ -78,27 +79,23 @@ jobs:
 
       - name: Validate Stable release tooling
         shell: bash
-        env:
-          RELEASE_SUMMARY: ${{ inputs.release_summary }}
         run: |
           set -euo pipefail
-          if [[ -z "${RELEASE_SUMMARY//[[:space:]]/}" ]]; then
-            echo 'Stable release summary must not be empty.'
-            exit 1
-          fi
-
           python3 -m unittest discover \
             -s .github/release-templates \
             -p 'test_*.py'
 
           test_dir="$RUNNER_TEMP/stable-release-template-test"
           mkdir -p "$test_dir"
-          python3 .github/release-templates/generate_stable_changelog.py \
+          python3 .github/release-templates/generate_release_notes.py \
+            --channel stable \
+            --no-llm \
             --repo-root . \
             --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --release-tag v0.0.0 \
             --commit "$GITHUB_SHA" \
-            --output "$test_dir/STABLE_CHANGELOG.md"
+            --changelog-output "$test_dir/STABLE_CHANGELOG.md" \
+            --summary-output "$test_dir/STABLE_SUMMARY.md"
           python3 .github/release-templates/render_release_template.py \
             --template .github/release-templates/stable.md \
             --output "$test_dir/RELEASE_NOTES.md" \
@@ -107,7 +104,7 @@ jobs:
             --release-date "$(TZ=Asia/Shanghai date +%F)" \
             --sha256 0000000000000000000000000000000000000000000000000000000000000000 \
             --apk-filename SplashScreenAdvanced-v0.0.0-00000000.apk \
-            --release-summary "$RELEASE_SUMMARY" \
+            --release-summary "$(cat "$test_dir/STABLE_SUMMARY.md")" \
             --changelog-file "$test_dir/STABLE_CHANGELOG.md"
           if grep -Eq '\{\{[A-Z0-9_]+\}\}' "$test_dir/RELEASE_NOTES.md"; then
             echo 'Stable release-note tooling left unresolved template tokens.'
@@ -378,15 +375,35 @@ jobs:
           RELEASE_SUMMARY: ${{ inputs.release_summary }}
           APK_FILENAME: ${{ steps.apk.outputs.apk_filename }}
           APK_SHA256: ${{ steps.apk.outputs.apk_sha256 }}
+          # 更新说明按槽位 1 → 2 → 3 依次请求模型，全部失败回退规则版；密钥只来自仓库级 Secret。
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_LLM_1_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_1_API_KEY }}
+          RELEASE_NOTES_LLM_1_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_1_PROTOCOL }}
+          RELEASE_NOTES_LLM_1_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_1_BASE_URL || vars.RELEASE_NOTES_LLM_1_BASE_URL }}
+          RELEASE_NOTES_LLM_1_MODEL: ${{ vars.RELEASE_NOTES_LLM_1_MODEL }}
+          RELEASE_NOTES_LLM_2_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_2_API_KEY }}
+          RELEASE_NOTES_LLM_2_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_2_PROTOCOL }}
+          RELEASE_NOTES_LLM_2_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_2_BASE_URL || vars.RELEASE_NOTES_LLM_2_BASE_URL }}
+          RELEASE_NOTES_LLM_2_MODEL: ${{ vars.RELEASE_NOTES_LLM_2_MODEL }}
+          RELEASE_NOTES_LLM_3_API_KEY: ${{ secrets.RELEASE_NOTES_LLM_3_API_KEY }}
+          RELEASE_NOTES_LLM_3_PROTOCOL: ${{ vars.RELEASE_NOTES_LLM_3_PROTOCOL }}
+          RELEASE_NOTES_LLM_3_BASE_URL: ${{ secrets.RELEASE_NOTES_LLM_3_BASE_URL || vars.RELEASE_NOTES_LLM_3_BASE_URL }}
+          RELEASE_NOTES_LLM_3_MODEL: ${{ vars.RELEASE_NOTES_LLM_3_MODEL }}
         run: |
           set -euo pipefail
           changelog_file="release-asset/STABLE_CHANGELOG.md"
-          python3 .github/release-templates/generate_stable_changelog.py \
+          summary_file="release-asset/STABLE_SUMMARY.md"
+          # release_summary 留空时由模型撰写概述；填写时优先使用手写内容。
+          python3 .github/release-templates/generate_release_notes.py \
+            --channel stable \
             --repo-root . \
             --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --release-tag "$RELEASE_TAG" \
             --commit "$GITHUB_SHA" \
-            --output "$changelog_file"
+            --summary "$RELEASE_SUMMARY" \
+            --changelog-output "$changelog_file" \
+            --summary-output "$summary_file" \
+            --report-output "$GITHUB_STEP_SUMMARY"
 
           python3 .github/release-templates/render_release_template.py \
             --template .github/release-templates/stable.md \
@@ -396,7 +413,7 @@ jobs:
             --release-date "$(TZ=Asia/Shanghai date +%F)" \
             --sha256 "$APK_SHA256" \
             --apk-filename "$APK_FILENAME" \
-            --release-summary "$RELEASE_SUMMARY" \
+            --release-summary "$(cat "$summary_file")" \
             --changelog-file "$changelog_file"
 
           if grep -Eq '\{\{[A-Z0-9_]+\}\}' release-asset/RELEASE_NOTES.md; then
