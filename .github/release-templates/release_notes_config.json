@@ -1,0 +1,59 @@
+{
+  "product_name": "SplashScreenAdvanced",
+  "product_context": "libxposed 模块，作用于系统界面（SystemUI）与系统框架，自定义 Android 原生应用启动遮罩（Splash Screen）：强制显示/隐藏启动遮罩、替换或增强图标、调整背景与动画，并提供离线图标超分等画质功能。模块自身有设置界面。",
+  "user_text_paths": [
+    "app/src/main/res/values-zh-rCN/strings.xml",
+    "hyperx-compose/src/main/res/values-zh-rCN/strings.xml"
+  ],
+  "user_text_fallbacks": {
+    "app/src/main/res/values-zh-rCN/strings.xml": [
+      "app/src/main/res/values/strings.xml"
+    ]
+  },
+  "highlight_paths": [],
+  "source_prefixes": [
+    "app/src/main/",
+    "hyperx-compose/src/main/",
+    "native/"
+  ],
+  "path_strip_prefixes": [
+    "app/src/main/java/com/SplashScreenAdvanced/xposedmodule/",
+    "app/src/"
+  ],
+  "ignored_path_patterns": [
+    "*/build/*",
+    "*.png",
+    "*.webp",
+    "*.jar",
+    "*.so",
+    "*/values-*/strings.xml",
+    "**/lint-baseline.xml",
+    "baselineprofile/*",
+    "docs/*"
+  ],
+  "forbidden_terms": [
+    "Gradle",
+    "R8",
+    "KSP",
+    "Lint",
+    "lint",
+    "lintDebug",
+    "CI",
+    "workflow",
+    "工作流",
+    "单元测试",
+    "门禁",
+    "stringResource",
+    "ContentProvider",
+    "strings.xml",
+    ".kt",
+    ".xml"
+  ],
+  "style_notes": [
+    "“系统界面”指 SystemUI；提到 ROM 时沿用原名（如 HyperOS、ColorOS、AfterLifeOS），不要自行翻译。",
+    "设置项名称尽量沿用“用户可见文案净变化”里的原文，便于用户在设置页中找到。",
+    "改动需要重启系统界面或手机才能生效时，可以在条目里简短提示。"
+  ],
+  "max_items": 18,
+  "max_context_chars": 60000
+}
