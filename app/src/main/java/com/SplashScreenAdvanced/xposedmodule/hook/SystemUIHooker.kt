@@ -355,13 +355,13 @@ object SystemUIHooker {
 
         // 执行 Hook；toggle 绑定的成员由各自的 bindInstallToggle 自管安装状态，跳过此无条件循环
         var resolvedCount = 0
-        var unresolvedCount = 0
+        val unresolvedNames = mutableListOf<String>()
         Members.javaClass.declaredFields.forEach { field ->
             field.makeAccessible()
             val hookManager = field.get(null)
 
             if (hookManager is HookManager && !hookManager.isToggleBound) {
-                if (hookManager.member == null) unresolvedCount++ else resolvedCount++
+                if (hookManager.member == null) unresolvedNames += field.name else resolvedCount++
                 try {
                     hookManager.startHook(module)
                 } catch (e: Throwable) {
@@ -369,7 +369,11 @@ object SystemUIHooker {
                 }
             }
         }
-        // 非门控：汇报功能 Hook 安装情况，unresolved 多为目标方法在本 ROM 上不存在
-        XMLog.i { "[SystemUI] installHooks finished: rom=${DeviceUtils.describeRom()}, resolved=$resolvedCount, unresolved=$unresolvedCount" }
+        // 非门控：汇报功能 Hook 安装情况，unresolved 多为目标方法在本 ROM 上不存在;
+        // 附成员名便于从日志直接定位是哪一环断了(如 HyperOS 上 IconProvider 链路变更)
+        XMLog.i {
+            "[SystemUI] installHooks finished: rom=${DeviceUtils.describeRom()}, resolved=$resolvedCount" +
+                    if (unresolvedNames.isEmpty()) "" else ", unresolved=${unresolvedNames.joinToString()}"
+        }
     }
 }
