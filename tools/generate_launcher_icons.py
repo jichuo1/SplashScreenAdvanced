@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import shutil
 from collections import deque
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -14,11 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
 DOCS = ROOT / "docs"
 SRC = ROOT / "tools" / "icon-source.png"
-FALLBACK_SRC = Path(
-    r"***REMOVED***"
-    r"***REMOVED***"
-    r"***REMOVED***"
-)
 
 DENSITIES = {
     "mdpi": 1.0,
@@ -416,10 +410,6 @@ def write_text(path: Path, content: str) -> None:
 
 def resolve_source() -> Path:
     if SRC.exists():
-        return SRC
-    if FALLBACK_SRC.exists():
-        SRC.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(FALLBACK_SRC, SRC)
         return SRC
     raise FileNotFoundError(f"icon source not found: {SRC}")
 
