@@ -97,7 +97,7 @@ class IconPackManager(private val mContext: Context, private val packageName: St
                 } catch (_: XmlPullParserException) {
                     //XMLog.d { "Cannot parse icon pack appfilter.xml" }
                 } catch (e: IOException) {
-                    e.printStackTrace()
+                    XMLog.w { "IconPackManager: appfilter parse failed: ${e.message}" }
                 } finally {
                     runCatching { parser?.close() }
                     runCatching { appFilterStream?.close() }
@@ -109,15 +109,28 @@ class IconPackManager(private val mContext: Context, private val packageName: St
         }
     }
 
+    /**
+     * Drawable 解码缓存 (ConstantState): 图标包命中时原实现每次启动都
+     * getIdentifier + inflate/decode PNG (~1-5ms 跨包资源 IO)。ConstantState 可安全共享,
+     * 每次调用 newDrawable() 出新实例, 调用方 mutate 不互相污染
+     */
+    private val drawableCache = object : LinkedHashMap<String, Drawable.ConstantState>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Drawable.ConstantState>) = size > 64
+    }
+
     @SuppressLint("DiscouragedApi")
     private fun loadDrawable(drawableName: String): Drawable? {
         val res = iconPackRes ?: return null
+        synchronized(drawableCache) { drawableCache[drawableName] }?.let { return it.newDrawable() }
         val id = res.getIdentifier(drawableName, "drawable", packageName)
-        if (id > 0) {
-            return ResourcesCompat.getDrawable(res, id, mContext.theme)
-        }
-        return null
+        if (id <= 0) return null
+        val drawable = ResourcesCompat.getDrawable(res, id, mContext.theme) ?: return null
+        drawable.constantState?.let { cs -> synchronized(drawableCache) { drawableCache[drawableName] = cs } }
+        return drawable
     }
+
+    /** 包名 -> 启动组件名缓存: getLaunchIntentForPackage 是 binder 调用, 不必每次启动重复 */
+    private val packageComponentCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
      * 根据应用名获取图标
@@ -132,8 +145,11 @@ class IconPackManager(private val mContext: Context, private val packageName: St
         if (appPackageName == null) return null
 
         val pm = mContext.packageManager
-        // getLaunchIntentForPackage 是 binder 调用, 原先连着调了两次, 这里只取一次
-        val componentName = pm.getLaunchIntentForPackage(appPackageName)?.component?.toString()
+        // getLaunchIntentForPackage 是 binder 调用, 组件名进程内恒定, 缓存避免每次启动重复;
+        // 无启动组件的包记空串哨兵 (ConcurrentHashMap 不能存 null)
+        val componentName = packageComponentCache.getOrPut(appPackageName) {
+            pm.getLaunchIntentForPackage(appPackageName)?.component?.toString() ?: ""
+        }.takeIf { it.isNotEmpty() }
 
         var drawableName = mPackagesDrawables[componentName]
         if (drawableName != null) {
@@ -189,7 +205,7 @@ class IconPackManager(private val mContext: Context, private val packageName: St
                 iconPacks += packageName to appName
             } catch (e: PackageManager.NameNotFoundException) {
                 // shouldn't happen
-                e.printStackTrace()
+                XMLog.w { "IconPackManager: icon pack $packageName not found" }
             }
         }
         return iconPacks

@@ -215,19 +215,31 @@ object GenerateHookHandler : BaseHookHandler() {
      * 供 ROM 改写字段名后的兜底解析: `targetActivityInfo`/`mTargetActivityInfo`/`activityInfo`
      * 等命名都能命中, 与具体字段名解耦。
      */
+    /**
+     * 按包装类缓存 [extractActivityInfo] 解析出的字段 (含负缓存):
+     * ROM 把命名字段全部改掉时, 每次启动都会走全字段扫描 —— 类结构进程内恒定, 只扫一次
+     */
+    private val activityInfoFields = java.util.concurrent.ConcurrentHashMap<Class<*>, java.lang.reflect.Field>()
+    private val activityInfoFieldMisses = java.util.concurrent.ConcurrentHashMap.newKeySet<Class<*>>()
+
     private fun extractActivityInfo(arg: Any): ActivityInfo? {
-        var cls: Class<*>? = arg.javaClass
+        val cls0 = arg.javaClass
+        if (cls0 in activityInfoFieldMisses) return null
+        val cached = activityInfoFields[cls0]
+        if (cached != null) return runCatching { cached.get(arg) as? ActivityInfo }.getOrNull()
+
+        var cls: Class<*>? = cls0
         while (cls != null) {
             for (field in cls.declaredFields) {
                 if (ActivityInfo::class.java.isAssignableFrom(field.type)) {
-                    return runCatching {
-                        field.isAccessible = true
-                        field.get(arg) as? ActivityInfo
-                    }.getOrNull()
+                    field.isAccessible = true
+                    activityInfoFields[cls0] = field
+                    return runCatching { field.get(arg) as? ActivityInfo }.getOrNull()
                 }
             }
             cls = cls.superclass
         }
+        activityInfoFieldMisses += cls0
         return null
     }
 

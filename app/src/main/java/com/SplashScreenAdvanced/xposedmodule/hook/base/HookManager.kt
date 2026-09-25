@@ -24,6 +24,9 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
          * 因此替换它的时机只需早于任何一次 hook 触发, 与 handler 注册顺序无关
          */
         var defaultExecCondition: (() -> Boolean) = { false }
+
+        /** 单个 hook 回调异常的最大打印次数，超出后静默（防每次启动重复全栈洪泛日志） */
+        private const val HOOK_ERROR_LOG_LIMIT = 3
     }
 
     /** 已解析的目标成员；对外只读，供需要复用已解析反射结果的调用方使用 */
@@ -85,11 +88,24 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
      * 落在 `build()` / `makeSplashScreenContentView()` 这类成员上足以让启动遮罩创建失败乃至 SystemUI 崩溃。
      * 单个回调失败只应让该功能失效，不应影响宿主与其它回调。
      */
+    /**
+     * 单个回调的异常打印配额: 同一回调失败超过 [HOOK_ERROR_LOG_LIMIT] 次后静默。
+     * 否则某条 hook 在 ROM 上不匹配而每次调用都抛时, 每次应用启动都会向 logcat + 模块日志
+     * 写一份完整堆栈, 洪泛 LSPosed 落盘日志。
+     */
+    private val hookErrorCounts = java.util.concurrent.ConcurrentHashMap<Any, Int>()
+
+    private fun canLogHookError(key: Any): Boolean {
+        val count = (hookErrorCounts[key] ?: 0) + 1
+        hookErrorCounts[key] = count
+        return count <= HOOK_ERROR_LOG_LIMIT
+    }
+
     private fun invokeIsolated(hook: HookParam.() -> Unit, param: HookParam) {
         try {
             hook(param)
         } catch (e: Throwable) {
-            XMLog.e(e)
+            if (canLogHookError(hook)) XMLog.e(e)
         }
     }
 
@@ -111,7 +127,7 @@ class HookManager(private val createCondition: Boolean = true, block: () -> Exec
                             return try {
                                 replaceHook!!.invoke(param)
                             } catch (e: Throwable) {
-                                XMLog.e(e)
+                                if (canLogHookError(replaceHook!!)) XMLog.e(e)
                                 // 回调失败不能把异常抛回宿主：原方法还没跑过就补一次，
                                 // 跑过了就沿用其结果，避免副作用重复执行
                                 if (param.originalCalled) param.result else param.callOriginal()

@@ -171,7 +171,7 @@ object IconHookHandler : BaseHookHandler() {
                     else
                         currentPackageName in prefs.get(Preferences.AppList.DEFAULT_STYLE_LIST)
             if (isDefaultStyle) {
-                val attrs = args[1]!!
+                val attrs = args.getOrNull(1) ?: return@addAfterHook
                 ReflectCache.setField(attrs, "mSplashScreenIcon", null)
             }
             printLog { "getWindowAttrs():${if (isDefaultStyle) "" else " not"} ignore set icon" }
@@ -180,7 +180,10 @@ object IconHookHandler : BaseHookHandler() {
         // 处理 Drawable 图标
         SystemUIHooker.Members.getIcon_IconProvider.addAfterHook {
             printLog { "getIcon_IconProvider(): current method is getIcon" }
-            result = processIconDrawable(result as Drawable)
+            // host 可能返回 null/非 Drawable (ROM 差异), 裸 cast 异常会走
+            // invokeIsolated 的按次堆栈日志, 必须安全转换
+            val icon = result as? Drawable ?: return@addAfterHook
+            result = processIconDrawable(icon)
         }
 
         // 执行缩小图标
@@ -217,7 +220,7 @@ object IconHookHandler : BaseHookHandler() {
                     currentUseBigHyperOSLagerIcon != true
             if (!needBlurBg && !needRoundCorner) return@addAfterHook
 
-            val splashScreenView = result as FrameLayout
+            val splashScreenView = result as? FrameLayout ?: return@addAfterHook
             val iconView = ReflectCache.getField<ImageView>(splashScreenView, "mIconView")
                 ?: return@addAfterHook
 
@@ -316,20 +319,23 @@ object IconHookHandler : BaseHookHandler() {
                 if (boolShrinkNonAdaptiveIconsIndex != -1) {
                     args(boolShrinkNonAdaptiveIconsIndex).set(false)
                 } else {
-                    // 经 ReflectCache 解析 (按运行时类缓存, 含父类查找), 避免每次启动重复扫描
+                    // 经 ReflectCache 解析 (按运行时类缓存, 含父类查找), 避免每次启动重复扫描。
+                    // ROM 签名差异可能让 Drawable/FloatArray 入参缺失 —— 安全查找, 缺则放弃替换
                     val normalizer = ReflectCache.invokeMethod<Any>(instance!!, "getNormalizer")
                     val scale = normalizer?.let {
                         ReflectCache.invokeMethod<Float>(
                             it,
                             "getScale",
-                            args.first { arg -> arg is Drawable },
-                            args.first { arg -> arg is RectF },
+                            args.firstOrNull { arg -> arg is Drawable },
+                            args.firstOrNull { arg -> arg is RectF },
                             null,
                             null
                         )
                     } ?: 0.92f
-                    (args(args.indexOfFirst { it is FloatArray }).any() as FloatArray)[0] = scale
-                    val oriDrawable = args.first { it is Drawable } as Drawable
+                    val outScale = args.firstOrNull { it is FloatArray } as? FloatArray
+                    val oriDrawable = args.firstOrNull { it is Drawable } as? Drawable
+                    if (outScale == null || oriDrawable == null) return@addBeforeHook
+                    outScale[0] = scale
                     val returnType = SystemUIHooker.Members.normalizeAndWrapToAdaptiveIcon.returnType
                     result = if (returnType == classOf<AdaptiveIconDrawable>())
                         TransparentAdaptiveIconDrawable(oriDrawable)
@@ -366,15 +372,23 @@ object IconHookHandler : BaseHookHandler() {
         // 位图图标也少一次重采样。
         //
         // 这里只改一个布尔入参, 开销为零, 可以安全地留在主线程。
-        SystemUIHooker.Members.immobileIconDrawableConstructor.addBeforeHook({
-            prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0
-        }) {
-            // 构造签名: (Drawable, int srcIconSize, int iconSize, boolean loadInDetail, Handler)
-            if (args.size < 4) return@addBeforeHook
-            if (args[3] == false) args(3).set(true)
+        SystemUIHooker.Members.immobileIconDrawableConstructor.addBeforeHook {
+            // 图标处理的末位兜底 (构造签名: (Drawable, int, int, boolean, Handler)):
+            // getIcon/createIconDrawable 均失效时(如 IconProvider 链路在 ROM 上整体变更),
+            // 此处拿到的仍是未处理的原始图标。实例身份判定, 上游已处理则跳过
+            val icon = args.getOrNull(0) as? Drawable ?: return@addBeforeHook
+            if (icon !== currentIconDrawable) {
+                printLog { "ImmobileIconDrawable(): icon not processed upstream, fallback processing" }
+                args(0).set(processIconDrawable(icon))
+            }
 
-            // 记下这次栅格化的归属, 供后台线程上的 preDrawIcon 取用
-            (args[0] as? Drawable)?.let { pendingEnhanceTargets[it] = currentEnhanceTarget() }
+            if (prefs.get(Preferences.Icon.ENHANCE_LEVEL) > 0) {
+                if (args.size >= 4 && args[3] == false) args(3).set(true)
+
+                // 记下这次栅格化的归属, 供后台线程上的 preDrawIcon 取用;
+                // 须在可能的图标替换之后登记, 键必须是实际参与栅格化的 drawable 实例
+                (args[0] as? Drawable)?.let { pendingEnhanceTargets[it] = currentEnhanceTarget() }
+            }
         }
 
         // 图标画质增强之二: 位图重采样

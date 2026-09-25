@@ -125,6 +125,18 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         runCatching { context.getSystemService(LauncherApps::class.java) }.getOrNull()
     }
 
+    /**
+     * 主题图标链结果日志去重: 每个 (包, 命中层/miss) 每进程只打一条。
+     * 命中路径是每次启动都走的非门控 XMLog, 不去重会随使用频率线性膨胀日志
+     */
+    private val loggedIconOutcomes = ConcurrentHashMap.newKeySet<String>()
+
+    private fun logIconOutcomeOnce(packageName: String, layer: String) {
+        if (loggedIconOutcomes.add("$packageName|$layer")) {
+            XMLog.i { "getFancyIconDrawable: $layer hit for $packageName" }
+        }
+    }
+
     /** `UserHandle.of(int)` 是 @SystemApi 隐藏方法, 反射一次缓存 */
     private val userHandleOf by lazy {
         runCatching {
@@ -186,6 +198,10 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
 
     private val hasLargeIconCache = ConcurrentHashMap<String, Boolean>()
     private val largeIconSizeCache = ConcurrentHashMap<String, String>()
+
+    /** 大图标尺寸/Drawable 调用失败过的包 —— 失败不缓存结果, 不拦的话每次启动都重试 + 全栈日志 */
+    private val largeIconSizeMisses = ConcurrentHashMap.newKeySet<String>()
+    private val largeIconDrawableMisses = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
     private var largeIconConfigLoadedAt = 0L
@@ -249,15 +265,19 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
      * @param packageName 要检查的程序包的名称。
      * @return 如果程序包有大图标则返回 `true`，否则返回 `false`。
      */
-    fun hasLargeIcon(packageName: String) = try {
+    fun hasLargeIcon(packageName: String): Boolean {
         refreshLargeIconConfigIfStale()
-        hasLargeIconCache.getOrPut(packageName) {
-            ensureHooksInstalled()
-            hasLargeIconMethod?.invoke(null, packageName, null, "desktop", userHandleCurrent) ?: false
+        // 异常也写入缓存 (负缓存): getOrPut 不缓存异常, 不拦的话每次启动
+        // 都会对同一包重复 invoke + 打全栈日志
+        return hasLargeIconCache.getOrPut(packageName) {
+            runCatching {
+                ensureHooksInstalled()
+                hasLargeIconMethod?.invoke(null, packageName, null, "desktop", userHandleCurrent) ?: false
+            }.getOrElse {
+                XMLog.e(t = it) { "Failed to get hasLargeIcon for package $packageName" }
+                false
+            }
         }
-    } catch (e: Throwable) {
-        XMLog.e(t = e) { "Failed to get hasLargeIcon for package $packageName" }
-        false
     }
 
     /**
@@ -266,9 +286,10 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
      * @param packageName 需要获取大图标尺寸的程序包的名称。
      * @return 如果成功获取大图标的尺寸则返回该尺寸，否则在捕获异常后返回null。
      */
-    fun getLargeIconSize(packageName: String) = try {
+    fun getLargeIconSize(packageName: String): String? {
         refreshLargeIconConfigIfStale()
-        largeIconSizeCache[packageName] ?: run {
+        if (packageName in largeIconSizeMisses) return null
+        return largeIconSizeCache[packageName] ?: try {
             ensureHooksInstalled()
             val iconsConfigs = getLargeIconConfigFileMethod?.invoke(null, "desktop", false)?.let { configFile ->
                 ReflectCache.invokeMethod<HashMap<String, Any>>(configFile, "getIconsConfigs")
@@ -278,10 +299,11 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
             }
             if (size != null) largeIconSizeCache[packageName] = size
             size
+        } catch (e: Throwable) {
+            largeIconSizeMisses += packageName
+            XMLog.e(t = e) { "Failed to get large icon size for package $packageName" }
+            null
         }
-    } catch (e: Throwable) {
-        XMLog.e(t = e) { "Failed to get large icon size for package $packageName" }
-        null
     }
 
     private fun refreshLargeIconConfigIfStale() {
@@ -293,6 +315,9 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
             sManagerListField?.setValueTo(null, null)
             hasLargeIconCache.clear()
             largeIconSizeCache.clear()
+            // 失败负缓存随配置一起过期: TTL 后重试, 把最坏日志量压到 1 栈/分钟/包
+            largeIconSizeMisses.clear()
+            largeIconDrawableMisses.clear()
             largeIconConfigLoadedAt = innerNow
         }
     }
@@ -303,16 +328,20 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
      * @param packageName 应用程序的包名
      * @return 原始大图标可绘制对象，如果未找到则为 null
      */
-    fun getLargeIconDrawable(packageName: String) = try {
-        ensureHooksInstalled()
-        getLargeIconDrawableMethod?.invoke(
-            null, miuiHomeContext, packageName, null, "desktop", null, 0L, userHandleCurrent
-        )?.let { largeIcon ->
-            ReflectCache.invokeMethod<Drawable>(largeIcon, "getDrawable")
+    fun getLargeIconDrawable(packageName: String): Drawable? {
+        if (packageName in largeIconDrawableMisses) return null
+        return try {
+            ensureHooksInstalled()
+            getLargeIconDrawableMethod?.invoke(
+                null, miuiHomeContext, packageName, null, "desktop", null, 0L, userHandleCurrent
+            )?.let { largeIcon ->
+                ReflectCache.invokeMethod<Drawable>(largeIcon, "getDrawable")
+            }
+        } catch (e: Throwable) {
+            largeIconDrawableMisses += packageName
+            XMLog.e(t = e) { "Failed to get large icon drawable for package $packageName" }
+            null
         }
-    } catch (e: Throwable) {
-        XMLog.e(t = e) { "Failed to get large icon drawable for package $packageName" }
-        null
     }
 
     /**
@@ -345,7 +374,7 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         runCatching {
             loadAppIcon.invoke(appIconsManager, packageName, userId, applicationInfo, pm) as? Drawable
         }.getOrNull()?.let {
-            XMLog.i { "getFancyIconDrawable: AppIconsManager.loadAppIcon hit for $packageName" }
+            logIconOutcomeOnce(packageName, "loadAppIcon")
             return it
         }
 
@@ -353,17 +382,19 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
         runCatching {
             getCustomizedIconMethod?.invoke(null, context, packageName, className, original) as? Drawable
         }.getOrNull()?.let {
-            XMLog.i { "getFancyIconDrawable: IconCustomizer hit for $packageName/$className" }
+            logIconOutcomeOnce(packageName, "IconCustomizer")
             return it
         }
 
         // 3. LauncherActivityInfo.getIcon(0): density=0 时 PackageManager 返回主题图标
         getThemedIconViaLauncherApps(packageName, userId)?.let {
-            XMLog.i { "getFancyIconDrawable: LauncherActivityInfo.getIcon(0) hit for $packageName" }
+            logIconOutcomeOnce(packageName, "LauncherActivityInfo.getIcon(0)")
             return it
         }
 
-        XMLog.w { "getFancyIconDrawable: all themed-icon layers missed for $packageName, fallback to original" }
+        if (loggedIconOutcomes.add("$packageName|miss")) {
+            XMLog.w { "getFancyIconDrawable: all themed-icon layers missed for $packageName, fallback to original" }
+        }
         return original
     }
 
