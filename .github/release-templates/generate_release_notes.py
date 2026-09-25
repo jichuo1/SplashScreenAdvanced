@@ -27,7 +27,7 @@ OVERRIDE_DIR_NAME = "release-notes"
 CATEGORY_KEYS = {"new": "新增", "fixed": "修复", "improved": "优化"}
 MAX_ITEM_CHARS = 160
 MAX_GROUP_CHARS = 16
-MAX_SENTENCE_CHARS = 120
+MAX_SENTENCE_CHARS = 80
 # 覆盖检查只在提交数适中时作为硬性规则；超大范围只记警告，避免反复重试。
 STRICT_COVERAGE_LIMIT = 60
 SENTENCE_SPLIT = re.compile(r"(?<=[。！？!?])")
@@ -87,8 +87,34 @@ class GenerationResult:
 
 def summary_rule(channel: str) -> str:
     if channel == "stable":
-        return "summary 写 2～4 句完整中文句子（每句以。结尾），概括本版本解决了什么问题、带来什么价值，不堆砌实现细节。"
+        return (
+            f"summary 写 2～4 句完整中文句子（每句以。结尾，每句不超过 {MAX_SENTENCE_CHARS} 字），"
+            "概括本版本带来的主要变化与价值，不堆砌实现细节。"
+        )
     return "summary 可以为空数组；如有必要写 1～2 句，提示测试者本次重点验证什么。"
+
+
+def style_section(config: dict) -> str:
+    """维护者本人的文风：正式书面、适度宣传、概述概括而正文具体。"""
+    example = config.get("summary_style_example", "").strip()
+    example_block = (
+        f"\n   维护者亲笔写的概述样例（只学习语气与句式，不要复用其中的内容）：\n   「{example}」"
+        if example
+        else ""
+    )
+    return f"""文风：
+A. 使用正式书面语，措辞可以带适度的宣传感（如「全面焕新」「进一步优化」「显著提升」），
+   但陈述的事实不能超出证据；不用感叹号，不称呼「你」「您」，不用口语和网络用语。
+B. summary 一句聚焦一个方面，按「视觉与交互 → 性能 → 修复 → 新增」的顺序，没有的方面略过；
+   第一句点出本版最核心的变化及其效果，可以用「得益于……，……」的句式。
+C. summary 只做概括，可以用「诸多」「部分」「整体」等概括词，不列设置项名称和数字细节，细节交给 items；
+   不要写固定的结尾套话（如「推荐升级体验」）。
+D. 常用句式：「对……进行了优化」「新增了……功能，现可支持……」「以提升……与……」「进一步……」「……均已……」。{example_block}
+E. group 用名词短语作小标题。item 可以用「要点：说明」的形式，允许补半句原理，但先写效果；
+   只写效果不写实现机制（例如写「图标更清晰」，不写「改由 GPU 绘制、不再分配大块位图」）。
+F. 设置项名称用「」括起，沿用界面原文。
+G. 安装方式、重启生效、下载与反馈由发布模板负责，summary 和 items 都不要写。
+H. 同一变化在 summary 与 items 中的分类和说法保持一致（例如 items 归为优化的，summary 不要说成新增）。"""
 
 
 def build_system_prompt(config: dict, channel: str) -> str:
@@ -97,6 +123,8 @@ def build_system_prompt(config: dict, channel: str) -> str:
     channel_name = "Stable 正式版" if channel == "stable" else "Alpha 测试版"
     return f"""你负责为 {config["product_name"]} 撰写 {channel_name} 的 GitHub Release 更新说明。
 产品背景：{config["product_context"]}
+
+{style_section(config)}
 
 写作规则：
 1. 读者是普通用户。每条以用户能感知到的结果开头，必要时再补半句原因。不写类名、文件名、函数名、
@@ -113,8 +141,8 @@ def build_system_prompt(config: dict, channel: str) -> str:
 6. 相关条目用 group 聚合（不超过 {MAX_GROUP_CHARS} 个字的短标题），无需分组时 group 填空字符串。
    每条 text 为一句话，不超过 {MAX_ITEM_CHARS} 字，不换行，不使用 Markdown、链接、反引号或 @。
 7. {summary_rule(channel)}
-8. 只写证据里能看到的变化，不要猜测或夸大；拿不准的效果写得保守。
-9. 使用简体中文，中文与英文、数字之间保留一个空格。
+8. 只写证据里能看到的变化，不要猜测；拿不准的效果写得保守。
+9. 使用简体中文，中文与英文、数字之间保留一个空格（如「所有 UI」「B 站 9.13.0 版本」）。
 {style_notes}
 
 只输出一个 JSON 对象，结构为：
@@ -169,6 +197,22 @@ def _resolve_sha(short: str, full_shas: set[str]) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
+_CJK = r"[\u3400-\u4dbf\u4e00-\u9fff]"
+_CJK_THEN_LATIN = re.compile(rf"({_CJK})([A-Za-z0-9])")
+_LATIN_THEN_CJK = re.compile(rf"([A-Za-z0-9%])({_CJK})")
+# 维护者文风：不感叹、不直接称呼读者。出现即要求模型重写。
+_STYLE_VIOLATIONS = ((re.compile(r"[!！]"), "感叹号"), (re.compile(r"[你您]"), "「你/您」称呼"))
+
+
+def space_cjk_latin(text: str) -> str:
+    """中文与英文、数字之间补一个空格；由代码保证，不依赖模型遵守。"""
+    return _LATIN_THEN_CJK.sub(r"\1 \2", _CJK_THEN_LATIN.sub(r"\1 \2", text))
+
+
+def style_violations(text: str) -> list[str]:
+    return [label for pattern, label in _STYLE_VIOLATIONS if pattern.search(text)]
+
+
 def sentences(text: str) -> list[str]:
     return [part.strip() for part in SENTENCE_SPLIT.split(text) if part.strip()]
 
@@ -196,7 +240,7 @@ def validate_notes(
         errors.append("maintenance 必须是字符串数组")
         maintenance_raw = []
 
-    summary = [s.strip() for s in summary_raw if s.strip()]
+    summary = [space_cjk_latin(s.strip()) for s in summary_raw if s.strip()]
     summary_sentences = sentences("".join(summary))
     if context.channel == "stable" and not 2 <= len(summary_sentences) <= 4:
         errors.append(f"Stable 的 summary 需要 2～4 句，当前 {len(summary_sentences)} 句")
@@ -208,6 +252,9 @@ def validate_notes(
     hits = _forbidden_hits(" ".join(summary), forbidden)
     if hits:
         errors.append(f"summary 含有内部术语：{'、'.join(hits)}")
+    violations = style_violations("".join(summary))
+    if violations:
+        errors.append(f"summary 不符合文风，出现了{'、'.join(violations)}")
 
     covered: set[str] = set()
     items: list[NoteItem] = []
@@ -218,8 +265,8 @@ def validate_notes(
             errors.append(f"{where} 不是对象")
             continue
         category = str(raw_item.get("category", "")).strip()
-        group = str(raw_item.get("group", "")).strip()
-        text = str(raw_item.get("text", "")).strip()
+        group = space_cjk_latin(str(raw_item.get("group", "")).strip())
+        text = space_cjk_latin(str(raw_item.get("text", "")).strip())
         commits = raw_item.get("commits", [])
         if category not in CATEGORY_KEYS:
             errors.append(f"{where}.category 非法：{category!r}")
@@ -235,6 +282,9 @@ def validate_notes(
         hits = _forbidden_hits(f"{group} {text}", forbidden)
         if hits:
             errors.append(f"{where} 含有内部术语 {'、'.join(hits)}：{text[:30]}…")
+        violations = style_violations(f"{group}{text}")
+        if violations:
+            errors.append(f"{where} 不符合文风，出现了{'、'.join(violations)}：{text[:30]}…")
         if text in seen_texts:
             errors.append(f"{where}.text 与前文重复：{text[:30]}…")
         seen_texts.add(text)
