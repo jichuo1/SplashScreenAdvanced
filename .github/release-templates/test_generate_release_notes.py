@@ -103,6 +103,43 @@ class ValidateNotesTest(unittest.TestCase):
         self.assertIn("category 非法", joined)
         self.assertIn("条目过多", joined)
 
+    def test_normalizes_cjk_latin_spacing(self) -> None:
+        payload = valid_payload()
+        payload["summary"] = ["所有UI均已全面焕新。适配B站9.13.0版本。"]
+        payload["items"][0]["text"] = "新增「优先视频编码」，可选优先H.264编码。"
+        payload["items"][0]["group"] = "UI外观"
+        notes, errors, _ = notes_module.validate_notes(payload, make_context(), CONFIG)
+        self.assertEqual([], errors)
+        self.assertEqual("所有 UI 均已全面焕新。适配 B 站 9.13.0 版本。", "".join(notes.summary))
+        self.assertEqual("新增「优先视频编码」，可选优先 H.264 编码。", notes.items[0].text)
+        self.assertEqual("UI 外观", notes.items[0].group)
+
+    def test_rejects_exclamation_and_direct_address(self) -> None:
+        payload = valid_payload()
+        payload["summary"] = ["本版本全面焕新！", "你可以在设置页找到新选项。"]
+        payload["items"][1]["text"] = "修复闪退问题，您无需再重启！"
+        _, errors, _ = notes_module.validate_notes(payload, make_context(), CONFIG)
+        joined = "\n".join(errors)
+        self.assertIn("summary 不符合文风", joined)
+        self.assertIn("items[2] 不符合文风", joined)
+        self.assertIn("感叹号", joined)
+        self.assertIn("称呼", joined)
+
+    def test_rejects_overlong_summary_sentence(self) -> None:
+        payload = valid_payload()
+        payload["summary"] = ["本版本" + "优化" * 45 + "。", "第二句。"]
+        _, errors, _ = notes_module.validate_notes(payload, make_context(), CONFIG)
+        self.assertTrue(any(f"超过 {notes_module.MAX_SENTENCE_CHARS} 字" in error for error in errors))
+
+    def test_system_prompt_carries_style_guide_and_example(self) -> None:
+        config = {**CONFIG, "summary_style_example": "得益于全新引擎，所有 UI 均已全面焕新。"}
+        prompt = notes_module.build_system_prompt(config, "stable")
+        self.assertIn("文风：", prompt)
+        self.assertIn("得益于全新引擎，所有 UI 均已全面焕新。", prompt)
+        self.assertIn("只学习语气与句式", prompt)
+        self.assertIn("不要写固定的结尾套话", prompt)
+        self.assertNotIn("维护者亲笔写的概述样例", notes_module.build_system_prompt(CONFIG, "stable"))
+
     def test_extract_json_tolerates_code_fences(self) -> None:
         raw = "好的：\n```json\n" + json.dumps(valid_payload(), ensure_ascii=False) + "\n```"
         self.assertEqual(valid_payload(), notes_module.extract_json(raw))
