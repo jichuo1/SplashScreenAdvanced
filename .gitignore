@@ -20,6 +20,7 @@ local.properties
 # 本地日志、临时文件、编辑器备份及内存分析转储
 *.log
 *.tmp
+.tmplog/
 *.bak
 *.hprof
 
