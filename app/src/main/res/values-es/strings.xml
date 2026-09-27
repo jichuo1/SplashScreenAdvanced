@@ -197,4 +197,23 @@
     <string name="sr_scan_notification_denied">Permiso de notificación denegado: el escaneo continuará sin mostrar el progreso</string>
     <string name="icon_enhance_gpu">Aceleración por hardware</string>
     <string name="icon_enhance_gpu_tips">Mejora de iconos acelerada por GPU: remuestreo AGSL y superresolución con ncnn/Vulkan en la fábrica sin conexión; vuelve a la CPU automáticamente</string>
+
+    <!--Comprobación de actualizaciones-->
+    <string name="update_settings">Actualizaciones</string>
+    <string name="update_auto_check">Buscar actualizaciones automáticamente</string>
+    <string name="update_auto_check_tips">Busca nuevas versiones cuando la app permanece abierta un momento</string>
+    <string name="update_channel">Canal de actualización</string>
+    <string name="update_channel_stable">Estable</string>
+    <string name="update_channel_stable_tips">Solo versiones estables</string>
+    <string name="update_channel_preview">Vista previa</string>
+    <string name="update_channel_preview_tips">Incluye versiones alfa junto a las estables</string>
+    <string name="update_check_now">Buscar actualizaciones</string>
+    <string name="update_check_now_tips">Versión actual: %1$s</string>
+    <string name="update_checking">Buscando actualizaciones…</string>
+    <string name="update_latest">Ya tienes la versión más reciente</string>
+    <string name="update_check_failed">Error al buscar actualizaciones. Inténtalo más tarde</string>
+    <string name="update_new_version">Nueva versión %1$s disponible</string>
+    <string name="update_prerelease_badge">(Vista previa)</string>
+    <string name="update_view_release">Ver versión</string>
+    <string name="update_notes_truncated">… Consulta las notas completas en la página de la versión</string>
 </resources>

@@ -197,4 +197,23 @@
     <string name="sr_scan_notification_denied">Permission de notification refusée — l\'analyse continuera sans afficher la progression</string>
     <string name="icon_enhance_gpu">Accélération matérielle</string>
     <string name="icon_enhance_gpu_tips">Amélioration des icônes accélérée par GPU : rééchantillonnage AGSL et super-résolution ncnn/Vulkan dans la fabrique hors ligne ; replie sur le CPU automatiquement</string>
+
+    <!--Vérification des mises à jour-->
+    <string name="update_settings">Mises à jour</string>
+    <string name="update_auto_check">Vérifier automatiquement les mises à jour</string>
+    <string name="update_auto_check_tips">Recherche les nouvelles versions quand l’app reste ouverte un moment</string>
+    <string name="update_channel">Canal de mise à jour</string>
+    <string name="update_channel_stable">Stable</string>
+    <string name="update_channel_stable_tips">Versions stables uniquement</string>
+    <string name="update_channel_preview">Aperçu</string>
+    <string name="update_channel_preview_tips">Inclut les versions alpha en plus des stables</string>
+    <string name="update_check_now">Vérifier les mises à jour</string>
+    <string name="update_check_now_tips">Version actuelle : %1$s</string>
+    <string name="update_checking">Vérification des mises à jour…</string>
+    <string name="update_latest">Vous disposez de la dernière version</string>
+    <string name="update_check_failed">Échec de la vérification. Réessayez plus tard</string>
+    <string name="update_new_version">Nouvelle version %1$s disponible</string>
+    <string name="update_prerelease_badge">(Aperçu)</string>
+    <string name="update_view_release">Voir la version</string>
+    <string name="update_notes_truncated">… Consultez les notes complètes sur la page de la version</string>
 </resources>

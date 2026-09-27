@@ -197,4 +197,23 @@
     <string name="sr_scan_notification_denied">通知権限が拒否されました — スキャンは継続しますが進捗は表示されません</string>
     <string name="icon_enhance_gpu">ハードウェアアクセラレーション</string>
     <string name="icon_enhance_gpu_tips">GPU によるアイコン強化：AGSL 再サンプリングに加え、オフライン工場では ncnn/Vulkan 学習型超解像を使用。利用できない場合は自動的に CPU へフォールバックします</string>
+
+    <!--更新チェック-->
+    <string name="update_settings">アップデート</string>
+    <string name="update_auto_check">アップデートを自動チェック</string>
+    <string name="update_auto_check_tips">アプリを開いてしばらくすると新しいバージョンを確認します</string>
+    <string name="update_channel">アップデートチャンネル</string>
+    <string name="update_channel_stable">安定版</string>
+    <string name="update_channel_stable_tips">正式リリースのみを受け取る</string>
+    <string name="update_channel_preview">プレビュー版</string>
+    <string name="update_channel_preview_tips">安定版に加えて Alpha 版も受け取る</string>
+    <string name="update_check_now">アップデートをチェック</string>
+    <string name="update_check_now_tips">現在のバージョン: %1$s</string>
+    <string name="update_checking">アップデートを確認中…</string>
+    <string name="update_latest">最新バージョンです</string>
+    <string name="update_check_failed">アップデートの確認に失敗しました。後でもう一度お試しください</string>
+    <string name="update_new_version">新しいバージョン %1$s があります</string>
+    <string name="update_prerelease_badge">（プレビュー）</string>
+    <string name="update_view_release">リリースを見る</string>
+    <string name="update_notes_truncated">… 完全なリリースノートはリリースページでご覧ください</string>
 </resources>

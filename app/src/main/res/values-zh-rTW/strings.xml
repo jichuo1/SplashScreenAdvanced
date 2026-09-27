@@ -197,4 +197,23 @@
     <string name="sr_scan_notification_denied">未授予通知權限——掃描仍會繼續，但不顯示進度</string>
     <string name="icon_enhance_gpu">硬體加速</string>
     <string name="icon_enhance_gpu_tips">GPU 加速圖示增強：AGSL 重新取樣，離線超分工廠內另走 ncnn/Vulkan 學習型超分；不可用時自動回退 CPU</string>
+
+    <!--更新檢查-->
+    <string name="update_settings">更新</string>
+    <string name="update_auto_check">自動檢查更新</string>
+    <string name="update_auto_check_tips">應用程式保持開啟片刻後自動檢查新版本</string>
+    <string name="update_channel">更新管道</string>
+    <string name="update_channel_stable">穩定版</string>
+    <string name="update_channel_stable_tips">僅接收正式版更新</string>
+    <string name="update_channel_preview">預覽版</string>
+    <string name="update_channel_preview_tips">同時接收 Alpha 測試版與正式版</string>
+    <string name="update_check_now">檢查更新</string>
+    <string name="update_check_now_tips">目前版本：%1$s</string>
+    <string name="update_checking">正在檢查更新…</string>
+    <string name="update_latest">目前已是最新版本</string>
+    <string name="update_check_failed">檢查更新失敗，請稍後重試</string>
+    <string name="update_new_version">發現新版本 %1$s</string>
+    <string name="update_prerelease_badge">（預覽版）</string>
+    <string name="update_view_release">查看更新</string>
+    <string name="update_notes_truncated">… 完整說明請查看發布頁面</string>
 </resources>

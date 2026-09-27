@@ -192,6 +192,25 @@
     <string name="upstream_project_summary">GSWXXN/RestoreSplashScreen · AGPL-3.0</string>
     <string name="open_source_license">Open-source licenses</string>
 
+    <!--更新检查-->
+    <string name="update_settings">Updates</string>
+    <string name="update_auto_check">Auto check for updates</string>
+    <string name="update_auto_check_tips">Check for new versions when the app stays open for a while</string>
+    <string name="update_channel">Update channel</string>
+    <string name="update_channel_stable">Stable</string>
+    <string name="update_channel_stable_tips">Stable releases only</string>
+    <string name="update_channel_preview">Preview</string>
+    <string name="update_channel_preview_tips">Include Alpha pre-releases alongside stable releases</string>
+    <string name="update_check_now">Check for updates</string>
+    <string name="update_check_now_tips">Current version: %1$s</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_latest">You are on the latest version</string>
+    <string name="update_check_failed">Update check failed. Please try again later</string>
+    <string name="update_new_version">New version %1$s available</string>
+    <string name="update_prerelease_badge">(Preview)</string>
+    <string name="update_view_release">View release</string>
+    <string name="update_notes_truncated">… View the full release notes on the release page</string>
+
     <!--开发者选项-->
     <string name="dev_icon_round_corner_rate">Icon round corner rate</string>
     <string name="sr_scan_notification_denied">Notification permission denied — the scan will continue without progress display</string>

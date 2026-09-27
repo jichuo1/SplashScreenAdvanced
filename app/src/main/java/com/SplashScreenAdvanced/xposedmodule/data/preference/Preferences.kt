@@ -109,5 +109,11 @@ object Preferences {
         val SPLIT_VIEW = PreferenceKey("module_split", false)
         val UI_STYLE = PreferenceKey("module_ui_style", 0)
         val SP_VERSION = PreferenceKey("sp_version", VERSION)
+
+        /** 打开应用时自动检查更新（仅模块应用进程内生效，不进入 hook 目标进程） */
+        val AUTO_UPDATE_CHECK = PreferenceKey("auto_update_check", true)
+
+        /** 更新渠道："stable" | "preview"，对应 GitHubReleaseChecker.UpdateChannel.storageValue */
+        val UPDATE_CHANNEL = PreferenceKey("update_channel", "stable")
     }
 }

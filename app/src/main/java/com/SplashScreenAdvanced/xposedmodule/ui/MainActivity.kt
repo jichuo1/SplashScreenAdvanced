@@ -6,21 +6,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
+import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.fairmemory.FairMemorySessionStore
 import com.SplashScreenAdvanced.xposedmodule.provider.AppPreferenceActions
 import com.SplashScreenAdvanced.xposedmodule.state.GlobalUIViewModel
+import com.SplashScreenAdvanced.xposedmodule.utils.update.GitHubReleaseChecker
+import com.SplashScreenAdvanced.xposedmodule.utils.update.UpdateCheckManager
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.BackgroundExceptPage
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.BgIndividualPage
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.CustomScopePage
@@ -30,6 +35,7 @@ import com.SplashScreenAdvanced.xposedmodule.ui.apppage.IgnoreAppIconPage
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.MinDurationPage
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.RemoveBrandingPage
 import com.SplashScreenAdvanced.xposedmodule.ui.component.ColorPickerPage
+import com.SplashScreenAdvanced.xposedmodule.ui.component.UpdateCheckEffect
 import com.SplashScreenAdvanced.xposedmodule.ui.page.AboutPage
 import com.SplashScreenAdvanced.xposedmodule.ui.page.BackgroundPage
 import com.SplashScreenAdvanced.xposedmodule.ui.page.BasicPage
@@ -109,6 +115,20 @@ class MainActivity : HyperXActivity() {
             LocalPreferenceActions provides appPreferenceActions,
             LocalAppUiState provides globalUiVm,
         ) {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                UpdateCheckManager.maybeAutoCheck(
+                    context,
+                    enabled = {
+                        appPreferenceActions.get(Preferences.Module.AUTO_UPDATE_CHECK)
+                    },
+                    channelProvider = {
+                        GitHubReleaseChecker.UpdateChannel.fromStorageValue(
+                            appPreferenceActions.get(Preferences.Module.UPDATE_CHANNEL)
+                        )
+                    }
+                )
+            }
             HyperXAppLayout(
                 config = uiConfig,
                 primaryContent = primaryContent,
@@ -117,6 +137,7 @@ class MainActivity : HyperXActivity() {
                 startBackStack = startBackStack,
                 onDestinationChanged = { FairMemorySessionStore.remember(it) },
             )
+            UpdateCheckEffect()
         }
     }
 }

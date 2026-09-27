@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,10 +40,17 @@ import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesReposit
 import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
 import com.SplashScreenAdvanced.xposedmodule.ui.component.TextPreference
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
+import com.SplashScreenAdvanced.xposedmodule.utils.update.GitHubReleaseChecker
+import com.SplashScreenAdvanced.xposedmodule.utils.update.UpdateCheckManager
 import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.layout.HyperXPage
+import dev.lackluster.hyperx.ui.preference.DropDownEntry
+import dev.lackluster.hyperx.ui.preference.DropDownPreference
 import dev.lackluster.hyperx.ui.preference.ItemPosition
+import dev.lackluster.hyperx.ui.preference.SwitchPreference
+import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
+import dev.lackluster.hyperx.ui.preference.core.rememberPreferenceState
 import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Card
@@ -66,6 +76,11 @@ fun AboutPage() {
             )
         }
         itemPreferenceGroup(
+            titleRes = R.string.update_settings
+        ) {
+            UpdateSettingsGroup()
+        }
+        itemPreferenceGroup(
             titleRes = R.string.open_source_license,
             position = ItemPosition.Last
         ) {
@@ -81,6 +96,61 @@ fun AboutPage() {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 更新设置组：自动检查开关、渠道选择、手动检查
+ *
+ * 更新检查属于模块应用自身功能，不要求模块激活——这里刻意用 hyperx 原生
+ * [SwitchPreference]/[DropDownPreference]（不经 `ui.component` 的激活拦截包装），
+ * 手动检查入口同理使用 `ignoreModuleActiveStatus`。
+ */
+@Composable
+private fun UpdateSettingsGroup() {
+    val context = LocalContext.current
+    val actions = LocalPreferenceActions.current
+    val updateState by UpdateCheckManager.state.collectAsState()
+    val checking = updateState is UpdateCheckManager.UpdateCheckState.Checking
+
+    val channelProvider = remember {
+        {
+            GitHubReleaseChecker.UpdateChannel.fromStorageValue(
+                actions.get(Preferences.Module.UPDATE_CHANNEL)
+            )
+        }
+    }
+
+    SwitchPreference(
+        key = Preferences.Module.AUTO_UPDATE_CHECK,
+        title = stringResource(R.string.update_auto_check),
+        summary = stringResource(R.string.update_auto_check_tips),
+    )
+    DropDownPreference(
+        key = Preferences.Module.UPDATE_CHANNEL,
+        title = stringResource(R.string.update_channel),
+        entries = listOf(
+            DropDownEntry(
+                value = GitHubReleaseChecker.UpdateChannel.STABLE.storageValue,
+                title = stringResource(R.string.update_channel_stable),
+                summary = stringResource(R.string.update_channel_stable_tips)
+            ),
+            DropDownEntry(
+                value = GitHubReleaseChecker.UpdateChannel.PREVIEW.storageValue,
+                title = stringResource(R.string.update_channel_preview),
+                summary = stringResource(R.string.update_channel_preview_tips)
+            )
+        )
+    )
+    TextPreference(
+        title = stringResource(R.string.update_check_now),
+        summary = if (checking) stringResource(R.string.update_checking)
+            else stringResource(R.string.update_check_now_tips, BuildConfig.VERSION_NAME),
+        ignoreModuleActiveStatus = true
+    ) {
+        if (!checking) {
+            UpdateCheckManager.checkNow(context, channelProvider)
         }
     }
 }

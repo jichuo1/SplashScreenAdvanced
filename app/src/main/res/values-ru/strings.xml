@@ -197,4 +197,23 @@
     <string name="sr_scan_notification_denied">Нет разрешения на уведомления — сканирование продолжится без отображения прогресса</string>
     <string name="icon_enhance_gpu">Аппаратное ускорение</string>
     <string name="icon_enhance_gpu_tips">GPU-ускорение значков: передискретизация AGSL и обученное суперразрешение ncnn/Vulkan в офлайн-фабрике; при недоступности возвращается на CPU</string>
+
+    <!--Проверка обновлений-->
+    <string name="update_settings">Обновления</string>
+    <string name="update_auto_check">Проверять обновления автоматически</string>
+    <string name="update_auto_check_tips">Ищет новые версии, когда приложение открыто некоторое время</string>
+    <string name="update_channel">Канал обновлений</string>
+    <string name="update_channel_stable">Стабильный</string>
+    <string name="update_channel_stable_tips">Только стабильные релизы</string>
+    <string name="update_channel_preview">Предварительный</string>
+    <string name="update_channel_preview_tips">Включая альфа-версии наряду со стабильными</string>
+    <string name="update_check_now">Проверить обновления</string>
+    <string name="update_check_now_tips">Текущая версия: %1$s</string>
+    <string name="update_checking">Проверка обновлений…</string>
+    <string name="update_latest">Установлена последняя версия</string>
+    <string name="update_check_failed">Не удалось проверить обновления. Повторите позже</string>
+    <string name="update_new_version">Доступна новая версия %1$s</string>
+    <string name="update_prerelease_badge">(Предварительная)</string>
+    <string name="update_view_release">Открыть релиз</string>
+    <string name="update_notes_truncated">… Полные примечания смотрите на странице релиза</string>
 </resources>
