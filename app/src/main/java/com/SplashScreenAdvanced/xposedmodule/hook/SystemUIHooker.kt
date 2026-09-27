@@ -143,7 +143,16 @@ object SystemUIHooker {
             startingWindowViewBuilderClass
                 ?.resolve()?.optional()?.firstMethodOrNull {
                     name = "chooseStyle"
-                    parameterCount = 1
+                }?.self
+        }
+        /**
+         * chooseStyle 缺失 ROM (如 OneUI 8.5 实测未解析) 的兜底落点:
+         * builder 的 build() 前直接写 suggestType 字段, 见 GenerateHookHandler
+         */
+        val build_StartingWindowViewBuilder = HookManager {
+            startingWindowViewBuilderClass
+                ?.resolve()?.optional()?.firstMethodOrNull {
+                    name = "build"
                 }?.self
         }
         /** 消除 ROM 的 suggestType → splashType 降级分支; AOSP 14 无此方法, 解析为 null 即不安装 */
@@ -241,6 +250,71 @@ object SystemUIHooker {
                 query = DexHostQueries.shellTaskOrganizer,
             )?.resolve()?.optional()?.firstMethodOrNull {
                 name = "removeStartingWindow"
+            }?.self
+        }
+
+        /**
+         * 启动 surface 层直接涂色点 (OneUI 8.5 实测存在):
+         * makeSplashScreenContentView 在 builder.build() 之前就用 drawThemeBGColor()
+         * 把主题色画到 startingSurface 上, 只改 Builder.mBackgroundColor 够不到这一层
+         */
+        val drawThemeBGColor = HookManager {
+            splashscreenContentDrawerClass
+                ?.resolve()?.optional()?.firstMethodOrNull {
+                    name = "drawThemeBGColor"
+                    parameterCount = 2
+                }?.self
+        }
+        /**
+         * 任务级背景色查询点 (转场/windowless 路径在 view 挂上前先给 surface 涂该色):
+         * AOSP 为 SplashscreenWindowCreator.estimateTaskBackgroundColor(TaskInfo)
+         */
+        val estimateTaskBackgroundColor = HookManager {
+            sequenceOf(
+                "com.android.wm.shell.startingsurface.SplashscreenWindowCreator",
+                "com.android.wm.shell.startingsurface.AbsSplashWindowCreator",
+            ).firstNotNullOfOrNull { className ->
+                className.toClassOrNull(loader = classLoader)?.resolve()?.optional()
+                    ?.firstMethodOrNull {
+                        name = "estimateTaskBackgroundColor"
+                        parameterCount = 1
+                    }?.self
+            } ?: HostDexLookup.findClass(
+                "estimateTaskBackgroundColor",
+                query = DexHostQueries.estimateTaskBackgroundColor,
+            )?.resolve()?.optional()?.firstMethodOrNull {
+                name = "estimateTaskBackgroundColor"
+                parameterCount = 1
+            }?.self
+        }
+        /** OneUI 8.5 的对应实现: StartingWindowController$StartingSurfaceImpl.getBackgroundColor(TaskInfo) */
+        val getBackgroundColor_StartingSurface = HookManager {
+            $$"com.android.wm.shell.startingsurface.StartingWindowController$StartingSurfaceImpl"
+                .toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+                    name = "getBackgroundColor"
+                    parameterCount = 1
+                }?.self ?: HostDexLookup.findClass(
+                "startingSurfaceBgColor",
+                query = DexHostQueries.startingSurfaceBgColor,
+            )?.resolve()?.optional()?.firstMethodOrNull {
+                name = "getBackgroundColor"
+                parameterCount = 1
+            }?.self
+        }
+        /**
+         * 预加载遮罩复用门 (OneUI 实测存在 SplashscreenContentDrawer$PreloadData):
+         * 预建好的 SplashScreenView 在 hook 静默期 (isHooking=false) 就已构建完成,
+         * 复用它会跳过 makeSplashScreenContentView → 全部定制失效、只剩主题色
+         */
+        val canUseContext_PreloadData = HookManager {
+            val outerName = splashscreenContentDrawerClass?.name
+            HostDexLookup.findClass(
+                $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$PreloadData",
+                *(outerName?.let { arrayOf("$it\$PreloadData") } ?: emptyArray<String>()),
+                query = DexHostQueries.preloadData(outerName),
+            )?.resolve()?.optional()?.firstMethodOrNull {
+                name = "canUseContext"
+                parameterCount = 2
             }?.self
         }
 

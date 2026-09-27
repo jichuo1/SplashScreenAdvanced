@@ -30,7 +30,8 @@ object ScopeHookHandler : BaseHookHandler() {
             val isReplaceToEmptySplashScreen = prefs.get(Preferences.Icon.REPLACE_TO_EMPTY_SPLASH_SCREEN)
 
             if (isReplaceToEmptySplashScreen && exceptCurrentApp) {
-                args(args.indexOfFirst { it is Int }).set(StartingWindowInfo.STARTING_WINDOW_TYPE_LEGACY_SPLASH_SCREEN)
+                args.indexOfFirst { it is Int }.takeIf { it >= 0 }
+                    ?.let { args(it).set(StartingWindowInfo.STARTING_WINDOW_TYPE_LEGACY_SPLASH_SCREEN) }
             }
             printLog { "makeSplashScreenContentView(): ${if (isReplaceToEmptySplashScreen && exceptCurrentApp) "set mSuggestType to 4;" else "not"} replace to empty splash screen" }
         }

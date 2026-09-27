@@ -56,9 +56,9 @@ object AndroidHooker {
         // 统计成员解析结果, 末尾统一汇报——ROM 改动签名(如参数个数变化)时静默不装,
         // 无日志则无法区分「Hook 没装」与「装了但偏好为 false」
         var resolvedCount = 0
-        var unresolvedCount = 0
-        fun HookManager.counted(): HookManager = also {
-            if (it.member == null) unresolvedCount++ else resolvedCount++
+        val unresolvedNames = mutableListOf<String>()
+        fun HookManager.counted(name: String): HookManager = also {
+            if (it.member == null) unresolvedNames += name else resolvedCount++
         }
 
         /**
@@ -73,17 +73,39 @@ object AndroidHooker {
                 name = "validateStartingWindowTheme"
                 parameterCount = 3
             }?.self
-        }.counted().addBeforeHook({ true }) {
+        }.counted("validateStartingWindowTheme").addBeforeHook({ true }) {
             val pkgName = args(1).string()
             // 惰性求值: 功能未启用 / 不在列表时, 不触发 launchedFromSystemSurface 反射调用
-            val isForceShowSS = Preferences.Display.FORCE_SHOW_SPLASH_SCREEN.get()
+            val isForceShowSS = Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get()
+                    || (Preferences.Display.FORCE_SHOW_SPLASH_SCREEN.get()
                     && pkgName in Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST.get()
                     && (!Preferences.Display.REDUCE_SPLASH_SCREEN.get()
-                    || launchedFromSystemSurface?.invoke(instance) == true)
+                    || launchedFromSystemSurface?.invoke(instance) == true))
 
             if (isForceShowSS) resultTrue()
             printLog { "[Android] validateStartingWindowTheme():${if (isForceShowSS) "" else " not"} force show $pkgName splash screen" }
         }.startHook(module)
+
+        // 热启动时生成启动遮罩
+        // AOSP 签名固定 7 参 (末参 TaskSnapshot); OneUI 8.5 实测该方法已不存在 (改名/内联进
+        // addStartingWindow) → 解析失败。兜底放宽为「同名 + 前两参 boolean (newTask, taskSwitch)」,
+        // 保证 args[1] 语义不漂移; 彻底缺失时由下方 showStartingWindow 的参数改写兜底,
+        // 末尾还会 dump ActivityRecord 上候选方法供定位
+        val getStartingWindowTypeHook = HookManager {
+            activityRecordClass.resolve().optional().let { resolver ->
+                resolver.firstMethodOrNull {
+                    name = "getStartingWindowType"
+                    parameterCount = 7
+                } ?: resolver.firstMethodOrNull {
+                    name = "getStartingWindowType"
+                    parameters { types ->
+                        types.size >= 2 &&
+                                types[0] == Boolean::class.javaPrimitiveType &&
+                                types[1] == Boolean::class.javaPrimitiveType
+                    }
+                }
+            }?.self
+        }.counted("getStartingWindowType")
 
         // 彻底关闭 Splash Screen
         HookManager {
@@ -91,29 +113,63 @@ object AndroidHooker {
                 name = "showStartingWindow"
                 parameterCount = 7
             }?.self
-        }.counted().addBeforeHook({ true }) {
+        }.counted("showStartingWindow").addBeforeHook({ true }) {
             val currentPkgName = instance!!.getField<String>("packageName")
 
             val isDisableSS = Preferences.Display.DISABLE_SPLASH_SCREEN.get()
-            printLog { "[Android] addStartingWindow():${if (isDisableSS) "" else " not"} disable $currentPkgName splash screen" }
-            if (isDisableSS) resultNull()
+            printLog { "[Android] showStartingWindow():${if (isDisableSS) "" else " not"} disable $currentPkgName splash screen" }
+            if (isDisableSS) {
+                resultNull()
+                return@addBeforeHook
+            }
+
+            // OneUI 等 ROM 把类型决策内联进 addStartingWindow/showStartingWindow, getStartingWindowType
+            // 整方法不存在 → 结果改写无从谈起。退而求其次: 把 processRunning(arg3, AOSP 7 参签名已确认
+            // 参数序与 AOSP 一致) 置 false —— 内联判定式 (newTask || !processRunning ||
+            // (taskSwitch && !activityCreated)) 必然命中 → 返回 SPLASH 类型。
+            // 判定口径与 validateStartingWindowTheme 一致: 全局强制 或 列表内强制显示
+            val isForceShow = Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get()
+                    || (Preferences.Display.FORCE_SHOW_SPLASH_SCREEN.get()
+                    && currentPkgName in Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST.get()
+                    && (!Preferences.Display.REDUCE_SPLASH_SCREEN.get()
+                    || launchedFromSystemSurface?.invoke(instance) == true))
+            if (getStartingWindowTypeHook.member == null && isForceShow) {
+                args(3).set(false)
+                printLog { "[Android] showStartingWindow(): force processRunning=false for $currentPkgName (inlined type decision)" }
+            }
         }.startHook(module)
 
-        // 热启动时生成启动遮罩
-        HookManager {
-            activityRecordClass.resolve().optional().firstMethodOrNull {
-                name = "getStartingWindowType"
-                parameterCount = 7
-            }?.self
-        }.counted().addBeforeHook({ true }) {
+        getStartingWindowTypeHook.addBeforeHook({ true }) {
+            // 放宽签名后不假定参数布局: 安全读取 taskSwitch, 非 Boolean 视为 false (no-op)
+            val taskSwitch = args.getOrNull(1) as? Boolean == true
             val isHotStartCompatible = Preferences.Display.ENABLE_HOT_START_COMPATIBLE.get()
                     && Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get()
-                    && args(1).boolean()
+                    && taskSwitch
             if (isHotStartCompatible) result = 2
             printLog { "[Android] getStartingWindowType():${if (isHotStartCompatible) "" else " not"} set result to 2" }
+        }.addAfterHook({ true }) {
+            // FORCE_ENABLE 全局强制: 原方法判定 NONE(0) 时改写为 SPLASH(2), 覆盖非热启动路径
+            if (Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN.get() && (result as? Int) == 0) {
+                result = 2
+                printLog { "[Android] getStartingWindowType(): force NONE -> SPLASH_SCREEN(2)" }
+            }
         }.startHook(module)
 
         // 非门控: 汇报 system_server 侧 Hook 安装情况 (与 SystemUI 侧 installHooks 汇报对应)
-        XMLog.i { "[Android] installHooks finished: resolved=$resolvedCount, unresolved=$unresolvedCount" }
+        XMLog.i {
+            "[Android] installHooks finished: resolved=$resolvedCount" +
+                    if (unresolvedNames.isEmpty()) "" else ", unresolved=${unresolvedNames.joinToString()}"
+        }
+
+        // getStartingWindowType 仍解析失败(改名/内联)时, dump ActivityRecord 上疑似决策方法,
+        // 下一次反馈日志可直接给出真实签名
+        if ("getStartingWindowType" in unresolvedNames) {
+            val candidates = activityRecordClass.declaredMethods
+                .filter { it.name.contains("startingWindow", ignoreCase = true) }
+                .joinToString { m ->
+                    "${m.name}(${m.parameterTypes.joinToString(",") { it.simpleName }})"
+                }
+            XMLog.w { "[Android] getStartingWindowType unresolved; ActivityRecord candidates: $candidates" }
+        }
     }
 }

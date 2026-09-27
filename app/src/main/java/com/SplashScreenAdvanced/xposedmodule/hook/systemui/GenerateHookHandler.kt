@@ -71,6 +71,30 @@ object GenerateHookHandler : BaseHookHandler() {
     /** 首次触发 `makeSplashScreenContentView` 时落一条非门控日志，用于区分「Hook 未安装」与「安装了但宿主从未调用」 */
     private val firstContentViewLogged = java.util.concurrent.atomic.AtomicBoolean(false)
 
+    /** suggestType 实参缺失告警只打一次, 避免每次启动重复输出签名 dump */
+    @Volatile
+    private var warnedNoSuggestArg = false
+
+    /** chooseStyle 缺失时 build() 兜底写的字段名; null=未扫描, ""=扫描无果(负缓存) */
+    @Volatile
+    private var suggestTypeFieldName: String? = null
+
+    /** suggest-type 字段也扫描失败时告警只打一次 */
+    @Volatile
+    private var warnedNoSuggestField = false
+
+    /** 在 builder 类(含父类)上找 suggestType 的 int 字段; 找不到返回 null */
+    private fun resolveSuggestTypeField(clazz: Class<*>): String? {
+        var current: Class<*>? = clazz
+        while (current != null) {
+            current.declaredFields.firstOrNull {
+                it.type == Int::class.javaPrimitiveType && it.name.contains("suggest", ignoreCase = true)
+            }?.let { return it.name }
+            current = current.superclass
+        }
+        return null
+    }
+
     /** 延迟调用 removeStartingWindow 原方法 */
     private val delayScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -140,8 +164,18 @@ object GenerateHookHandler : BaseHookHandler() {
             val forceEnableSplashScreen = prefs.get(Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN)
             if (forceEnableSplashScreen) {
                 if (!exceptCurrentApp) {
-                    args(args.indexOfFirst { it is Int }).set(StartingWindowInfo.STARTING_WINDOW_TYPE_SPLASH_SCREEN)
-                    printLog { "makeSplashScreenContentView(): forceEnableSplashScreen, set mSuggestType to STARTING_WINDOW_TYPE_SPLASH_SCREEN(1)" }
+                    // indexOfFirst 可能返回 -1 (签名被 ROM 改为无 int 参), args(-1) 会抛数组越界
+                    val intArgIndex = args.indexOfFirst { it is Int }
+                    if (intArgIndex >= 0) {
+                        args(intArgIndex).set(StartingWindowInfo.STARTING_WINDOW_TYPE_SPLASH_SCREEN)
+                        printLog { "makeSplashScreenContentView(): forceEnableSplashScreen, set mSuggestType to STARTING_WINDOW_TYPE_SPLASH_SCREEN(1)" }
+                    } else if (!warnedNoSuggestArg) {
+                        warnedNoSuggestArg = true
+                        XMLog.w {
+                            "makeSplashScreenContentView(): forceEnable but no Int arg; args=" +
+                                    args.joinToString { it?.javaClass?.simpleName ?: "null" }
+                        }
+                    }
                 }
             }
         }
@@ -154,6 +188,9 @@ object GenerateHookHandler : BaseHookHandler() {
         SystemUIHooker.Members.chooseStyle_SplashViewBuilder.addBeforeHook({ true }) {
             if (!prefs.get(Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN)) return@addBeforeHook
             if (exceptCurrentApp || currentPackageName.isEmpty()) return@addBeforeHook
+            // 签名放宽后不再假定 arg0 为 int —— ROM 改成非 int 首参时静默跳过,
+            // 避免把 Int 写进非 int 参数导致宿主方法内崩溃
+            if (args.getOrNull(0) !is Int) return@addBeforeHook
 
             args(0).set(StartingWindowInfo.STARTING_WINDOW_TYPE_SPLASH_SCREEN)
             printLog { "chooseStyle(): force STARTING_WINDOW_TYPE_SPLASH_SCREEN for $currentPackageName" }
@@ -165,6 +202,36 @@ object GenerateHookHandler : BaseHookHandler() {
             if (exceptCurrentApp || currentPackageName.isEmpty()) return@addBeforeHook
 
             resultTrue()
+        }
+
+        // ROM 移除/改名 chooseStyle (实测 OneUI 8.5 未解析) 时的最终兜底:
+        // 在 builder build() 前直接向实例写 suggestType 字段。
+        // chooseStyle 已解析时交给它处理, 此处直接跳过避免双写
+        SystemUIHooker.Members.build_StartingWindowViewBuilder.addBeforeHook({ true }) {
+            if (!prefs.get(Preferences.Display.FORCE_ENABLE_SPLASH_SCREEN)) return@addBeforeHook
+            if (exceptCurrentApp || currentPackageName.isEmpty()) return@addBeforeHook
+            // chooseStyle 已解析且首参为 int 时交给它处理; 解析成功但签名被改
+            // (首参非 int) 时其 hook 体不会执行, 同样需要此处字段兜底
+            val chooseStyleMember = SystemUIHooker.Members.chooseStyle_SplashViewBuilder.member
+            if ((chooseStyleMember as? Method)?.parameterTypes?.firstOrNull() ==
+                Int::class.javaPrimitiveType
+            ) return@addBeforeHook
+
+            val builder = instance ?: return@addBeforeHook
+            val fieldName = suggestTypeFieldName ?: resolveSuggestTypeField(builder.javaClass)
+                .also { suggestTypeFieldName = it ?: "" }
+            if (fieldName.isNullOrEmpty()) {
+                if (!warnedNoSuggestField) {
+                    warnedNoSuggestField = true
+                    XMLog.w {
+                        "build(): chooseStyle absent and no suggest-type int field; fields=" +
+                                builder.javaClass.declaredFields.joinToString { "${it.name}:${it.type.simpleName}" }
+                    }
+                }
+                return@addBeforeHook
+            }
+            ReflectCache.setField(builder, fieldName, StartingWindowInfo.STARTING_WINDOW_TYPE_SPLASH_SCREEN)
+            printLog { "build(): force $fieldName=STARTING_WINDOW_TYPE_SPLASH_SCREEN for $currentPackageName (chooseStyle absent)" }
         }
 
         // 遮罩最小持续时间, 也是 Hook 结束位置, 清除缓存的应用信息
@@ -280,17 +347,19 @@ object GenerateHookHandler : BaseHookHandler() {
     /**
      * 判断是否应执行Hook操作
      *
+     * @param packageName 默认为当前遮罩流程中的应用; 遮罩流程之外的查询点
+     *   (任务级背景色 / 预加载复用门) 需显式传入目标包名
      * @return 是否应执行Hook操作
      */
-    private fun isExcept(): Boolean {
-        return if (currentPackageName.isBlank())
+    internal fun isExcept(packageName: String = currentPackageName): Boolean {
+        return if (packageName.isBlank())
             true
         else {
             val list = prefs.get(Preferences.AppList.CUSTOM_SCOPE_LIST)
             val isExceptionMode = prefs.get(Preferences.Scope.IS_CUSTOM_SCOPE_EXCEPTION_MODE)
             (prefs.get(Preferences.Scope.ENABLE_CUSTOM_SCOPE)
-                    && ((isExceptionMode && (currentPackageName in list))
-                    || (!isExceptionMode && currentPackageName !in list)))
+                    && ((isExceptionMode && (packageName in list))
+                    || (!isExceptionMode && packageName !in list)))
         }
     }
 }

@@ -87,12 +87,15 @@ object HostDexLookup {
         if (nativeLoaded.get()) return true
         return runCatching {
             System.loadLibrary("dexkit")
-            nativeLoaded.set(true)
             true
-        }.getOrElse {
-            XMLog.e(t = it) { "libdexkit.so failed to load" }
-            false
-        }
+        }.getOrElse { e ->
+            // 热重载后新一代类加载器重复 loadLibrary 会报 "already loaded by another ClassLoader"：
+            // .so 仍在进程内且 libdexkit 用静态符号绑定, 新代 DexKitBridge 的 native 调用可直接解析,
+            // 此时应视为已加载放行 create; 若实际未加载, create 的首个 native 调用会再抛并被外层兜住
+            val alreadyLoaded = e is UnsatisfiedLinkError && e.message?.contains("already") == true
+            if (!alreadyLoaded) XMLog.e(t = e) { "libdexkit.so failed to load" }
+            alreadyLoaded
+        }.also { if (it) nativeLoaded.set(true) }
     }
 
     private fun openBridgeLocked(): DexKitBridge? {
@@ -216,6 +219,38 @@ internal object DexHostQueries {
         firstClass("com.android.server.wm") {
             addMethod { name("validateStartingWindowTheme"); paramCount(3) }
             addMethod { name("showStartingWindow"); paramCount(7) }
+        }
+    }
+
+    /** 任务级背景色查询点: AOSP 为 estimateTaskBackgroundColor, 类名随 ROM 变动 */
+    val estimateTaskBackgroundColor: DexKitBridge.() -> ClassData? = {
+        firstClass("com.android.wm.shell.startingsurface") {
+            addMethod { name("estimateTaskBackgroundColor"); paramCount(1) }
+        } ?: firstClass {
+            addMethod { name("estimateTaskBackgroundColor"); paramCount(1) }
+        }
+    }
+
+    /** OneUI 为 StartingWindowController$StartingSurfaceImpl.getBackgroundColor(TaskInfo) */
+    val startingSurfaceBgColor: DexKitBridge.() -> ClassData? = {
+        firstClass("com.android.wm.shell.startingsurface") {
+            addMethod { name("getBackgroundColor"); paramCount(1) }
+        } ?: firstClass {
+            // getBackgroundColor 是常见方法名, 挪包兜底必须加类名约束,
+            // 否则多命中时 result[0] 可能钉一个错误类进缓存 (缓存命中会短路后续重查)
+            className("Starting", StringMatchType.Contains)
+            addMethod { name("getBackgroundColor"); paramCount(1) }
+        }
+    }
+
+    /** 预加载遮罩复用门: SplashscreenContentDrawer$PreloadData, 类名随 ROM 变动 */
+    fun preloadData(outerName: String?): DexKitBridge.() -> ClassData? = {
+        firstClass("com.android.wm.shell.startingsurface") {
+            if (outerName != null) className(outerName + "$", StringMatchType.StartsWith)
+            addMethod { name("canUseContext"); paramCount(2) }
+        } ?: firstClass {
+            addMethod { name("canUseContext"); paramCount(2) }
+            className("Preload", StringMatchType.Contains)
         }
     }
 }

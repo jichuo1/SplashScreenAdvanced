@@ -36,6 +36,17 @@ class SplashScreenViewBuilderWrapper private constructor(private val builder: An
         ReflectCache.invokeMethod<Any>(builder, "setBackgroundColor", backgroundColor)
     }
 
+    /**
+     * 设置/清空 overlay drawable
+     *
+     * AOSP `build()` 在 `mOverlayDrawable != null` 时用它整体替换 view 背景 (含透明区),
+     * 此时 `mBackgroundColor` 对视觉完全无效 —— OneUI 对 `suggestType==4` 的启动画面
+     * 会把应用 windowBackground drawable 作为 overlay 传入, 应用自定义背景色前必须清掉
+     */
+    fun setOverlayDrawable(drawable: Drawable?) {
+        ReflectCache.invokeMethod<Any>(builder, "setOverlayDrawable", drawable)
+    }
+
     /** 设置 branding view 的 Drawable 与尺寸 */
     fun setBrandingDrawable(branding: Drawable?, width: Int, height: Int) {
         ReflectCache.invokeMethod<Any>(builder, "setBrandingDrawable", branding, width, height)

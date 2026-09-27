@@ -1,6 +1,7 @@
 package com.SplashScreenAdvanced.xposedmodule.hook.systemui
 
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.graphics.drawable.Drawable
 import androidx.core.graphics.toColorInt
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
@@ -39,27 +40,109 @@ object BgHookHandler : BaseHookHandler() {
             val builder = SplashScreenViewBuilderWrapper.getInstance(instance!!)
 
             // 设置背景颜色
-            getColor()?.let { builder.setBackgroundColor(it) }
+            getColor()?.let { color ->
+                builder.setBackgroundColor(color)
+                // overlay 存在时 build() 用它整体替换 view 背景, 背景色被完全遮盖
+                // (OneUI 对 suggestType==4 的启动画面传应用 windowBackground drawable)
+                builder.setOverlayDrawable(null)
+            }
+        }
+
+        // ---- 背景色的其余出口 (windowless / shell-transition 路径, OneUI 8.5 实测) ----
+
+        // startingSurface 由 drawThemeBGColor() 直接涂主题色; 末位 int 参为背景色
+        SystemUIHooker.Members.drawThemeBGColor.addBeforeHook {
+            getColor()?.let { color ->
+                args.indices.lastOrNull { args[it] is Int }?.let {
+                    args(it).set(color)
+                    printLog { "drawThemeBGColor(): force bg color on starting surface" }
+                }
+            }
+        }
+
+        // 任务级背景色 (WMS/转场在 view 挂上前先涂 surface): 调用点在遮罩流程之前,
+        // 不能用 isHooking 门控, 包名从 TaskInfo 实参里取
+        SystemUIHooker.Members.estimateTaskBackgroundColor.addAfterHook({ true }) {
+            taskPackageName(args)?.takeUnless { GenerateHookHandler.isExcept(it) }
+                ?.let { getColor(it) }
+                ?.let {
+                    result = it
+                    printLog { "estimateTaskBackgroundColor(): override task bg color" }
+                }
+        }
+        SystemUIHooker.Members.getBackgroundColor_StartingSurface.addAfterHook({ true }) {
+            taskPackageName(args)?.takeUnless { GenerateHookHandler.isExcept(it) }
+                ?.let { getColor(it) }
+                ?.let {
+                    result = it
+                    printLog { "getBackgroundColor(): override task bg color" }
+                }
+        }
+
+        // 预加载遮罩复用门: 预建 view 在 hook 静默期构建, 复用时全部定制失效;
+        // 该包有任何视觉定制需求时禁用复用, 强制走 makeSplashScreenContentView 现建
+        SystemUIHooker.Members.canUseContext_PreloadData.addAfterHook({ true }) {
+            if (result as? Boolean != true) return@addAfterHook
+            val pkg = taskPackageName(args) ?: return@addAfterHook
+            if (needsFreshSplash(pkg)) {
+                result = false
+                printLog { "canUseContext(): disable preload reuse for $pkg (customization active)" }
+            }
         }
     }
+
+    /** 从 TaskInfo/RunningTaskInfo 实参提取包名 (task 级查询点在遮罩流程之前, currentPackageName 不可靠) */
+    private fun taskPackageName(args: Array<Any?>): String? {
+        val info = args.getOrNull(0) ?: return null
+        val activityInfo = (info as? ActivityInfo)
+            ?: ReflectCache.getField<ActivityInfo>(info, "topActivityInfo")
+            ?: ReflectCache.getField<ActivityInfo>(info, "targetActivityInfo")
+        return activityInfo?.packageName
+    }
+
+    /** 该包是否有需要现建遮罩的视觉定制 (背景色或图标处理) */
+    private fun needsFreshSplash(packageName: String): Boolean {
+        if (packageName.isEmpty() || GenerateHookHandler.isExcept(packageName)) return false
+        if (packageName in prefs.get(Preferences.AppList.BG_EXCEPT_LIST)) return false
+        val individual = getMapPrefs(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP).keys +
+                getMapPrefs(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK).keys
+        if (packageName in individual) return true
+        if (prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE) != 0) return true
+        return iconCustomized()
+    }
+
+    private fun iconCustomized(): Boolean = listOf(
+        Preferences.Icon.REPLACE_TO_EMPTY_SPLASH_SCREEN,
+        Preferences.Icon.ENABLE_DEFAULT_STYLE,
+        Preferences.Icon.ENABLE_HIDE_SPLASH_SCREEN_ICON,
+        Preferences.Icon.ENABLE_REPLACE_ICON,
+        Preferences.Icon.ENABLE_USE_MIUI_LARGE_ICON,
+        Preferences.Icon.ENABLE_REMOVE_ICON_STROKE,
+        Preferences.Icon.ENABLE_ADD_ICON_BLUR_BG,
+    ).any { prefs.get(it) } ||
+            prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME) != "None" ||
+            prefs.get(Preferences.Icon.SHRINK_ICON) != 0
 
     /**
      * 此处实现功能：
      * - 替换背景颜色
      * - 单独配置应用背景颜色
+     *
+     * @param packageName 目标应用包名; 遮罩流程内调用走默认的 [currentPackageName],
+     *   遮罩流程外的任务级查询点需显式传入
      */
-    private fun getColor(): Int? {
+    private fun getColor(packageName: String = currentPackageName): Int? {
         val context = appContext ?: return null
         val isDarkMode = context.isDarkMode
         val bgColorMode = prefs.get(Preferences.Background.BG_COLOR_MODE)
         val bgColorType = prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE)
-        val isInBGExceptList = currentPackageName in prefs.get(Preferences.AppList.BG_EXCEPT_LIST)
+        val isInBGExceptList = packageName in prefs.get(Preferences.AppList.BG_EXCEPT_LIST)
         val ignoreDarkMode = prefs.get(Preferences.Background.IGNORE_DARK_MODE) || !isHyperOS
         val individualBgColorAppMap = getMapPrefs(
             if (!isDarkMode) Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
             else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
         )
-        val individualColor = individualBgColorAppMap[currentPackageName]
+        val individualColor = individualBgColorAppMap[packageName]
 
         // mTmpAttrs 由 getBGColorFromCache 的 after hook 填充, 但该成员在部分 ROM 上解析不到
         // (hook 根本没装), ColorOS 等分支也可能走不到那条路径, 且 resetCache() 会把它清回 null。
@@ -83,9 +166,12 @@ object BgHookHandler : BaseHookHandler() {
             when (bgColorType) {
                 // 从图标取色
                 ChangeBGColorTypes.FromIcon.ordinal -> {
-                    printLog { "SplashScreenViewBuilder(): get adaptive background color" }
-                    IconHookHandler.currentIconDominantColor
-                        ?: tmpAttrs?.let { ReflectCache.getField<Drawable>(it, "mSplashScreenIcon") }
+                    // currentIconDominantColor 对应的是 currentPackageName 的图标;
+                    // 包名不一致 (遮罩流程外的任务级查询) 时取色无意义, 返回 null 不替换
+                    if (packageName != currentPackageName) null else {
+                        printLog { "SplashScreenViewBuilder(): get adaptive background color" }
+                        IconHookHandler.currentIconDominantColor
+                            ?: tmpAttrs?.let { ReflectCache.getField<Drawable>(it, "mSplashScreenIcon") }
                             ?.let { drawable ->
                                 drawable.drawableDominantColor(
                                     when (bgColorMode) {
@@ -95,6 +181,7 @@ object BgHookHandler : BaseHookHandler() {
                                     }
                                 )
                             }
+                    }
                 }
                 // 从壁纸取色
                 ChangeBGColorTypes.FromMonet.ordinal -> {
