@@ -9,6 +9,7 @@ import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
+from release_context import require_compare_baseline
 from release_note_common import (
     CATEGORIES,
     CATEGORY_ICONS,
@@ -53,7 +54,12 @@ def find_previous_stable(repo_root: Path, commit: str, release_tag: str) -> str 
         parsed = parse_stable_tag(tag)
         if parsed is not None and parsed < current_version:
             candidates.append((parsed, tag))
-    return max(candidates, default=None)[1] if candidates else None
+    if candidates:
+        return max(candidates)[1]
+    # 区分「首个版本」与「旧标签没跟上重写后的历史」；后者若静默返回 None，
+    # 规则版说明会把完整历史当作本次更新内容。
+    require_compare_baseline(repo_root, commit, release_tag, "stable")
+    return None
 
 
 def render_categorized_entries(entries: Iterable[tuple[str, str]], repository_url: str) -> str:

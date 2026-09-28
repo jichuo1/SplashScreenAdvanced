@@ -8,6 +8,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from release_context import require_compare_baseline
 from release_note_common import (
     escape_markdown_text,
     is_build_maintenance,
@@ -52,7 +53,12 @@ def find_previous_alpha(repo_root: Path, commit: str, release_tag: str) -> str |
         parsed = parse_alpha_tag(tag)
         if parsed is not None and tag != release_tag:
             candidates.append((parsed, tag))
-    return max(candidates, default=None)[1] if candidates else None
+    if candidates:
+        return max(candidates)[1]
+    # 区分「首个 Alpha」与「旧标签没跟上重写后的历史」；后者若静默返回 None，
+    # 规则版说明会把完整历史当作本次更新内容。
+    require_compare_baseline(repo_root, commit, release_tag, "alpha")
+    return None
 
 
 def build_changelog(
@@ -134,12 +140,15 @@ def main() -> None:
     if parse_alpha_tag(args.release_tag) is None:
         raise SystemExit(f"Invalid Alpha tag: {args.release_tag}")
 
-    changelog = build_changelog(
-        args.repo_root.resolve(),
-        args.repository_url,
-        args.release_tag,
-        args.commit,
-    )
+    try:
+        changelog = build_changelog(
+            args.repo_root.resolve(),
+            args.repository_url,
+            args.release_tag,
+            args.commit,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(changelog.rstrip() + "\n", encoding="utf-8", newline="\n")
 

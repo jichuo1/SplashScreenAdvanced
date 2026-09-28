@@ -113,6 +113,23 @@ class ValidateStableBuildTest(unittest.TestCase):
                     "a" * 40,
                 )
 
+    def test_rejects_orphaned_stable_tags_instead_of_silent_none(self) -> None:
+        # 仓库里有更早的 Stable 标签但都不在提交祖先链上（历史重写后）：
+        # 必须报错，而不是返回 previous_stable=none 让说明退化成完整历史。
+        properties = self.write_properties(version_name='"1.1.0"', version_code="10")
+        identity = resolve_build_identity(properties, "v1.1.0")
+        with patch("validate_stable_build.run_git", return_value=""), patch(
+            "release_context.run_git",
+            side_effect=["", "v1.0.8\nv1.0.9\n"],
+        ):
+            with self.assertRaisesRegex(ValueError, "祖先"):
+                validate_release_progression(
+                    properties.parent,
+                    properties,
+                    identity,
+                    "a" * 40,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

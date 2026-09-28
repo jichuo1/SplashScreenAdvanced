@@ -82,6 +82,11 @@ python3 .github/release-templates/render_release_template.py \
 5. **兜底**：未配置密钥或所有槽位失败时回退规则版（按提交标题分类），并在 Job Summary
    与 Actions 注解中给出警告。
 
+**对比基线校验**：发布说明按「上一个同渠道标签 → 本次提交」的范围生成。如果仓库里存在
+版本号更早、却不在发布提交祖先链上的旧标签（典型场景：历史重写后旧标签仍指向旧提交），
+生成会直接报错而不是把完整历史当成本次更新内容。此时需要把旧标签迁到重写后的对应提交，
+或改用 `.github/release-notes/` 手写覆盖发布。
+
 ### 配置槽位
 
 在仓库 **Settings → Secrets and variables → Actions** 中配置，必须是仓库级（不要放在

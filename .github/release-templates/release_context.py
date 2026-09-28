@@ -94,6 +94,48 @@ def find_previous_tag(repo_root: Path, commit: str, release_tag: str, channel: s
     return max(candidates)[1] if candidates else None
 
 
+class OrphanedReleaseTagsError(ValueError):
+    """仓库存在版本号更早的发布标签，但它们都不在发布提交的祖先链上。"""
+
+
+def orphaned_release_tags(repo_root: Path, commit: str, release_tag: str, channel: str) -> list[str]:
+    """列出仓库里版本号早于本次发布、但不在提交祖先链上的渠道标签。
+
+    历史重写后旧标签仍指向旧提交时会出现这种情况；此时「无基线」会让发布说明
+    静默退化为完整历史，必须先由人修正基线，不能放行。
+    """
+    pattern = ALPHA_TAG_PATTERN if channel == "alpha" else STABLE_TAG_PATTERN
+    current = _parse_tag(release_tag, pattern)
+    if current is None:
+        return []
+    merged = {
+        tag.strip()
+        for tag in run_git(repo_root, "tag", "--merged", commit, "--list", "v[0-9]*").splitlines()
+    }
+    orphans = []
+    for tag in (tag.strip() for tag in run_git(repo_root, "tag", "--list", "v[0-9]*").splitlines()):
+        parsed = _parse_tag(tag, pattern)
+        if not tag or tag in merged or tag == release_tag or parsed is None or parsed >= current:
+            continue
+        orphans.append((parsed, tag))
+    return [tag for _, tag in sorted(orphans)]
+
+
+def require_compare_baseline(repo_root: Path, commit: str, release_tag: str, channel: str) -> None:
+    """找不到祖先基线且存在更早的孤儿标签时，用可操作的错误代替静默放行。"""
+    orphans = orphaned_release_tags(repo_root, commit, release_tag, channel)
+    if not orphans:
+        return
+    channel_name = "Alpha" if channel == "alpha" else "Stable"
+    raise OrphanedReleaseTagsError(
+        f"仓库里存在早于 {release_tag} 的 {channel_name} 标签 {'、'.join(orphans)}，"
+        f"但它们都不是提交 {commit[:12]} 的祖先（历史重写后旧标签仍指向旧提交时会出现这种情况）。"
+        "继续生成发布说明会把完整历史当成本次更新内容。请先修正对比基线：把旧标签移到重写后的"
+        "对应提交，或删除不再作为基线的旧标签；若确实需要无基线发布，请改用 "
+        ".github/release-notes/ 手写覆盖文件并在触发时填写 release_summary。"
+    )
+
+
 def list_commits(repo_root: Path, revision_range: str) -> list[CommitInfo]:
     # 记录分隔符避免提交正文里的换行和制表符破坏解析。
     raw = run_git(
@@ -284,6 +326,10 @@ def build_context(
     fetch_published: bool = True,
 ) -> ReleaseContext:
     previous_tag = find_previous_tag(repo_root, commit, release_tag, channel)
+    if previous_tag is None:
+        # 找不到祖先基线时，区分「首个版本」与「旧标签没跟上重写后的历史」；
+        # 后者若放行，范围会静默膨胀成完整历史，把以往版本的全部提交写进本次说明。
+        require_compare_baseline(repo_root, commit, release_tag, channel)
     revision_range = f"{previous_tag}..{commit}" if previous_tag else commit
     commits = list_commits(repo_root, revision_range)
     context = ReleaseContext(channel, release_tag, previous_tag, commit, commits)

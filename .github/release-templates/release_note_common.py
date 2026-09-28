@@ -120,7 +120,8 @@ BUILD_MAINTENANCE_PREFIXES = (
 
 
 def escape_markdown_text(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("`", "\\`")
+    # @ 提及会让 GitHub 把无关人员计为 Release 贡献者并发出通知，用零宽空格切断。
+    return value.replace("\\", "\\\\").replace("`", "\\`").replace("@", "@\u200b")
 
 
 def category_for_subject(subject: str) -> str:

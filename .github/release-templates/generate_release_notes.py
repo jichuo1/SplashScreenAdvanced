@@ -143,6 +143,11 @@ def build_system_prompt(config: dict, channel: str) -> str:
 7. {summary_rule(channel)}
 8. 只写证据里能看到的变化，不要猜测；拿不准的效果写得保守。
 9. 使用简体中文，中文与英文、数字之间保留一个空格（如「所有 UI」「B 站 9.13.0 版本」）。
+10. 归属与署名：summary、group、text 中一律不得出现人名、用户名、@ 提及、邮箱、
+    PR/Issue 编号，以及提交作者、协作者署名；合并、移植带来的贡献者信息也不要写。
+11. 范围纪律：只概述「提交记录」一节所列提交带来的最终效果；对比基线之前已有的功能、
+    更早版本的更新内容一律不写；即使提交记录跨度很大，也只写本次范围内用户能感知到
+    的变化，不复述历史演进过程。
 {style_notes}
 
 只输出一个 JSON 对象，结构为：
@@ -200,8 +205,12 @@ def _resolve_sha(short: str, full_shas: set[str]) -> str | None:
 _CJK = r"[\u3400-\u4dbf\u4e00-\u9fff]"
 _CJK_THEN_LATIN = re.compile(rf"({_CJK})([A-Za-z0-9])")
 _LATIN_THEN_CJK = re.compile(rf"([A-Za-z0-9%])({_CJK})")
-# 维护者文风：不感叹、不直接称呼读者。出现即要求模型重写。
-_STYLE_VIOLATIONS = ((re.compile(r"[!！]"), "感叹号"), (re.compile(r"[你您]"), "「你/您」称呼"))
+# 维护者文风：不感叹、不直接称呼读者、不带 @ 提及或署名。出现即要求模型重写。
+_STYLE_VIOLATIONS = (
+    (re.compile(r"[!！]"), "感叹号"),
+    (re.compile(r"[你您]"), "「你/您」称呼"),
+    (re.compile(r"@[A-Za-z0-9_一-鿿]"), "@ 提及或署名"),
+)
 
 
 def space_cjk_latin(text: str) -> str:
@@ -335,8 +344,7 @@ def validate_notes(
 def sanitize(text: str) -> str:
     # 模型文本只作为纯文本展示：转义代码标记、HTML 与 @ 提及，避免误通知或注入排版。
     text = escape_markdown_text(text)
-    text = text.replace("<", "&lt;").replace(">", "&gt;")
-    return text.replace("@", "@​")
+    return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
 def commit_link(sha: str, repository_url: str) -> str:
@@ -524,16 +532,19 @@ def main() -> None:
     if pattern.fullmatch(args.release_tag) is None:
         raise SystemExit(f"Invalid {args.channel} tag: {args.release_tag}")
 
-    result = generate(
-        channel=args.channel,
-        repo_root=args.repo_root.resolve(),
-        repository_url=args.repository_url,
-        repository=repository_from_url(args.repository_url),
-        release_tag=args.release_tag,
-        commit=args.commit,
-        manual_summary=args.summary,
-        use_llm=not args.no_llm,
-    )
+    try:
+        result = generate(
+            channel=args.channel,
+            repo_root=args.repo_root.resolve(),
+            repository_url=args.repository_url,
+            repository=repository_from_url(args.repository_url),
+            release_tag=args.release_tag,
+            commit=args.commit,
+            manual_summary=args.summary,
+            use_llm=not args.no_llm,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     if args.channel == "stable" and not result.summary.strip():
         raise SystemExit("Stable release summary is empty.")
 

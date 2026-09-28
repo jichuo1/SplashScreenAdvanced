@@ -8,8 +8,17 @@ from pathlib import Path
 from unittest import mock
 
 import generate_release_notes as notes_module
+import generate_stable_changelog
 import llm_providers
-from release_context import CommitInfo, ReleaseContext, build_context, changed_lines_only, strip_release_template
+from release_context import (
+    CommitInfo,
+    OrphanedReleaseTagsError,
+    ReleaseContext,
+    build_context,
+    changed_lines_only,
+    strip_release_template,
+)
+from release_note_common import escape_markdown_text
 
 
 REPO_URL = "https://github.com/example/repository"
@@ -131,6 +140,14 @@ class ValidateNotesTest(unittest.TestCase):
         _, errors, _ = notes_module.validate_notes(payload, make_context(), CONFIG)
         self.assertTrue(any(f"超过 {notes_module.MAX_SENTENCE_CHARS} 字" in error for error in errors))
 
+    def test_rejects_at_mentions_in_output(self) -> None:
+        payload = valid_payload()
+        payload["items"][0]["text"] = "合并 @someone 提交的更改。"
+        payload["items"][1]["group"] = "合并 @another 分支"
+        _, errors, _ = notes_module.validate_notes(payload, make_context(), CONFIG)
+        joined = "\n".join(errors)
+        self.assertIn("@ 提及或署名", joined)
+
     def test_system_prompt_carries_style_guide_and_example(self) -> None:
         config = {**CONFIG, "summary_style_example": "得益于全新引擎，所有 UI 均已全面焕新。"}
         prompt = notes_module.build_system_prompt(config, "stable")
@@ -138,6 +155,9 @@ class ValidateNotesTest(unittest.TestCase):
         self.assertIn("得益于全新引擎，所有 UI 均已全面焕新。", prompt)
         self.assertIn("只学习语气与句式", prompt)
         self.assertIn("不要写固定的结尾套话", prompt)
+        # 禁止把贡献者署名写进说明，也只允许概述本次范围内的变化。
+        self.assertIn("不得出现人名", prompt)
+        self.assertIn("范围纪律", prompt)
         self.assertNotIn("维护者亲笔写的概述样例", notes_module.build_system_prompt(CONFIG, "stable"))
 
     def test_extract_json_tolerates_code_fences(self) -> None:
@@ -171,6 +191,18 @@ class RenderTest(unittest.TestCase):
 
     def test_sanitize_neutralizes_html_and_mentions(self) -> None:
         self.assertEqual("&lt;b&gt; @​user", notes_module.sanitize("<b> @user"))
+
+    def test_commit_dump_neutralizes_at_mentions(self) -> None:
+        # 提交标题里的 @user 若原样进 Release 正文，GitHub 会把无关人员计为贡献者。
+        context = ReleaseContext(
+            "stable", "v1.2.0", "v1.1.0", SHA_C,
+            [CommitInfo(SHA_A, "2026-09-01", "合并 @someone 更改", "", 1, 1, 0, ())],
+        )
+        changelog = notes_module.render_changelog(
+            notes_module.ReleaseNotes([], [], []), context, REPO_URL
+        )
+        self.assertIn("@​someone", changelog)
+        self.assertNotIn("@someone", changelog)
 
 
 class FakeResponse:
@@ -401,6 +433,25 @@ class GitFixtureTest(unittest.TestCase):
                                        manual_summary="手写概述第一句。第二句。")
         self.assertEqual("- 手写内容\n", result.changelog)
 
+    def test_orphaned_stable_tag_fails_instead_of_dumping_full_history(self) -> None:
+        """历史重写后旧标签仍指向旧提交：不得静默退化为完整历史。"""
+        # 在独立根提交上打 v1.0.5——标签存在但不是 HEAD 的祖先，模拟未迁移的旧标签。
+        self.git("tag", "-d", "v1.0.0")
+        self.git("checkout", "-q", "--orphan", "orphan-history")
+        self.commit("另一段历史的提交")
+        self.git("tag", "v1.0.5")
+        self.git("checkout", "-q", "main")
+        head = self.git("rev-parse", "HEAD").strip()
+        with self.assertRaises(OrphanedReleaseTagsError) as raised:
+            build_context(
+                self.root, {"user_text_paths": []}, channel="stable",
+                release_tag="v1.1.0", commit=head, fetch_published=False,
+            )
+        self.assertIn("v1.0.5", str(raised.exception))
+        # 规则兜底链同样拦截，不允许静默放行。
+        with self.assertRaises(ValueError):
+            generate_stable_changelog.build_changelog(self.root, REPO_URL, "v1.1.0", head)
+
 
 class WorkflowSecretContractTest(unittest.TestCase):
     """仓库公开，运行日志人人可见：密钥只能来自 Secret，端点地址优先读 Secret。"""
@@ -433,6 +484,9 @@ class HelpersTest(unittest.TestCase):
             "- 条目一\n\n---\n\n### 📦 下载\n"
         )
         self.assertEqual("- 条目一", strip_release_template(body))
+
+    def test_escape_markdown_text_breaks_mentions(self) -> None:
+        self.assertEqual("合并 @​user 更改", escape_markdown_text("合并 @user 更改"))
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from release_context import require_compare_baseline
 from validate_alpha_build import (
     read_gradle_properties,
     unquote,
@@ -119,6 +120,9 @@ def validate_release_progression(
             continue
         candidates.append((tuple(int(part) for part in match.groups()), tag))
     if not candidates:
+        # 区分「首个 Stable」与「旧标签没跟上重写后的历史」：后者继续走会把
+        # 版本递进校验静默跳过，发布说明也会退化成完整历史，必须人工修正基线。
+        require_compare_baseline(repo_root, commit, identity.release_tag, "stable")
         return None
 
     previous_version, previous_tag = max(candidates)
