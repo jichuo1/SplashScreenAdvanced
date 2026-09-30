@@ -39,6 +39,7 @@ import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconCacheClient
 import com.SplashScreenAdvanced.xposedmodule.utils.enhance.IconEnhanceEngine
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
 import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
+import com.SplashScreenAdvanced.xposedmodule.wrapper.AdaptiveForegroundLayerDrawable
 import com.SplashScreenAdvanced.xposedmodule.wrapper.NoStrokeAdaptiveIconDrawable
 import com.SplashScreenAdvanced.xposedmodule.wrapper.TransparentAdaptiveIconDrawable
 import com.highcapable.kavaref.KavaRef.Companion.resolve
@@ -69,7 +70,7 @@ object IconHookHandler : BaseHookHandler() {
     private val isInMakeSplashScreenContentView = ThreadLocal<Boolean>()
 
     /**
-     * 待增强图标的归属信息（Drawable 实例 -> `包名|组件|sourceDir`）
+     * 待增强图标的归属信息（Drawable 实例 -> [EnhanceTarget]）
      *
      * 增强实际发生在 `preDrawIcon`，它被宿主 post 到后台线程执行，那时
      * [GenerateHookHandler] 的进程级静态（`currentPackageName` 等）可能已被下一次启动覆盖，
@@ -79,7 +80,24 @@ object IconHookHandler : BaseHookHandler() {
      * 用 `WeakHashMap`：key 是宿主持有的 Drawable，图标被回收时条目自动消失，无需手工清理。
      */
     private val pendingEnhanceTargets =
-        Collections.synchronizedMap(WeakHashMap<Drawable, String>())
+        Collections.synchronizedMap(WeakHashMap<Drawable, EnhanceTarget>())
+
+    /**
+     * 增强归属: [cacheKey] 为 `包名|组件|sourceDir|图标来源标识`;
+     * [allowOfflineCache] 仅当图标为应用原始图标时为 true (离线缓存由原始图标渲染)
+     */
+    private data class EnhanceTarget(
+        val cacheKey: String,
+        val pkg: String,
+        val sourceDir: String?,
+        val allowOfflineCache: Boolean
+    )
+
+    private var currentIconSourceTag = "orig"
+    private var currentIconIsOriginal = true
+
+    /** 标记本线程已把 mTmpAttrs.mIconBgColor 临时改写, 值为对应的 mTmpAttrs */
+    private val steeredTmpAttrs = ThreadLocal<Any>()
 
     /**
      * com.android.internal.R.dimen.starting_surface_icon_size 资源 id (进程内恒定, 解析一次)
@@ -148,6 +166,8 @@ object IconHookHandler : BaseHookHandler() {
         currentIsNeedShrinkIcon = false
         currentUseBigHyperOSLagerIcon = null
         currentIconDrawable = null
+        currentIconSourceTag = "orig"
+        currentIconIsOriginal = true
     }
 
     /** 开始 Hook */
@@ -156,6 +176,11 @@ object IconHookHandler : BaseHookHandler() {
         Preferences.Icon.ICON_PACK_PACKAGE_NAME.observe(fireImmediately = false) {
             clearDominantColorCache()
             iconPackManagerCache = null  // 图标包换了, 下次取图标时按新包名重建
+            IconEnhanceEngine.clearCache()
+        }
+        Preferences.Icon.ICON_FOREGROUND_ONLY.observe(fireImmediately = false) {
+            clearDominantColorCache()
+            IconEnhanceEngine.clearCache()
         }
         Preferences.Icon.ENABLE_USE_MIUI_LARGE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
         Preferences.Icon.ENABLE_REPLACE_ICON.observe(fireImmediately = false) { clearDominantColorCache() }
@@ -192,8 +217,25 @@ object IconHookHandler : BaseHookHandler() {
             // 而从未触发、ColorOS getIconExt 失效 —— 这些情形下传入的仍是未处理的原始图标。
             // 用实例身份判定而非 hook 解析状态: 已处理过的 drawable 入参会与
             // currentIconDrawable 同实例, 跳过避免二次处理
+            steeredTmpAttrs.get()?.let {
+                ReflectCache.setField(it, "mIconBgColor", 0)
+                steeredTmpAttrs.remove()
+            }
+
             val iconIndex = args.indexOfFirst { it is Drawable }
-            if (iconIndex >= 0 && args[iconIndex] !== currentIconDrawable) {
+            val fullIcon = currentIconDrawable as? AdaptiveIconDrawable
+            if (iconIndex >= 0 && fullIcon != null &&
+                !prefs.get(Preferences.Icon.ICON_FOREGROUND_ONLY) && args[iconIndex] === fullIcon.foreground
+            ) {
+                // 宿主误判背景为简单色而只传入前景层, 换回完整图标并还原图标尺寸
+                args(iconIndex).set(fullIcon)
+                instance?.let { builder ->
+                    ReflectCache.getField<Any>(builder, "this$0")
+                        ?.let { ReflectCache.getField<Int>(it, "mIconSize") }
+                        ?.let { ReflectCache.setField(builder, "mFinalIconSize", it) }
+                }
+                printLog { "createIconDrawable(): foreground-only icon swapped back to full adaptive icon" }
+            } else if (iconIndex >= 0 && args[iconIndex] !== currentIconDrawable) {
                 printLog { "createIconDrawable(): icon not processed upstream, fallback processing" }
                 args(iconIndex).set(processIconDrawable(args[iconIndex] as Drawable))
             }
@@ -364,6 +406,40 @@ object IconHookHandler : BaseHookHandler() {
             ReflectCache.setField(instance!!, "mIsBgComplex", true)
         }
 
+        /**
+         * 上面的构造器 Hook 在 AOT 编译的 SystemUI 上会失效 (IconColor 构造器被内联进 build()),
+         * 导致宿主对纯色背景的分层图标只取前景层。这里在 build() 前把 mTmpAttrs.mIconBgColor
+         * 临时设为 mThemeColor: 宿主因 mIconBgColor != 0 走完整图标分支, 且与主题色相同,
+         * createIconDrawable 不会额外叠加遮罩背景; build() 后恢复为 0
+         */
+        SystemUIHooker.Members.build_StartingWindowViewBuilder.addBeforeHook {
+            if (prefs.get(Preferences.Icon.ICON_FOREGROUND_ONLY)) return@addBeforeHook
+            val builder = instance ?: return@addBeforeHook
+            val tmpAttrs = ReflectCache.getField<Any>(builder, "this$0")
+                ?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
+            if (tmpAttrs == null) {
+                printLog { "build_StartingWindowViewBuilder(): mTmpAttrs not found, skip steering" }
+                return@addBeforeHook
+            }
+            val themeColor = ReflectCache.getField<Int>(builder, "mThemeColor")
+            if (themeColor == null || themeColor == 0) {
+                printLog { "build_StartingWindowViewBuilder(): mThemeColor unavailable, skip steering" }
+                return@addBeforeHook
+            }
+            if (ReflectCache.getField<Any>(tmpAttrs, "mSplashScreenIcon") != null ||
+                ReflectCache.getField<Int>(tmpAttrs, "mIconBgColor") != 0
+            ) return@addBeforeHook
+            ReflectCache.setField(tmpAttrs, "mIconBgColor", themeColor)
+            steeredTmpAttrs.set(tmpAttrs)
+            printLog { "build_StartingWindowViewBuilder(): steer mIconBgColor to theme color" }
+        }
+        SystemUIHooker.Members.build_StartingWindowViewBuilder.addAfterHook({ true }) {
+            steeredTmpAttrs.get()?.let {
+                ReflectCache.setField(it, "mIconBgColor", 0)
+                steeredTmpAttrs.remove()
+            }
+        }
+
         // 图标画质增强之一: 地基修复
         //
         // 宿主默认把图标栅格化成 starting_surface_default_icon_size(108dp)、再放大到
@@ -409,15 +485,16 @@ object IconHookHandler : BaseHookHandler() {
 
             // 取不到归属说明这次栅格化不是本次启动遮罩产生的, 直接放行
             val target = pendingEnhanceTargets.remove(src) ?: return@addBeforeHook
-            val pkg = target.substringBefore("|")
-            // target 格式 "pkg|component|sourceDir", sourceDir 随机段随应用更新而变,
-            // 并入缓存键后"更新 + 重扫"产出的新文件不会再被旧位图命中; 不读 currentApplicationInfo
-            // 是因为此刻它可能已被下一次启动覆盖(见 pendingEnhanceTargets 注释)
-            val sourceDir = target.substringAfterLast("|").takeIf { it.isNotEmpty() }
+            val pkg = target.pkg
+            // cacheKey 含 sourceDir 与图标来源标识, 应用更新或切换图标来源后不会再命中旧位图;
+            // 不读 currentApplicationInfo 是因为此刻它可能已被下一次启动覆盖(见 pendingEnhanceTargets 注释)
+            val sourceDir = target.sourceDir?.takeIf { it.isNotEmpty() }
 
-            // 优先取离线超分缓存(命中时比实时路径更快), 未命中再走实时引擎
-            val enhanced = appContext?.let { ctx -> IconCacheClient.fetch(ctx, pkg, targetSize, sourceDir) }
-                ?: IconEnhanceEngine.enhance(src = src, targetSize = targetSize, cacheKey = target)
+            // 离线缓存由应用原始图标渲染, 仅原始图标可用; 命中时比实时路径更快, 未命中再走实时引擎
+            val enhanced = (if (target.allowOfflineCache) {
+                appContext?.let { ctx -> IconCacheClient.fetch(ctx, pkg, targetSize, sourceDir) }
+            } else null)
+                ?: IconEnhanceEngine.enhance(src = src, targetSize = targetSize, cacheKey = target.cacheKey)
 
             enhanced?.let {
                 args(0).set(it)
@@ -440,9 +517,13 @@ object IconHookHandler : BaseHookHandler() {
         }
     }
 
-    /** 本次启动遮罩的归属标识（包名|组件|sourceDir） */
-    private fun currentEnhanceTarget(): String =
-        "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}"
+    /** 本次启动遮罩的增强归属, 缓存键含图标来源标识 */
+    private fun currentEnhanceTarget() = EnhanceTarget(
+        cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}|$currentIconSourceTag",
+        pkg = currentPackageName,
+        sourceDir = currentApplicationInfo?.sourceDir,
+        allowOfflineCache = currentIconIsOriginal
+    )
 
     /**
      * 处理图标 Drawable 的方法
@@ -474,17 +555,35 @@ object IconHookHandler : BaseHookHandler() {
         }
 
         // 检索图标优先级: 使用小米大图标 -> 使用图标包 -> 替换获取图标方式 -> 原始图标
-        val iconDrawable = getHyperOSLargeIcon() ?: getIconFromIconPack() ?: replaceWayOfGetIcons() ?: oriDrawable
+        var sourceTag = "large"
+        val sourceDrawable = getHyperOSLargeIcon()
+            ?: getIconFromIconPack()?.also { sourceTag = "pack:${prefs.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME)}" }
+            ?: replaceWayOfGetIcons()?.also { sourceTag = "replace" }
+            ?: oriDrawable.also { sourceTag = "orig" }
 
         // 判断是否需要缩小图标
         when (shrinkIconType) {
             ShrinkIconType.NotShrinkIcon.ordinal -> currentIsNeedShrinkIcon = false
             ShrinkIconType.ShrinkLowResolutionIcon.ordinal -> currentIsNeedShrinkIcon =
-                if (iconDrawable !is AdaptiveIconDrawable) iconDrawable.intrinsicWidth < iconSize / 1.5 else false
+                if (sourceDrawable !is AdaptiveIconDrawable) sourceDrawable.intrinsicWidth < iconSize / 1.5 else false
 
             ShrinkIconType.ShrinkAllIcon.ordinal -> currentIsNeedShrinkIcon = true
         }
         printLog { "getIcon(): currentIsNeedShrinkIcon: $currentIsNeedShrinkIcon" }
+
+        // 分层图标仅显示前景层
+        val iconDrawable =
+            if (prefs.get(Preferences.Icon.ICON_FOREGROUND_ONLY) && sourceDrawable is AdaptiveIconDrawable) {
+                sourceDrawable.foreground?.let {
+                    sourceTag += "|fg"
+                    AdaptiveForegroundLayerDrawable(it)
+                } ?: sourceDrawable
+            } else {
+                sourceDrawable
+            }
+        currentIconSourceTag = sourceTag
+        // 单次启动内只降不升: 兜底路径会再处理宿主渲染出的位图并误判为 orig
+        if (sourceTag != "orig") currentIconIsOriginal = false
 
         // 获取图标颜色: 仅当背景颜色取自图标时进行
         if (prefs.get(Preferences.Background.CHANG_BG_COLOR_TYPE) == ChangeBGColorTypes.FromIcon.ordinal) {
@@ -493,7 +592,7 @@ object IconHookHandler : BaseHookHandler() {
                 BGColorModes.FollowSystem.ordinal -> !appContext!!.isDarkMode
                 else -> true
             }
-            val cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}|$isLight"
+            val cacheKey = "$currentPackageName|$currentComponentName|${currentApplicationInfo?.sourceDir}|$sourceTag|$isLight"
             currentIconDominantColor = synchronized(dominantColorCache) { dominantColorCache[cacheKey] }
                 ?: iconDrawable.drawableDominantColor(isLight)
                     .also { synchronized(dominantColorCache) { dominantColorCache[cacheKey] = it } }
