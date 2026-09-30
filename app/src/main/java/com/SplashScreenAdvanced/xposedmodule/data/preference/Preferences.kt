@@ -38,6 +38,9 @@ object Preferences {
         val ENABLE_REMOVE_ICON_STROKE = PreferenceKey("enable_remove_icon_stroke", false)
         val ENABLE_ADD_ICON_BLUR_BG = PreferenceKey("enable_add_blur_bg", false)
         val ICON_PACK_PACKAGE_NAME = PreferenceKey("icon_pack_package_name", "None")
+
+        /** 分层（自适应）图标仅显示前景层, 不绘制背景与遮罩形状 */
+        val ICON_FOREGROUND_ONLY = PreferenceKey("icon_foreground_only", false)
         val SHRINK_ICON = PreferenceKey("shrink_icon", 0)
 
         /**

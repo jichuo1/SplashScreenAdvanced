@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">Использовать большие значки Xiaomi</string>
     <string name="remove_icon_stroke">Убрать обводку значков Xiaomi</string>
     <string name="use_icon_pack">Использовать пакет значков</string>
+    <string name="icon_foreground_only">Только передний слой для многослойных значков</string>
+    <string name="icon_foreground_only_tips">Выкл.: передний и задний слои показываются вместе (исправляет пропажу заднего слоя в многослойных пакетах значков). Вкл.: показывается только передний слой, без фона и формы маски</string>
     <string name="icon_pack_is_removed">Пакет значков удалён, выберите заново</string>
     <string name="default_style">Игнорировать значки, заданные приложениями</string>
     <string name="default_style_tips">С этой опцией выбранные приложения обрабатываются так, будто они не задавали значок Splash Screen. Также решает следующие проблемы:\n1. Квадратные значки при сторонних темах.\n2. Квадратные значки из-за непрозрачного фона значка у приложения.</string>

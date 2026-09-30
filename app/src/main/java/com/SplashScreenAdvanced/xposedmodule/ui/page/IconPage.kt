@@ -218,6 +218,13 @@ private fun CommonSettingsGroup() {
             availableIconPackItems[it].summary ?: "None"
         )
     }
+
+    // 分层图标仅显示前景层
+    SwitchPreference(
+        title = stringResource(R.string.icon_foreground_only),
+        summary = stringResource(R.string.icon_foreground_only_tips),
+        key = Preferences.Icon.ICON_FOREGROUND_ONLY
+    )
 }
 
 /**

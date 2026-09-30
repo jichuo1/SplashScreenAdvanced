@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">Use Xiaomi large icons</string>
     <string name="remove_icon_stroke">Remove Xiaomi icon stroke</string>
     <string name="use_icon_pack">Use icon pack</string>
+    <string name="icon_foreground_only">Show foreground layer only for layered icons</string>
+    <string name="icon_foreground_only_tips">Off: foreground and background layers are shown together (fixes missing background layer of layered icon packs). On: only the foreground layer is shown, without background or mask shape</string>
     <string name="icon_pack_is_removed">Icon pack was removed, please select again</string>
     <string name="default_style">Ignore icons set by apps</string>
     <string name="default_style_tips">With this option enabled, selected apps are treated as if they never set a Splash Screen icon. It also fixes the following issues:\n1. Squared icons when using third-party themes.\n2. Squared icons caused by apps that forgot to make the icon background transparent.</string>

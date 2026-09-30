@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">Usar iconos grandes de Xiaomi</string>
     <string name="remove_icon_stroke">Quitar trazo del icono de Xiaomi</string>
     <string name="use_icon_pack">Usar paquete de iconos</string>
+    <string name="icon_foreground_only">Mostrar solo la capa frontal en iconos por capas</string>
+    <string name="icon_foreground_only_tips">Desactivado: se muestran juntas las capas frontal y de fondo (corrige la capa de fondo que faltaba en paquetes de iconos por capas). Activado: solo se muestra la capa frontal, sin fondo ni forma de máscara</string>
     <string name="icon_pack_is_removed">El paquete de iconos fue eliminado, selecciónelo de nuevo</string>
     <string name="default_style">Ignorar iconos definidos por las apps</string>
     <string name="default_style_tips">Con esta opción, las apps seleccionadas se tratan como si no hubieran definido un icono de Splash Screen. También resuelve estos problemas:\n1. Iconos cuadrados al usar temas de terceros.\n2. Iconos cuadrados porque la app no puso el fondo del icono transparente.</string>

@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">使用小米大图标</string>
     <string name="remove_icon_stroke">移除小米图标描边</string>
     <string name="use_icon_pack">使用图标包</string>
+    <string name="icon_foreground_only">分层图标仅显示前景层</string>
+    <string name="icon_foreground_only_tips">关闭时前景与背景图层一起显示（修复分层图标包背景层丢失）；开启时只显示前景层，不绘制背景与遮罩形状</string>
     <string name="icon_pack_is_removed">图标包被删除, 请重新选择</string>
     <string name="default_style">忽略应用主动设置的图标</string>
     <string name="default_style_tips">开启此选项后，选中的应用即使主动适配 Splash Screen, 也按未设置图标处理。开启此选项也可以解决以下问题：\n1、使用第三方主题会出现图标方角问题。\n2、部分应用没有将图标背景设置成透明导致图标方角问题。</string>

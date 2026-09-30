@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">Xiaomi 大アイコンを使用</string>
     <string name="remove_icon_stroke">Xiaomi アイコンのストロークを除去</string>
     <string name="use_icon_pack">アイコンパックを使用</string>
+    <string name="icon_foreground_only">レイヤーアイコンは前景レイヤーのみ表示</string>
+    <string name="icon_foreground_only_tips">オフ：前景と背景レイヤーを一緒に表示します（レイヤーアイコンパックの背景レイヤー欠落を修正）。オン：前景レイヤーのみを表示し、背景とマスク形状は描画しません</string>
     <string name="icon_pack_is_removed">アイコンパックが削除されました。再度選択してください</string>
     <string name="default_style">アプリが設定したアイコンを無視</string>
     <string name="default_style_tips">このオプションを有効にすると、選択したアプリが Splash Screen に対応していてもアイコン未設定として扱います。次の問題も解決できます：\n1、サードパーティテーマ使用時にアイコンが角張る問題。\n2、アイコン背景を透明に設定していないアプリによる角張り問題。</string>

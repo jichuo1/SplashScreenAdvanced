@@ -100,6 +100,8 @@
     <string name="use_miui_large_icon">Utiliser les grandes icônes Xiaomi</string>
     <string name="remove_icon_stroke">Supprimer le contour des icônes Xiaomi</string>
     <string name="use_icon_pack">Utiliser un pack d\'icônes</string>
+    <string name="icon_foreground_only">Afficher uniquement le premier plan des icônes en couches</string>
+    <string name="icon_foreground_only_tips">Désactivé : le premier plan et l\'arrière-plan sont affichés ensemble (corrige l\'arrière-plan manquant des packs d\'icônes en couches). Activé : seul le premier plan est affiché, sans arrière-plan ni forme de masque</string>
     <string name="icon_pack_is_removed">Le pack d\'icônes a été supprimé, veuillez le resélectionner</string>
     <string name="default_style">Ignorer les icônes définies par les apps</string>
     <string name="default_style_tips">Avec cette option, les apps sélectionnées sont traitées comme si elles n\'avaient pas défini d\'icône de Splash Screen. Résout aussi les problèmes suivants :\n1. Icônes carrées avec des thèmes tiers.\n2. Icônes carrées car l\'app n\'a pas mis le fond de l\'icône en transparent.</string>
