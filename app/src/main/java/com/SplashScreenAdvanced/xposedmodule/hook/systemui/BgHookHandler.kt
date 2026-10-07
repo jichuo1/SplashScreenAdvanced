@@ -3,6 +3,8 @@ package com.SplashScreenAdvanced.xposedmodule.hook.systemui
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.ColorDrawable
+import android.view.View
 import androidx.core.graphics.toColorInt
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
@@ -11,23 +13,30 @@ import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler.c
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getMapPrefs
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.SplashBackgroundRegistry
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
+import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isColorOS
 import com.SplashScreenAdvanced.xposedmodule.utils.drawableDominantColor
 import com.SplashScreenAdvanced.xposedmodule.utils.isDarkMode
+import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import com.SplashScreenAdvanced.xposedmodule.wrapper.SplashScreenViewBuilderWrapper
+import com.SplashScreenAdvanced.xposedmodule.wrapper.splashBackgroundWithPreview
 
 /**
  * 此对象用于处理 背景 Hook
  */
 object BgHookHandler : BaseHookHandler() {
+    private val backgrounds = SplashBackgroundRegistry()
+    internal fun backgroundFor(view: Any?) = backgrounds.get(view)
     private var mTmpAttrsInstance: Any?
         get() = GenerateHookHandler.currentSession?.tmpAttrs
         set(value) { GenerateHookHandler.currentSession?.tmpAttrs = value }
 
     /** 开始 Hook */
     override fun onHook() {
+        if (isColorOS) XMLog.i { "[SystemUI] ColorOS splash background ownership and opacity policy installed" }
         SystemUIHooker.Members.getBGColorFromCache.addAfterHook {
             mTmpAttrsInstance = instance?.let { ReflectCache.getField<Any>(it, "mTmpAttrs") }
         }
@@ -35,12 +44,39 @@ object BgHookHandler : BaseHookHandler() {
             val builder = SplashScreenViewBuilderWrapper.getInstance(instance!!)
 
             // 设置背景颜色
-            getColor()?.let { color ->
+            val color = getColor()
+            GenerateHookHandler.currentSession?.backgroundColorOverride = color
+            color?.let {
                 builder.setBackgroundColor(color)
                 // overlay 存在时 build() 用它整体替换 view 背景, 背景色被完全遮盖
                 // (OneUI 对 suggestType==4 的启动画面传应用 windowBackground drawable)
                 builder.setOverlayDrawable(null)
             }
+            if (color == null && isColorOS) {
+                // This color is also parceled into the app's copied splash; opacity must survive that transfer.
+                val hostColor = ReflectCache.getField<Int>(instance!!, "mBackgroundColor")
+                if (hostColor != null) {
+                    val opaqueColor = SplashBackgroundRegistry.opaque(hostColor)
+                    if (hostColor != opaqueColor) builder.setBackgroundColor(opaqueColor)
+                    ReflectCache.getField<Drawable>(instance!!, "mOverlayDrawable")?.let { overlay ->
+                        builder.setOverlayDrawable(splashBackgroundWithPreview(opaqueColor, overlay))
+                    }
+                }
+            }
+        }
+
+        SystemUIHooker.Members.build_SplashScreenViewBuilder.addAfterHook {
+            if (!isColorOS) return@addAfterHook
+            val view = result as? View ?: return@addAfterHook
+            val background = view.background as? ColorDrawable
+            val color = ReflectCache.getField<Int>(instance ?: return@addAfterHook, "mBackgroundColor")
+                ?: background?.color ?: return@addAfterHook
+            val custom = GenerateHookHandler.currentSession?.backgroundColorOverride
+            backgrounds.record(view, color, custom != null && background != null && background.color == custom && background.alpha == 255)
+            view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) = Unit
+                override fun onViewDetachedFromWindow(v: View) { backgrounds.remove(v); v.removeOnAttachStateChangeListener(this) }
+            })
         }
 
         // ---- 背景色的其余出口 (windowless / shell-transition 路径, OneUI 8.5 实测) ----
@@ -154,7 +190,7 @@ object BgHookHandler : BaseHookHandler() {
             return null
         }
 
-        return if (individualColor != null) {
+        val color = if (individualColor != null) {
             printLog { "SplashScreenViewBuilder(): set individual background color, $individualColor" }
             individualColor.toColorInt()
         } else if (!isInBGExceptList && (!isDarkMode || ignoreDarkMode))
@@ -203,6 +239,7 @@ object BgHookHandler : BaseHookHandler() {
             } else {
             printLog { "SplashScreenViewBuilder(): skip set bg color cuz app in except list" }; null
         }
+        return color?.let(SplashBackgroundRegistry::opaque)
     }
 
     /** 系统 Monet 浅色 primaryContainer */

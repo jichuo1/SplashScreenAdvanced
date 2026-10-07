@@ -28,6 +28,7 @@ object GenerateHookHandler : BaseHookHandler() {
         var except: Boolean = true
         val icon = IconHookHandler.RenderState()
         var tmpAttrs: Any? = null
+        var backgroundColorOverride: Int? = null
     }
 
     private data class StartingTask(val packageName: String, val durationMs: Long)

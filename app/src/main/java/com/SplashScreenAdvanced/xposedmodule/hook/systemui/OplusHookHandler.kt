@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.base.BaseHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
+import com.SplashScreenAdvanced.xposedmodule.wrapper.splashBackgroundWithPreview
 
 /**
  * 此对象用于处理针对 Oplus 的 Hook
@@ -12,9 +13,18 @@ object OplusHookHandler : BaseHookHandler() {
 
     /** 开始 Hook */
     override fun onHook() {
-        SystemUIHooker.Members.setContentViewBackground_OplusShellStartingWindowManager.addBeforeHook {
-            printLog { "ColorOS: setContentViewBackground_OplusShellStartingWindowManager(): intercept!!" }
-            resultNull()
+        // ColorOS fills/updates the background on its executor after makeSplashScreenContentView returns.
+        // Follow the exact splash View rather than the finished ThreadLocal session or a latest package name.
+        SystemUIHooker.Members.setContentViewBackground_OplusShellStartingWindowManager.addBeforeHook({ true }) {
+            val background = BgHookHandler.backgroundFor(args.getOrNull(0)) ?: return@addBeforeHook
+            if (background.customApplied) {
+                printLog { "ColorOS: keep applied custom splash background" }
+                resultNull()
+            } else {
+                val preview = args.getOrNull(1) as? Drawable ?: return@addBeforeHook
+                args(1).set(splashBackgroundWithPreview(background.color, preview))
+                printLog { "ColorOS: keep opaque splash color behind system preview" }
+            }
         }
 
         // 处理 Drawable 图标
