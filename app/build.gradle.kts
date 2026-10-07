@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.kotlin.compose)
 }
 
 val projectProperties = Properties().apply {
@@ -92,6 +91,7 @@ android {
         targetSdk = projectProperty("project.android.targetSdk").toInt()
         versionCode = projectProperty("project.app.versionCode").toInt()
         versionName = releaseVersionNameOverride ?: projectProperty("project.app.versionName")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     dependenciesInfo {
@@ -176,14 +176,15 @@ kotlin {
 }
 
 dependencies {
-    implementation(projects.hyperxCompose)
+    implementation(libs.lumen.engine)
+    implementation(libs.lumen.motion)
 
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
     implementation(libs.kavaref.core)
     implementation(libs.kavaref.android)
     implementation(libs.kavaref.extension)
-    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.android)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
@@ -194,6 +195,9 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.uiautomator)
 }
 
 // getGitHeadRefsSuffix 随 CI flavor 一起移除：它唯一的用途是把 git sha 拼进 CI flavor 的

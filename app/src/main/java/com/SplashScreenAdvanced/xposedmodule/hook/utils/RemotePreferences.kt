@@ -2,7 +2,7 @@ package com.SplashScreenAdvanced.xposedmodule.hook.utils
 
 import android.content.SharedPreferences
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import io.github.libxposed.api.XposedModule
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet

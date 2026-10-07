@@ -6,7 +6,7 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.utils.toMap
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import java.util.concurrent.ConcurrentHashMap
 
 /**

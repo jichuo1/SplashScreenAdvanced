@@ -1,1219 +1,247 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.component
 
-import android.content.Context
-import androidx.annotation.ColorInt
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.captionBar
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.magnifier
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import android.graphics.drawable.GradientDrawable
+import android.text.InputType
+import android.view.MotionEvent
+import android.view.View
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.Magnifier
+import android.widget.SeekBar
 import androidx.palette.graphics.Palette
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
-import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
-import com.SplashScreenAdvanced.xposedmodule.utils.drawable2Bitmap
-import com.SplashScreenAdvanced.xposedmodule.utils.getBgColor
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeChoice
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.utils.toMap
 import com.SplashScreenAdvanced.xposedmodule.utils.toSet
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
-import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
-import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
-import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.navigation.Navigator
-import dev.lackluster.hyperx.ui.dialog.AlertDialog
-import dev.lackluster.hyperx.ui.dialog.AlertDialogMode
-import dev.lackluster.hyperx.ui.dialog.EditTextDialog
-import dev.lackluster.hyperx.ui.layout.HyperXScaffold
-import dev.lackluster.hyperx.ui.layout.LocalHyperXLayoutConfig
-import dev.lackluster.hyperx.ui.layout.LocalLayoutPadding
-import dev.lackluster.hyperx.ui.layout.TabRow
-import dev.lackluster.hyperx.ui.preference.DropDownEntry
-import dev.lackluster.hyperx.ui.preference.DropDownPreference
-import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.PreferenceGroup
-import dev.lackluster.hyperx.ui.preference.TextPreference
+import com.lumen.coacervation.engine.interaction.ElasticInteractionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.Slider
-import top.yukonga.miuix.kmp.basic.SliderColors
-import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.basic.Surface
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import dev.lackluster.hyperx.ui.animation.PageMotionTopAppBar as TopAppBar
-import top.yukonga.miuix.kmp.basic.rememberTopAppBarState
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import dev.lackluster.hyperx.ui.theme.hyperXClip
-import dev.lackluster.hyperx.ui.theme.hyperXOverScrollVertical
-import dev.lackluster.hyperx.ui.theme.rememberHyperXListOverscrollEffect
-import kotlin.math.pow
-import kotlin.math.round
+import java.util.Locale
 
-private val HueGradientColors = listOf(
-    Color.hsv(0.0f, 1.0f, 1.0f),
-    Color.hsv(60.0f, 1.0f, 1.0f),
-    Color.hsv(120.0f, 1.0f, 1.0f),
-    Color.hsv(180.0f, 1.0f, 1.0f),
-    Color.hsv(240.0f, 1.0f, 1.0f),
-    Color.hsv(300.0f, 1.0f, 1.0f),
-    Color.hsv(360.0f, 1.0f, 1.0f),
-)
-
-private const val COLOR_PICKER_ICON_SIZE = 96
-private const val COLOR_PICKER_PALETTE_SIZE = 48
-
-/**
- * 手动选择背景颜色界面
- */
-@Composable
-fun ColorPickerPage(pkgName: String) {
-    val navigator = LocalNavigator.current
-
-    // 模块 App 透明度配置。
-    // 统一走 LocalHyperXLayoutConfig（由 GlobalPreferencesRepository.uiConfigFlow 驱动），
-    // 与其余页面同源。原先本页单独读 MainActivity 里的静态 MutableState，
-    // 那份只在 BasicPage 手动开关和服务绑定时才更新 —— 导入备份 / 重置设置改了模糊开关时,
-    // 其它页面会跟着变而本页不会
-    val blurEnabled = LocalHyperXLayoutConfig.current.isBlurActive
-
-    // 顶部栏模糊状态
-    val scrollBehavior = MiuixScrollBehavior(rememberTopAppBarState())
-    val listState = rememberLazyListState()
-    // dialog 的显示状态
-    val modifiedDialogVisibility = remember { mutableStateOf(false) }
-    val dropdownDialogVisibility = remember { mutableStateOf(false) }
-
-    // 已选颜色的状态, app 已保存的信息
-    val store = koinInject<GlobalPreferencesRepository>()
-    val context = LocalContext.current
-    // 必须 remember: AppColorConfig 的构造函数里有 PackageManager binder 调用、
-    // 新建 IconPackManager (会完整解析一遍图标包的 appfilter.xml) 和图标光栅化。
-    // 不 remember 的话拖动 Slider / 改 HSV 时每一帧重组都会在主线程把这套重跑一遍
-    val appColorConfig = remember(pkgName) { AppColorConfig(pkgName, context, store) }
-    val currentDarkMode = isSystemInDarkTheme().let { remember { mutableStateOf(it) } }
-    val defaultColor = appColorConfig.getDefaultBGColor(currentDarkMode.value)
-    val pickedColor = PickedColor(
-        rgbColorState = remember { mutableIntStateOf(defaultColor) },
-        hsvColorState = remember { defaultColor.toHSVColorList().toMutableStateList() }
-    )
-
-    androidx.activity.compose.BackHandler(
-        dev.lackluster.hyperx.ui.animation.LocalPageActive.current &&
-            appColorConfig.getDefaultBGColor(currentDarkMode.value) != pickedColor.colorInt
-    ) {
-        modifiedDialogVisibility.value = true
+fun NativePageUi.buildColorPickerPage(packageName: String): View {
+    val container = column()
+    val loading = text(string(R.string.loading))
+    container.addView(loading)
+    activity.uiScope.launch {
+        val config = withContext(Dispatchers.IO) { runCatching { AppColorConfig(packageName, activity, repo) } }.getOrNull()
+        if (config == null) { loading.text = string(R.string.color_input_invalid); return@launch }
+        activity.updatePageTitle(config.appName)
+        val editor = colorEditor(config)
+        container.removeAllViews()
+        container.addView(editor, LinearLayout.LayoutParams(-1, -1))
     }
+    return container
+}
 
-    // 显示内容脚手架（模糊由布局内部处理）
-    HyperXScaffold(
-        modifier = Modifier.fillMaxSize(),
-        blurTopBar = blurEnabled,
-        blurBottomBar = blurEnabled,
-        layoutPadding = LocalLayoutPadding.current,
-        topBar = {
-            TopBar(
-                paddingValues = it,
-                appName = appColorConfig.appName,
-                scrollBehavior = scrollBehavior,
-                blurEnabled = blurEnabled,
-                onBack = {
-                    onBack(
-                        navigator = navigator,
-                        appColorConfig = appColorConfig,
-                        currentDarkMode = currentDarkMode,
-                        pickedColor = pickedColor,
-                        modifiedDialogVisibility = modifiedDialogVisibility
-                    )
-                }
-            )
-        },
-        content = { paddingValues ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .hyperXOverScrollVertical()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                state = listState,
-                contentPadding = paddingValues,
-                overscrollEffect = rememberHyperXListOverscrollEffect(),
-                content = {
-                    item(key = "preview") {
-                        PreferenceGroup {
-                            DisplayCard(appColorConfig, pickedColor)
-                        }
+private fun NativePageUi.colorEditor(config: AppColorConfig): View {
+    var dark = restored?.getBoolean("colorDark") ?: activity.isDark()
+    var color = restored?.getInt("color", config.getDefaultBGColor(dark)) ?: config.getDefaultBGColor(dark)
+    val hsv = restored?.getFloatArray("colorHsv")?.takeIf { it.size == 3 }?.clone() ?: FloatArray(3).also { Color.colorToHSV(color, it) }
+    val root = column()
+    val content = column().apply { setPadding(dp(16), dp(12), dp(16), dp(12)) }
+    val scroll = android.widget.ScrollView(activity).apply { addView(content); clipToPadding = false }
+    root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+    stageChanges({ color != config.getDefaultBGColor(dark) }, { color = config.getDefaultBGColor(dark); Color.colorToHSV(color, hsv); refresh() })
+    addStateWriter { it.putBoolean("colorDark", dark); it.putInt("color", color); it.putFloatArray("colorHsv", hsv.clone()); it.putInt("scrollY", scroll.scrollY) }
+    scroll.post { scroll.scrollTo(0, restored?.getInt("scrollY") ?: 0) }
+    val preview = FrameLayout(activity).apply {
+        setBackgroundColor(color)
+        addView(ImageView(activity).apply {
+            setImageBitmap(config.appIcon)
+            tag = ElasticInteractionController.EXCLUDED_TAG
+            val magnifier = Magnifier.Builder(this).setSize(dp(100), dp(100)).setInitialZoom(5f).build()
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                        view.parent.requestDisallowInterceptTouchEvent(true)
+                        magnifier.show(event.x, event.y, event.x, event.y - dp(80))
                     }
-                    item(key = "input") {
-                        PreferenceGroup {
-                            InputColor(
-                                pickedColor = pickedColor,
-                                appColorConfig = appColorConfig,
-                                darkMode = currentDarkMode,
-                                dropdownDialogVisibility = dropdownDialogVisibility
-                            )
-                        }
-                    }
-                    item(key = "reset") {
-                        PreferenceGroup {
-                            ResetText(
-                                appColorConfig = appColorConfig,
-                                pickedColor = pickedColor,
-                                currentDarkMode = currentDarkMode
-                            )
-                        }
-                    }
-                    item(key = "picker") {
-                        ColorSpacePager(pickedColor)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        magnifier.dismiss(); view.parent.requestDisallowInterceptTouchEvent(false)
+                        if (event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
                     }
                 }
-            )
-        },
-        bottomBar = {
-            BottomBar(
-                contentPadding = it,
-                appColorConfig = appColorConfig,
-                pickedColor = pickedColor,
-                blurEnabled = blurEnabled,
-                currentDarkMode = currentDarkMode
-            )
-        }
-    )
-
-    // 注册界面上的 Dialog
-    AlertDialogs(
-        navigator = navigator,
-        modifiedDialogVisibility = modifiedDialogVisibility,
-        dropdownDialogVisibility = dropdownDialogVisibility,
-        pickedColor = pickedColor,
-        appColorConfig = appColorConfig,
-        currentDarkMode = currentDarkMode
-    )
-}
-
-/**
- * 界面顶部内容 (返回键及标题)
- */
-@Composable
-private fun TopBar(
-    paddingValues: PaddingValues,
-    appName: String,
-    scrollBehavior: ScrollBehavior,
-    blurEnabled: Boolean,
-    onBack: () -> Unit,
-) {
-    val layoutDirection = LocalLayoutDirection.current
-    TopAppBar(
-        color = if (blurEnabled) Color.Transparent else MiuixTheme.colorScheme.surface,
-        title = appName,
-        scrollBehavior = scrollBehavior,
-        navigationIcon = {
-            IconButton(
-                modifier = Modifier
-                    .padding(start = 21.dp)
-                    .size(40.dp),
-                onClick = onBack
-            ) {
-                Icon(
-                    modifier = Modifier.size(26.dp),
-                    imageVector = MiuixIcons.Back,
-                    contentDescription = "Back",
-                    tint = MiuixTheme.colorScheme.onSurfaceSecondary
-                )
+                true
             }
-        },
-        defaultWindowInsetsPadding = false,
-        titlePadding = 28.dp + paddingValues.calculateStartPadding(layoutDirection),
-        navigationIconPadding = paddingValues.calculateStartPadding(layoutDirection),
-        actionIconPadding = paddingValues.calculateEndPadding(layoutDirection)
-    )
-}
-
-/**
- * RGB / HSV 滑条区域
- *
- * 从预览、输入和重置项里拆出来, 拖动滑条时只让这一块跟着重组。
- */
-@Composable
-private fun ColorSpacePager(pickedColor: PickedColor) {
-    val tabIndex = remember { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    val coroutineScope = rememberCoroutineScope()
-    val rgbTab = stringResource(R.string.rgb_color_space)
-    val hsvTab = stringResource(R.string.hsv_color_space)
-    val tabs = remember(rgbTab, hsvTab) { listOf(rgbTab, hsvTab) }
-    TabRow(
-        modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp),
-        tabs = tabs,
-        selectedTabIndex = tabIndex.intValue,
-        onTabSelected = {
-            tabIndex.intValue = it
-            coroutineScope.launch {
-                pagerState.animateScrollToPage(it)
-            }
+            addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) = Unit
+                override fun onViewDetachedFromWindow(view: View) { magnifier.dismiss() }
+            })
+        }, FrameLayout.LayoutParams(dp(72), dp(72), android.view.Gravity.CENTER))
+    }
+    content.addView(preview, LinearLayout.LayoutParams(-1, dp(180)).apply { bottomMargin = dp(12) })
+    bind { preview.setBackgroundColor(color) }
+    fun applyColor(value: Int, syncHsv: Boolean = true) { color = value; if (syncHsv) Color.colorToHSV(color, hsv); refresh() }
+    val swatches = LinearLayout(activity).apply { setPadding(0, dp(8), 0, dp(8)) }
+    content.addView(swatches)
+    activity.uiScope.launch {
+        val colors = withContext(Dispatchers.Default) {
+            val palette = Palette.from(config.appIcon).resizeBitmapArea(48 * 48).maximumColorCount(8).generate()
+            listOf(palette.getDominantColor(0), palette.getLightVibrantColor(0), palette.getVibrantColor(0),
+                palette.getDarkVibrantColor(0), palette.getLightMutedColor(0), palette.getMutedColor(0),
+                palette.getDarkMutedColor(0)).distinct().filter { it != 0 }
         }
-    )
-    HorizontalPager(
-        modifier = Modifier.fillMaxWidth(),
-        state = pagerState
-    ) { page ->
-        when (page) {
-            0 -> PreferenceGroup(position = ItemPosition.Last) { RGBPreference(pickedColor) }
-            1 -> PreferenceGroup(position = ItemPosition.Last) { HSVPreference(pickedColor) }
+        colors.forEach { sample ->
+            swatches.addView(View(activity).apply {
+                contentDescription = "#%06X".format(Locale.ROOT, sample and 0xFFFFFF)
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(sample) }
+                setOnClickListener { applyColor(sample) }
+            }, LinearLayout.LayoutParams(0, dp(32), 1f).apply { marginEnd = dp(8) })
         }
     }
-}
-
-/**
- * 预览卡片
- */
-@Composable
-private fun DisplayCard(
-    appColorConfig: AppColorConfig,
-    pickedColor: PickedColor,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 6.dp, top = 12.dp),
-        colors = CardDefaults.defaultColors(colorResource(R.color.colorDemoBackground))
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            DisplayColorDemo(
-                appColorConfig = appColorConfig,
-                pickedColor = pickedColor
-            )
-            DisplayColorSelection(
-                appColorConfig = appColorConfig,
-                pickedColor = pickedColor
-            )
-        }
-    }
-}
-
-/**
- * 展示预览颜色
- */
-@Composable
-private fun DisplayColorDemo(
-    pickedColor: PickedColor,
-    appColorConfig: AppColorConfig
-) {
-    Box(
-        modifier = Modifier
-            .padding(16.dp)
-            .wrapContentSize()
-    ) {
-        var magnifierCenter by remember { mutableStateOf(Offset.Unspecified) }
-        val appIcon = appColorConfig.appIcon
-        val appIconBitmap = remember(appIcon) { appIcon.asImageBitmap() }
-        Image(
-            painter = painterResource(id = R.drawable.demo_transparency),
-            contentDescription = null,
-            modifier = Modifier
-                .drawBehind { drawRect(Color(pickedColor.colorInt)) }
-                .height(250.dp)
-        )
-
-        Image(
-            modifier = Modifier
-                .size(48.dp)
-                .align(Alignment.Center)
-                .magnifier(
-                    sourceCenter = { magnifierCenter },
-                    magnifierCenter = { magnifierCenter - Offset(0f, 100.dp.toPx()) },
-                    zoom = 5f,
-                    size = DpSize(100.dp, 100.dp),
-                    cornerRadius = 50.dp
-                )
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            magnifierCenter = offset
-                            appIcon.getColor(
-                                (appIcon.width * magnifierCenter.x / size.width).toInt().coerceIn(0, appIcon.width - 1),
-                                (appIcon.height * magnifierCenter.y / size.height).toInt().coerceIn(0, appIcon.height - 1)
-                            ).toArgb().let { pickedColor.colorInt = it }
-                        },
-                        onDrag = { _, delta ->
-                            magnifierCenter += delta
-                            appIcon.getColor(
-                                (appIcon.width * magnifierCenter.x / size.width).toInt().coerceIn(0, appIcon.width - 1),
-                                (appIcon.height * magnifierCenter.y / size.height).toInt().coerceIn(0, appIcon.height - 1)
-                            ).toArgb().let { pickedColor.colorInt = it }
-                        },
-                        onDragEnd = {
-                            magnifierCenter = Offset.Unspecified
-                        },
-                        onDragCancel = {
-                            magnifierCenter = Offset.Unspecified
-                        }
-                    )
-                },
-            bitmap = appIconBitmap,
-            contentDescription = null,
-        )
-    }
-}
-
-/**
- * 列出自动取出的颜色
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun DisplayColorSelection(
-    pickedColor: PickedColor,
-    appColorConfig: AppColorConfig
-) {
-    Column(
-        modifier = Modifier
-            .wrapContentSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = stringResource(R.string.please_select),
-            fontSize = MiuixTheme.textStyles.body2.fontSize,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalArrangement = Arrangement.Center,
-            maxItemsInEachRow = 4
-        ) {
-            val paletteColors = remember { mutableStateListOf<Int>() }
-            LaunchedEffect(Unit) {
-                // Palette.generate() 是同步取色, LaunchedEffect 默认跑在主线程,
-                // 这里切到 Default 再算
-                val colors = withContext(Dispatchers.Default) {
-                    with(
-                        Palette.from(appColorConfig.appIcon)
-                            .resizeBitmapArea(COLOR_PICKER_PALETTE_SIZE * COLOR_PICKER_PALETTE_SIZE)
-                            .maximumColorCount(8)
-                            .generate()
-                    ) {
-                        listOf(
-                            getDominantColor(0),
-                            getLightVibrantColor(0),
-                            getVibrantColor(0),
-                            getDarkVibrantColor(0),
-                            getLightMutedColor(0),
-                            getMutedColor(0),
-                            getDarkMutedColor(0)
-                        ).distinct().filter { it != 0 }
-                    }
+    with(content) {
+        addSetting(choice(R.string.target_color_mode, {
+            listOf(NativeChoice(false, string(R.string.light_color)), NativeChoice(true, string(R.string.dark_color)))
+        }, { dark }, R.string.target_color_mode_tips, moduleRequired = false) { target ->
+            fun switchMode() { dark = target; applyColor(config.getDefaultBGColor(dark)) }
+            if (!confirmDiscard { switchMode() }) switchMode()
+        })
+        val manual = action(string(R.string.manual_input), moduleRequired = false) { anchor ->
+            dialog(string(R.string.manual_input), string(R.string.manual_input_hint), anchor) { dialog, body ->
+                val input = EditText(activity).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT
+                    setText("%06X".format(Locale.ROOT, color and 0xFFFFFF)); setSelectAllOnFocus(true)
+                    setTextColor(palette.textPrimary)
                 }
-                paletteColors.clear()
-                paletteColors.addAll(colors)
-            }
-
-            paletteColors.forEach { color ->
-                Surface(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(32.dp),
-                    border = BorderStroke(2.dp, MiuixTheme.colorScheme.dividerLine),
-                    shape = CircleShape,
-                    color = Color(color),
-                    content = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { pickedColor.colorInt = color }
-                        )
-                    }
-                )
+                body.addView(input)
+                body.addView(button(string(android.R.string.ok)) {
+                    val value = runCatching { Color.parseColor("#" + input.text.toString().trim().removePrefix("#")) }.getOrNull()
+                    if (value == null) input.error = string(R.string.color_input_invalid)
+                    else activity.modals.dismiss(dialog, body) { applyColor(value) }
+                })
+                body.addView(button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, body) })
             }
         }
-    }
-}
-
-/**
- * 颜色生效模式 及 手动输入颜色
- */
-@Composable
-private fun InputColor(
-    pickedColor: PickedColor,
-    appColorConfig: AppColorConfig,
-    darkMode: MutableState<Boolean>,
-    dropdownDialogVisibility: MutableState<Boolean>
-) {
-    val lightModeTitle = stringResource(R.string.target_color_mode_light)
-    val darkModeTitle = stringResource(R.string.target_color_mode_dark)
-    val colorModeEntries = remember(lightModeTitle, darkModeTitle) {
-        listOf(
-            DropDownEntry(0, lightModeTitle),
-            DropDownEntry(1, darkModeTitle)
-        )
-    }
-    // 颜色生效模式
-    DropDownPreference(
-        title = stringResource(R.string.target_color_mode),
-        summary = stringResource(R.string.target_color_mode_tips),
-        value = if (darkMode.value) 1 else 0,
-        entries = colorModeEntries,
-        showValue = true,
-        onValueChange = {
-            if (appColorConfig.getDefaultBGColor(darkMode.value) != pickedColor.colorInt) {
-                dropdownDialogVisibility.value = true
+        bind { manual.valueView.text = "#%06X".format(Locale.ROOT, color and 0xFFFFFF) }
+        addSetting(manual)
+        addSetting(action(string(R.string.reset), moduleRequired = false) {
+            if (config.isConfiguringOverallBGColor) {
+                val key = if (dark) Preferences.Background.OVERALL_BG_COLOR_NIGHT else Preferences.Background.OVERALL_BG_COLOR
+                write(key, key.default)
             } else {
-                darkMode.value = !darkMode.value
-                pickedColor.colorInt = appColorConfig.getDefaultBGColor(darkMode.value)
+                val key = if (dark) Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
+                val values = repo.get(key).toMap(); values.remove(config.packageName); write(key, values.toSet())
             }
+            config.reloadDefaults(); applyColor(config.getDefaultBGColor(dark))
+        })
+        val rgb = column()
+        val hsvControls = column()
+        val tabs = LinearLayout(activity)
+        tabs.addView(button(string(R.string.rgb_color_space)) { rgb.visibility = View.VISIBLE; hsvControls.visibility = View.GONE },
+            LinearLayout.LayoutParams(0, dp(48), 1f))
+        tabs.addView(button(string(R.string.hsv_color_space)) { rgb.visibility = View.GONE; hsvControls.visibility = View.VISIBLE },
+            LinearLayout.LayoutParams(0, dp(48), 1f))
+        addSetting(tabs)
+        val fields = listOf(R.string.rgb_r, R.string.rgb_g, R.string.rgb_b)
+        fields.forEachIndexed { index, title ->
+            val shift = (2 - index) * 8
+            rgb.addView(channel(title, 255, { (color shr shift) and 255 }) { value ->
+                applyColor((color and (255 shl shift).inv()) or (value shl shift))
+            })
         }
-    )
-
-    // 手动输入颜色
-    val dialogVisibility = remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    TextPreference(
-        title = stringResource(R.string.manual_input),
-        value = "#" + "%08X".format(pickedColor.colorInt).substring(2),
-        onClick = { dialogVisibility.value = true }
-    )
-    EditTextDialog(
-        visible = dialogVisibility.value,
-        onDismissRequest = { dialogVisibility.value = false },
-        title = stringResource(R.string.manual_input),
-        message = stringResource(R.string.manual_input_hint),
-        initialText = "%08X".format(pickedColor.colorInt).substring(2),
-        onConfirm = { newString ->
-            val trimmedString = newString.replace("#", "")
-            try {
-                pickedColor.colorInt = "#$trimmedString".toColorInt()
-            } catch (_: IllegalArgumentException) {
-                context.toast(R.string.color_input_invalid)
-            }
+        val plane = SaturationValueView(this@colorEditor) { saturation, value ->
+            hsv[1] = saturation; hsv[2] = value
+            applyColor(Color.HSVToColor(hsv), syncHsv = false)
         }
-    )
-}
-
-/**
- * RGB 空间色彩设置项
- */
-@Composable
-private fun RGBPreference(pickedColor: PickedColor) {
-    IntColorSeekBar(
-        title = stringResource(R.string.rgb_r),
-        value = pickedColor.r,
-        colors = SliderDefaults.sliderColors(
-            foregroundColor = Color(0xFFF36060),
-            disabledForegroundColor = Color(0x7FF36060),
-            backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
-        ),
-        onValueChange = { pickedColor.r = it }
-    )
-    IntColorSeekBar(
-        title = stringResource(R.string.rgb_g),
-        value = pickedColor.g,
-        colors = SliderDefaults.sliderColors(
-            foregroundColor = Color(0xFF5FF25F),
-            disabledForegroundColor = Color(0x7F5FF25F),
-            backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
-        ),
-        onValueChange = { pickedColor.g = it }
-    )
-    IntColorSeekBar(
-        title = stringResource(R.string.rgb_b),
-        value = pickedColor.b,
-        colors = SliderDefaults.sliderColors(
-            foregroundColor = Color(0xFF5F5FF3),
-            disabledForegroundColor = Color(0x7F5F5FF3),
-            backgroundColor = MiuixTheme.colorScheme.tertiaryContainerVariant
-        ),
-        onValueChange = { pickedColor.b = it }
-    )
-}
-
-/**
- * HSV 空间色彩设置项
- */
-@Composable
-private fun HSVPreference(
-    pickedColor: PickedColor
-) {
-    HueSeekBar(
-        title = stringResource(R.string.hue),
-        value = pickedColor.h,
-        onValueChange = { pickedColor.h = it }
-    )
-    FloatColorSeekBar(
-        title = stringResource(R.string.saturation),
-        value = pickedColor.s,
-        onValueChange = { pickedColor.s = it }
-    )
-    FloatColorSeekBar(
-        title = stringResource(R.string.value),
-        value = pickedColor.v,
-        onValueChange = { pickedColor.v = it }
-    )
-}
-
-/**
- * 恢复默认 设置项
- */
-@Composable
-private fun ResetText(
-    appColorConfig: AppColorConfig,
-    pickedColor: PickedColor,
-    currentDarkMode: MutableState<Boolean>
-) {
-    val context = LocalContext.current
-    val store = koinInject<GlobalPreferencesRepository>()
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                if (appColorConfig.isConfiguringOverallBGColor) {
-                    val targetKey = if (currentDarkMode.value) {
-                        Preferences.Background.OVERALL_BG_COLOR_NIGHT
-                    } else {
-                        Preferences.Background.OVERALL_BG_COLOR
-                    }
-                    // 恢复默认：写回该键的默认值（等效于移除后读取默认）
-                    store.update(targetKey, targetKey.default)
-                    appColorConfig.defaultColorLight = Color.White.toArgb()
-                    appColorConfig.defaultColorDark = Color.Black.toArgb()
-                } else {
-                    val targetKey = if (currentDarkMode.value) {
-                        Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
-                    } else {
-                        Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
-                    }
-
-                    val tmpConfigMap = store.get(targetKey).toMap()
-                    tmpConfigMap.remove(appColorConfig.packageName)
-
-                    store.update(targetKey, tmpConfigMap.toSet())
-                    appColorConfig.defaultColorLight = appColorConfig.effectiveGlobalBGColor(false)
-                    appColorConfig.defaultColorDark = appColorConfig.effectiveGlobalBGColor(true)
-                }
-                pickedColor.colorInt = appColorConfig.getDefaultBGColor(currentDarkMode.value)
-                context.toast(R.string.save_successful)
-            }
-    ) {
-        Text(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            text = stringResource(R.string.reset),
-            fontSize = MiuixTheme.textStyles.headline1.fontSize,
-            fontWeight = FontWeight.Medium,
-            color = colorResource(R.color.colorTextRed)
-        )
+        hsvControls.addView(plane, LinearLayout.LayoutParams(-1, dp(190)))
+        bind { plane.setColor(hsv[0], hsv[1], hsv[2]) }
+        listOf(R.string.hue, R.string.saturation, R.string.value).forEachIndexed { index, title ->
+            val max = if (index == 0) 360 else 100
+            hsvControls.addView(channel(title, max, {
+                (hsv[index] * if (index == 0) 1f else 100f).toInt()
+            }) { value ->
+                hsv[index] = value / if (index == 0) 1f else 100f
+                applyColor(Color.HSVToColor(hsv), syncHsv = false)
+            })
+        }
+        hsvControls.visibility = View.GONE
+        addSetting(rgb); addSetting(hsvControls)
     }
-}
-
-/**
- * 界面底部按钮
- */
-@Composable
-private fun BottomBar(
-    contentPadding: PaddingValues,
-    appColorConfig: AppColorConfig,
-    pickedColor: PickedColor,
-    blurEnabled: Boolean,
-    currentDarkMode: MutableState<Boolean>
-) {
-    val captionBarBottomPadding by rememberUpdatedState(
-        WindowInsets.captionBar.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding()
-    )
-    val buttonPaddingValues = with(LocalLayoutDirection.current) {
-        PaddingValues(
-            start = contentPadding.calculateStartPadding(this) + 16.dp,
-            top = 16.dp,
-            end = contentPadding.calculateEndPadding(this) + 16.dp,
-            bottom = WindowInsets.navigationBars.asPaddingValues()
-                .calculateBottomPadding() + captionBarBottomPadding + 16.dp
-        )
-    }
-    Surface(color = MiuixTheme.colorScheme.surface.copy(if (blurEnabled) 0f else 1f)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.Transparent)
-        ) {
-            HorizontalDivider(
-                thickness = 0.75.dp,
-                color = MiuixTheme.colorScheme.dividerLine
-            )
-            Row(
-                modifier = Modifier
-                    .padding(buttonPaddingValues)
-                    .fillMaxWidth()
-            ) {
-                val context = LocalContext.current
-                val store = koinInject<GlobalPreferencesRepository>()
-                TextButton(
-                    modifier = Modifier.weight(1.0f),
-                    text = stringResource(R.string.undo_modification),
-                    minHeight = 50.dp,
-                    onClick = { pickedColor.colorInt = appColorConfig.getDefaultBGColor(currentDarkMode.value) }
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                TextButton(
-                    modifier = Modifier.weight(1.0f),
-                    text = stringResource(R.string.save),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    minHeight = 50.dp,
-                    onClick = {
-                        val colorHexString = "#" + "%08X".format(pickedColor.colorInt).substring(2)
-
-                        if (appColorConfig.isConfiguringOverallBGColor) {
-                            val targetKey = if (currentDarkMode.value)
-                                Preferences.Background.OVERALL_BG_COLOR_NIGHT
-                            else
-                                Preferences.Background.OVERALL_BG_COLOR
-                            store.update(targetKey, colorHexString)
-                        } else {
-                            val targetKey = if (currentDarkMode.value)
-                                Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK
-                            else
-                                Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
-                            val tmpConfigMap = store.get(targetKey).toMap()
-                            tmpConfigMap[appColorConfig.packageName] = colorHexString
-                            store.update(targetKey, tmpConfigMap.toSet())
-                        }
-
-                        appColorConfig.defaultColorLight = if (appColorConfig.isConfiguringOverallBGColor) {
-                            val value = store.get(Preferences.Background.OVERALL_BG_COLOR)
-                            if (value.isBlank())
-                                Color.White.toArgb()
-                            else
-                                value.toColorInt()
-                        } else {
-                            val value = store.get(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP).toMap()[appColorConfig.packageName]
-                            if (value.isNullOrBlank())
-                                appColorConfig.effectiveGlobalBGColor(false)
-                            else
-                                value.toColorInt()
-                        }
-                        appColorConfig.defaultColorDark = if (appColorConfig.isConfiguringOverallBGColor) {
-                            val value = store.get(Preferences.Background.OVERALL_BG_COLOR_NIGHT)
-                            if (value.isBlank())
-                                Color.Black.toArgb()
-                            else
-                                value.toColorInt()
-                        } else {
-                            val value = store.get(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK).toMap()[appColorConfig.packageName]
-                            if (value.isNullOrBlank())
-                                appColorConfig.effectiveGlobalBGColor(true)
-                            else
-                                value.toColorInt()
-                        }
-                        context.toast(R.string.save_successful)
-                    }
-                )
-            }
-        }
-    }
-}
-
-/**
- * 界面中会出现的提示框
- */
-@Composable
-private fun AlertDialogs(
-    navigator: Navigator,
-    modifiedDialogVisibility: MutableState<Boolean>,
-    dropdownDialogVisibility: MutableState<Boolean>,
-    pickedColor: PickedColor,
-    appColorConfig: AppColorConfig,
-    currentDarkMode: MutableState<Boolean>
-) {
-    AlertDialog(
-        visibility = modifiedDialogVisibility,
-        title = stringResource(R.string.not_saved_title),
-        message = stringResource(R.string.not_saved_hint),
-        cancelable = false,
-        mode = AlertDialogMode.NegativeAndPositive,
-        negativeText = stringResource(R.string.button_abandonment),
-        positiveText = stringResource(R.string.button_reedit),
-        onNegativeButton = {
-            modifiedDialogVisibility.value = false
-            navigator.pop()
-        }
-    )
-    AlertDialog(
-        visibility = dropdownDialogVisibility,
-        title = stringResource(R.string.not_saved_title),
-        message = stringResource(R.string.not_saved_hint),
-        cancelable = false,
-        mode = AlertDialogMode.NegativeAndPositive,
-        negativeText = stringResource(R.string.button_abandonment),
-        positiveText = stringResource(R.string.button_reedit),
-        onNegativeButton = {
-            dropdownDialogVisibility.value = false
-            currentDarkMode.value = !currentDarkMode.value
-            pickedColor.colorInt = appColorConfig.getDefaultBGColor(currentDarkMode.value)
-        }
-    )
-}
-
-/**
- * RGB 空间色彩下 SeekBar 组件
- */
-@Composable
-private fun IntColorSeekBar(
-    title: String,
-    value: Int,
-    colors: SliderColors,
-    onValueChange: ((Int) -> Unit)? = null
-) {
-    BasicComponent(
-        title = title,
-        endActions = {
-            Text(
-                text = "$value / 255",
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                textAlign = TextAlign.End,
-            )
-        },
-        bottomAction = {
-            Slider(
-                value = value.toFloat(),
-                valueRange = 0f..255f,
-                height = 28.dp,
-                colors = colors,
-                onValueChange = { newValue: Float ->
-                    onValueChange?.invoke(newValue.toInt())
-                }
-            )
-        }
-    )
-}
-
-/**
- * HSV 空间色彩下色相的 SeekBar 组件
- */
-@Composable
-private fun HueSeekBar(
-    title: String,
-    value: Float,
-    onValueChange: (Float) -> Unit
-) {
-    BasicComponent(
-        title = title,
-        endActions = {
-            Text(
-                text = "${value.let { it1 -> "%.2f".format(it1) }} / ${"%.2f".format(360.0f)}",
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                textAlign = TextAlign.End,
-            )
-        },
-        bottomAction = {
-            val hapticFeedback = LocalHapticFeedback.current
-            var dragOffset by remember { mutableFloatStateOf(0f) }
-            var currentValue by remember { mutableFloatStateOf(value) }
-            var hapticTriggered by remember { mutableStateOf(false) }
-            val updatedOnProgressChange by rememberUpdatedState(onValueChange)
-            val calculateProgress = { offset: Float, width: Int, height: Int ->
-                val newValue = ((offset - height / 2) / (width - height)).coerceIn(0.0f, 1.0f) * 360.0f
-                (round(newValue * 10f.pow(2)) / 10f.pow(2)).coerceIn(0.0f, 360.0f)
-            }
-
-            Box(
-                modifier = Modifier
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onDragStart = { offset ->
-                                dragOffset = offset.x
-                                currentValue = calculateProgress(dragOffset, size.width, size.height)
-                                updatedOnProgressChange(currentValue)
-                                hapticTriggered = false
-                            },
-                            onHorizontalDrag = { _, dragAmount ->
-                                dragOffset = (dragOffset + dragAmount).coerceIn(0f, size.width.toFloat())
-                                currentValue = calculateProgress(dragOffset, size.width, size.height)
-                                updatedOnProgressChange(currentValue)
-                                if ((currentValue == 0.0f || currentValue == 360.0f) && !hapticTriggered) {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    hapticTriggered = true
-                                } else if (currentValue != 0.0f && currentValue != 360.0f) {
-                                    hapticTriggered = false
-                                }
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp)
-                        .hyperXClip(28.dp)
-                        .drawBehind {
-                            val barHeight = size.height
-                            val barWidth = size.width
-                            val cornerRadius = CornerRadius.Zero
-                            drawRoundRect(
-                                brush = Brush.horizontalGradient(
-                                    colors = HueGradientColors,
-                                    startX = size.height,
-                                    endX = size.width - size.height,
-                                    tileMode = TileMode.Clamp
-                                ),
-                                size = Size(barWidth, barHeight),
-                                topLeft = Offset(0f, center.y - barHeight / 2),
-                                cornerRadius = cornerRadius
-                            )
-                        }
-                ) {
-                    val barHeight = size.height
-                    val barWidth = size.width
-                    val circleX = barHeight / 2 + (value / 360.0f) * (barWidth - barHeight)
-                    drawCircle(
-                        color = Color.White.copy(0.9f),
-                        radius = size.height / 2 - 6.dp.toPx(),
-                        center = Offset(circleX, barHeight / 2),
-                        style = Stroke(width = 4.dp.toPx())
-                    )
-                }
-            }
-        }
-    )
-}
-
-/**
- * HSV 空间色彩下饱和度, 明度的 SeekBar 组件
- */
-@Composable
-private fun FloatColorSeekBar(
-    title: String,
-    value: Float,
-    onValueChange: ((Float) -> Unit)? = null
-) {
-    BasicComponent(
-        title = title,
-        endActions = {
-            Text(
-                text = "${"%.2f".format(value)} / 1.0",
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                textAlign = TextAlign.End,
-            )
-        },
-        bottomAction = {
-            Slider(
-                value = value,
-                valueRange = 0.0f..1.0f,
-                height = 28.dp,
-                onValueChange = { newValue: Float ->
-                    onValueChange?.invoke(newValue)
-                }
-            )
-        }
-    )
-}
-
-/**
- * 界面返回行为
- */
-private fun onBack(
-    navigator: Navigator,
-    appColorConfig: AppColorConfig,
-    pickedColor: PickedColor,
-    currentDarkMode: MutableState<Boolean>,
-    modifiedDialogVisibility: MutableState<Boolean>
-) {
-    if (appColorConfig.getDefaultBGColor(currentDarkMode.value) != pickedColor.colorInt) {
-        modifiedDialogVisibility.value = true
-    } else {
-        navigator.pop()
-    }
-}
-
-/**
- * ColorInt 转换为 HSV 颜色数组
- */
-private fun @receiver:ColorInt Int.toHSVColorList() =
-    FloatArray(3).also { android.graphics.Color.colorToHSV(this, it) }.toList()
-
-/**
- * 获取当前应用的基本信息
- * @property isConfiguringOverallBGColor 当前是否在配置整体默认背景颜色
- * @property packageName 当前配置 app 的包名, 如果配置整体默认背景颜色, 包名则为模块app的包名
- * @property appName 当前配置 app 的应用名, 如果配置整体默认背景颜色, 则为 '自定义背景颜色', 该项应配置为界面标题名
- * @property appIcon 当前配置 app 的图标, 如果配置整体默认背景颜色, 则为模块 app 的图标
- * @property defaultColorLight 默认浅色背景颜色
- * @property defaultColorDark 默认暗色背景颜色
- */
-private class AppColorConfig(
-    realPackageName: String?,
-    private val context: Context,
-    private val store: GlobalPreferencesRepository
-) {
-    private val pm = context.packageManager
-
-    val isConfiguringOverallBGColor = realPackageName.isNullOrBlank()
-
-    val packageName: String = realPackageName.takeIf { !it.isNullOrBlank() } ?: context.packageName
-    val appName = if (isConfiguringOverallBGColor) {
-        context.getString(R.string.set_custom_bg_color)
-    } else {
-        pm.getApplicationInfo(packageName, 0).loadLabel(pm).toString()
-    }
-
-    val appIcon = (IconPackManager(context, store.get(Preferences.Icon.ICON_PACK_PACKAGE_NAME))
-        .getIconByPackageName(packageName)
-        ?: pm.getApplicationIcon(packageName)).drawable2Bitmap(COLOR_PICKER_ICON_SIZE)
-    private var cachedIconBgLight: Int? = null
-    private var cachedIconBgDark: Int? = null
-    var defaultColorLight = processDefaultBGColor(false)
-    var defaultColorDark = processDefaultBGColor(true)
-
-    /**
-     * 获取默认背景颜色
-     * @param isDark 是否为暗色
-     */
-    fun getDefaultBGColor(isDark: Boolean): Int = if (isDark) {
-        defaultColorDark
-    } else {
-        defaultColorLight
-    }
-
-    /**
-     * 通过读取 Prefs 来获取已保存的背景颜色
-     */
-    private fun processDefaultBGColor(isDark: Boolean): Int {
-        val colorValue = when {
-            isConfiguringOverallBGColor && isDark -> {
-                store.get(Preferences.Background.OVERALL_BG_COLOR_NIGHT)
-            }
-
-            isConfiguringOverallBGColor -> {
-                store.get(Preferences.Background.OVERALL_BG_COLOR)
-            }
-
-            !isConfiguringOverallBGColor && isDark -> {
-                store.get(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK)
-                    .toMap()[packageName].takeIf { !it.isNullOrBlank() }
-            }
-
-            !isConfiguringOverallBGColor -> {
-                store.get(Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP)
-                    .toMap()[packageName].takeIf { !it.isNullOrBlank() }
-            }
-
-            else -> null
-        }
-
-        val color = colorValue?.toColorInt()
-            ?: effectiveGlobalBGColor(isDark)
-
-        return color
-    }
-
-    /**
-     * 未单独配置时的默认色: 镜像当前全局背景设置下该应用实际会显示的颜色,
-     * 使单独配置的默认值与全局表现一致 (对应 BgHookHandler 取色逻辑)
-     *
-     * @param isDark 是否暗色, 对应取色页浅色/暗色分页
-     */
-    fun effectiveGlobalBGColor(isDark: Boolean): Int {
-        // 浅色或深色由 BG_COLOR_MODE 决定
-        val isLight = when (store.get(Preferences.Background.BG_COLOR_MODE)) {
-            BGColorModes.LightColor.ordinal -> true
-            BGColorModes.DarkColor.ordinal -> false
-            else -> !isDark // FollowSystem
-        }
-        return when (store.get(Preferences.Background.CHANG_BG_COLOR_TYPE)) {
-            // 继承全局自定义色
-            ChangeBGColorTypes.FromCustom.ordinal -> {
-                val value = store.get(
-                    if (isDark) Preferences.Background.OVERALL_BG_COLOR_NIGHT
-                    else Preferences.Background.OVERALL_BG_COLOR
-                )
-                value.takeIf { it.isNotBlank() }?.toColorInt() ?: iconBgColor(isLight)
-            }
-            // 继承系统 Monet 色, 取不到时回退图标主色
-            ChangeBGColorTypes.FromMonet.ordinal -> runCatching {
-                context.resources.getColor(
-                    if (isLight) android.R.color.system_primary_container_light
-                    else android.R.color.system_surface_dark,
-                    context.theme
-                )
-            }.getOrDefault(iconBgColor(isLight))
-            // 从图标取色 / 不改背景: 回退图标主色
-            else -> iconBgColor(isLight)
-        }
-    }
-
-    private fun iconBgColor(isLight: Boolean): Int {
-        return if (isLight) {
-            cachedIconBgLight ?: appIcon.getBgColor(true).also { cachedIconBgLight = it }
+    val actions = LinearLayout(activity).apply { setPadding(dp(16), dp(6), dp(16), dp(6)) }
+    actions.addView(button(string(R.string.reset)) { applyColor(config.getDefaultBGColor(dark)) },
+        LinearLayout.LayoutParams(0, dp(50), 1f))
+    actions.addView(button(string(R.string.save)) {
+        val hex = "#%06X".format(Locale.ROOT, color and 0xFFFFFF)
+        val success = if (config.isConfiguringOverallBGColor) {
+            write(if (dark) Preferences.Background.OVERALL_BG_COLOR_NIGHT else Preferences.Background.OVERALL_BG_COLOR, hex)
         } else {
-            cachedIconBgDark ?: appIcon.getBgColor(false).also { cachedIconBgDark = it }
+            val key = if (dark) Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP_DARK else Preferences.AppList.INDIVIDUAL_BG_COLOR_APP_MAP
+            val values = repo.get(key).toMap(); values[config.packageName] = hex; write(key, values.toSet())
         }
-    }
+        if (success) { config.reloadDefaults(); applyColor(config.getDefaultBGColor(dark)); activity.toast(R.string.save_successful) }
+    }.apply { id = R.id.native_save }, LinearLayout.LayoutParams(0, dp(50), 1f))
+    root.addView(actions)
+    return root
 }
 
-/**
- * 配置已选择的背景颜色
- *
- * @param rgbColorState 存储 RGB 颜色的状态
- * @param hsvColorState 存储 HSV 颜色的状态
- *
- * @property r 设置或获取颜色的 R 值
- * @property g 设置或获取颜色的 G 值
- * @property b 设置或获取颜色的 B 值
- * @property h 设置或获取颜色的 H 值
- * @property s 设置或获取颜色的 S 值
- * @property v 设置或获取颜色的 V 值
- * @property colorInt 设置或获取颜色的 Int 值
- */
-class PickedColor(
-    private val rgbColorState: MutableIntState,
-    private val hsvColorState: SnapshotStateList<Float>
-) {
-    private val hsvScratch = FloatArray(3)
-
-    var r
-        get() = (rgbColorState.intValue shr 16) and 0xFF
-        set(value) {
-            colorInt = (rgbColorState.intValue and 0xFF00FFFF.toInt()) or ((value and 0xFF) shl 16)
-        }
-    var g
-        get() = (rgbColorState.intValue shr 8) and 0xFF
-        set(value) {
-            colorInt = (rgbColorState.intValue and 0xFFFF00FF.toInt()) or ((value and 0xFF) shl 8)
-        }
-    var b
-        get() = rgbColorState.intValue and 0xFF
-        set(value) {
-            colorInt = (rgbColorState.intValue and 0xFFFFFF00.toInt()) or (value and 0xFF)
-        }
-
-    var h
-        get() = hsvColorState[0]
-        set(value) {
-            setHsvColor(0, value)
-        }
-    var s
-        get() = hsvColorState[1]
-        set(value) {
-            setHsvColor(1, value)
-        }
-    var v
-        get() = hsvColorState[2]
-        set(value) {
-            setHsvColor(2, value)
-        }
-
-    var colorInt = 0
-        get() = rgbColorState.intValue
-        set(value) {
-            if (value == 0) field = 0xFFFFFFFF.toInt()
-            else {
-                android.graphics.Color.colorToHSV(value, hsvScratch)
-                hsvColorState[0] = hsvScratch[0]
-                hsvColorState[1] = hsvScratch[1]
-                hsvColorState[2] = hsvScratch[2]
-                rgbColorState.intValue = value
-            }
-        }
-
-    /**
-     * 配置 HSV 颜色其中之一属性
-     */
-    private fun setHsvColor(index: Int, value: Float) {
-        hsvColorState[index] = value
-        hsvScratch[0] = hsvColorState[0]
-        hsvScratch[1] = hsvColorState[1]
-        hsvScratch[2] = hsvColorState[2]
-        rgbColorState.intValue = android.graphics.Color.HSVToColor(hsvScratch)
+private fun NativePageUi.channel(title: Int, maximum: Int, current: () -> Int, changed: (Int) -> Unit): View = column().apply {
+    setPadding(dp(16), dp(12), dp(16), dp(12))
+    background = lumen.cardBackground(palette.surface, 16f)
+    val label = text(string(title))
+    addView(label)
+    val seek = SeekBar(activity).apply {
+        max = maximum
+        progressTintList = ColorStateList.valueOf(palette.primary)
+        thumbTintList = ColorStateList.valueOf(palette.primary)
+        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) { if (fromUser) changed(progress) }
+            override fun onStartTrackingTouch(bar: SeekBar) = Unit
+            override fun onStopTrackingTouch(bar: SeekBar) = Unit
+        })
     }
+    addView(seek)
+    bind { seek.progress = current().coerceIn(0, maximum); label.text = string(title) + "  " + current() + " / " + maximum }
+}
+
+private class SaturationValueView(ui: NativePageUi, private val changed: (Float, Float) -> Unit) : View(ui.activity) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val marker = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; strokeWidth = ui.dp(2).toFloat(); color = Color.WHITE
+    }
+    private val hueScratch = floatArrayOf(0f, 1f, 1f)
+    private var hue = -1f
+    private var saturation = 1f
+    private var value = 1f
+    private var horizontal: Shader? = null
+    private var vertical: Shader? = null
+    init { tag = ElasticInteractionController.EXCLUDED_TAG; contentDescription = ui.string(R.string.hsv_color_space) }
+    fun setColor(h: Float, s: Float, v: Float) {
+        if (hue != h) { hue = h; updateShaders() }
+        saturation = s; value = v; invalidate()
+    }
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) { updateShaders() }
+    private fun updateShaders() {
+        if (width <= 0 || height <= 0) return
+        hueScratch[0] = hue.coerceAtLeast(0f)
+        horizontal = LinearGradient(0f, 0f, width.toFloat(), 0f, Color.WHITE, Color.HSVToColor(hueScratch), Shader.TileMode.CLAMP)
+        vertical = LinearGradient(0f, 0f, 0f, height.toFloat(), Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
+    }
+    override fun onDraw(canvas: Canvas) {
+        paint.shader = horizontal; canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+        paint.shader = vertical; canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+        canvas.drawCircle(saturation * width, (1f - value) * height, 12f * resources.displayMetrics.density, marker)
+    }
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
+            parent.requestDisallowInterceptTouchEvent(true)
+            changed((event.x / width.coerceAtLeast(1)).coerceIn(0f, 1f), (1f - event.y / height.coerceAtLeast(1)).coerceIn(0f, 1f))
+        } else if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            parent.requestDisallowInterceptTouchEvent(false)
+            if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
+        }
+        return true
+    }
+    override fun performClick(): Boolean { super.performClick(); return true }
 }

@@ -65,12 +65,10 @@ class HookEntry : XposedModule() {
      */
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
         if (apiVersion < XposedInterface.API_102) return false
-        HostDexLookup.closeBridge()
         val state = runCatching {
             when {
                 isSystemServer -> AndroidHooker.classLoader?.let { arrayOf<Any?>(it) }
                 processName == Scope.SYSTEM_UI -> {
-                    GenerateHookHandler.cancelPendingDelays()
                     arrayOf(SystemUIHooker.classLoader, SystemUIHooker.appContext)
                 }
 
@@ -78,6 +76,11 @@ class HookEntry : XposedModule() {
             }
         }.getOrNull() ?: return false
         param.setSavedInstanceState(state)
+        if (processName == Scope.SYSTEM_UI && !GenerateHookHandler.prepareHotReload()) {
+            XMLog.i { "[SystemUI] hot reload deferred: splash call/removal still pending; retry after completion" }
+            return false
+        }
+        HostDexLookup.closeBridge()
         return true
     }
 

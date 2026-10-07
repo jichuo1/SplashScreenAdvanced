@@ -2,7 +2,7 @@ package com.SplashScreenAdvanced.xposedmodule.hook.base
 
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import java.lang.reflect.Executable

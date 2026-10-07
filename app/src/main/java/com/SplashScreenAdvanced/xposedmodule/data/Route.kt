@@ -1,16 +1,14 @@
 package com.SplashScreenAdvanced.xposedmodule.data
 
-import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 /**
- * 应用内导航路由（基于 navigation3 的 NavKey）
- *
- * 主页对应 hyperx 提供的 [dev.lackluster.hyperx.navigation.HyperXRoute.Main]，
- * 这里仅定义各子页面的路由。
+ * UI-independent page identity. Existing FairMemory tokens remain unchanged.
  */
 @Serializable
-sealed interface Route : NavKey {
+sealed interface Route {
+    @Serializable data object Main : Route
+    @Serializable data object Empty : Route
     @Serializable data object About : Route
     @Serializable data object Basic : Route
     @Serializable data object Scope : Route

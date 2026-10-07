@@ -324,14 +324,15 @@ internal object Resampler {
         val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
         val originalBounds = Rect(drawable.bounds)
-        drawable.setBounds(0, 0, size, size)
-        drawable.draw(canvas)
-        drawable.bounds = originalBounds
-        canvas.setBitmap(null)
-        val pixels = IntArray(size * size)
-        bitmap.getPixels(pixels, 0, size, 0, 0, size, size)
-        bitmap.recycle()
-        pixels
+        try {
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            IntArray(size * size).also { bitmap.getPixels(it, 0, size, 0, 0, size, size) }
+        } finally {
+            drawable.bounds = originalBounds
+            canvas.setBitmap(null)
+            bitmap.recycle()
+        }
     } catch (_: Throwable) {
         null
     }

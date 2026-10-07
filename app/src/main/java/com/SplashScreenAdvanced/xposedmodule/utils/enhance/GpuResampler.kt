@@ -16,10 +16,9 @@ import android.hardware.HardwareBuffer
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import java.time.Duration
-import java.util.concurrent.FutureTask
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -57,6 +56,9 @@ internal object GpuResampler {
         start()
     }
     private val handler = Handler(worker.looper)
+    private val workQueue = DeadlineWorkQueue<Bitmap>(
+        SystemClock::uptimeMillis, handler::post, handler::removeCallbacks, Bitmap::recycle,
+    )
 
     private enum class State { UNKNOWN, OK, FAILED }
 
@@ -184,14 +186,23 @@ internal object GpuResampler {
         dstSize: Int,
         sharpenAmount: Float,
         sharpenTau: Float,
+        deadline: Long = Long.MAX_VALUE,
     ): Bitmap? {
         if (state == State.FAILED) return null
+        val taskDeadline = minOf(deadline, SystemClock.uptimeMillis() + TASK_TIMEOUT_MS)
+        if (SystemClock.uptimeMillis() >= taskDeadline) return null
+        // 超时的 GPU 任务可能仍在驱动中；与 CPU 回退及宿主各用独立 Drawable。
+        val input = src.copyForRendering() ?: return null
         return try {
-            val task = FutureTask {
-                doEnhance(src, rasterSize, dstSize, sharpenAmount, sharpenTau)
+            workQueue.run(taskDeadline) {
+                try {
+                    doEnhance(input, rasterSize, dstSize, sharpenAmount, sharpenTau, taskDeadline)
+                } catch (t: Throwable) {
+                    noteFailure()
+                    XMLog.e(t = t) { "GpuResampler: render failed" }
+                    null
+                }
             }
-            handler.post(task)
-            task.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         } catch (t: Throwable) {
             noteFailure()
             XMLog.e(t = t) { "GpuResampler: task failed" }
@@ -200,47 +211,61 @@ internal object GpuResampler {
     }
 
     // ---------------------------------------------------------------- 管线内部
-    // 以下全部运行在 worker 线程上（FutureTask 内）
+    // 以下全部运行在 worker 线程上
 
     private fun doEnhance(
         src: Drawable, rasterSize: Int, dstSize: Int, sharpen: Float, tau: Float,
+        deadline: Long,
     ): Bitmap? {
-        if (state == State.UNKNOWN && !probe()) {
-            state = State.FAILED
-            return null
+        if (state == State.FAILED || SystemClock.uptimeMillis() >= deadline) return null
+        if (state == State.UNKNOWN) {
+            if (!probe(deadline)) {
+                // 到期不是驱动不支持；真正的探针失败才永久关闭。
+                if (SystemClock.uptimeMillis() < deadline) state = State.FAILED
+                return null
+            }
+            state = State.OK
         }
-
+        if (SystemClock.uptimeMillis() >= deadline) return null
         val renderer = HardwareRenderer()
+        var cur: Bitmap? = null
         try {
             // pass0: 栅格化 —— Drawable 直接画进录制 Canvas, 省掉软件位图与 IntArray
-            var cur = renderPass(renderer, rasterSize, rasterSize) { canvas ->
+            cur = renderPass(renderer, rasterSize, rasterSize, deadline) { canvas ->
                 val original = Rect(src.bounds)
-                src.setBounds(0, 0, rasterSize, rasterSize)
-                src.draw(canvas)
-                src.bounds = original
+                try {
+                    src.setBounds(0, 0, rasterSize, rasterSize)
+                    src.draw(canvas)
+                } finally {
+                    src.bounds = original
+                }
             } ?: return fail()
 
             // pass1/2: Mitchell 分离卷积（仅确实需要放大时, 与 CPU 版同条件）
             if (rasterSize < dstSize) {
-                cur = convolve(renderer, cur, rasterSize, dstSize, horizontal = true)
+                if (SystemClock.uptimeMillis() >= deadline) return null
+                cur = convolve(renderer, cur, rasterSize, dstSize, horizontal = true, deadline)
                     ?: return fail()
-                cur = convolve(renderer, cur, rasterSize, dstSize, horizontal = false)
+                if (SystemClock.uptimeMillis() >= deadline) return null
+                cur = convolve(renderer, cur, rasterSize, dstSize, horizontal = false, deadline)
                     ?: return fail()
             }
 
             // pass3: 边缘感知锐化
             if (sharpen > 0f) {
-                cur = sharpenPass(renderer, cur, dstSize, sharpen, tau) ?: return fail()
+                if (SystemClock.uptimeMillis() >= deadline) return null
+                cur = sharpenPass(renderer, cur, dstSize, sharpen, tau, deadline) ?: return fail()
             }
 
             // 唯一一次回读: 硬件位图 → 软件 Bitmap (Bitmap 内部存储本就是预乘域)
+            if (SystemClock.uptimeMillis() >= deadline) return null
             val result = cur.copy(Bitmap.Config.ARGB_8888, false)
-            cur.recycle()
             return if (result != null) {
                 noteSuccess()
                 result
             } else fail()
         } finally {
+            cur?.takeUnless { it.isRecycled }?.recycle()
             renderer.destroy()
         }
     }
@@ -248,13 +273,13 @@ internal object GpuResampler {
     /**
      * 渲染一趟离屏 pass 并把结果包装成硬件 Bitmap
      *
-     * `wrapHardwareBuffer` 产出的 Bitmap 持有 buffer 引用 —— 故**不主动 close**
-     * [HardwareBuffer], 由 Bitmap 回收时随 GC 释放; 每趟新建 ImageReader/HardwareRenderer
-     * 表面换来的是零拷贝链路, 值得。
+     * `wrapHardwareBuffer` 的 Bitmap 自持 buffer 引用，关闭本地句柄和 ImageReader，
+     * 由各趟的 Bitmap 负责后续生命周期。
      */
     private fun renderPass(
-        renderer: HardwareRenderer, w: Int, h: Int, record: (Canvas) -> Unit,
+        renderer: HardwareRenderer, w: Int, h: Int, deadline: Long, record: (Canvas) -> Unit,
     ): Bitmap? {
+        if (SystemClock.uptimeMillis() >= deadline) return null
         val reader = ImageReader.newInstance(
             w, h, PixelFormat.RGBA_8888, 1,
             HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or HardwareBuffer.USAGE_GPU_COLOR_OUTPUT,
@@ -262,8 +287,11 @@ internal object GpuResampler {
         try {
             val node = RenderNode("SSA-Resample")
             node.setPosition(0, 0, w, h)
-            record(node.beginRecording(w, h))
-            node.endRecording()
+            try {
+                record(node.beginRecording(w, h))
+            } finally {
+                node.endRecording()
+            }
             renderer.setContentRoot(node)
             renderer.setSurface(reader.surface)
             renderer.createRenderRequest()
@@ -274,9 +302,12 @@ internal object GpuResampler {
             try {
                 // syncAndDraw(setWaitForPresent=true) 已等待呈现完成, 这里只是兜底;
                 // fence 正常已就绪, await 立即返回
-                runCatching { image.fence.await(Duration.ofMillis(500)) }
+                val remaining = (deadline - SystemClock.uptimeMillis()).coerceIn(0L, 500L)
+                if (remaining <= 0L) return null
+                val ready = runCatching { image.fence.await(Duration.ofMillis(remaining)) }.getOrDefault(false)
+                if (!ready || SystemClock.uptimeMillis() >= deadline) return null
                 val hw = image.hardwareBuffer ?: return null
-                return Bitmap.wrapHardwareBuffer(hw, null)
+                return try { Bitmap.wrapHardwareBuffer(hw, null) } finally { hw.close() }
             } finally {
                 image.close()
             }
@@ -292,6 +323,7 @@ internal object GpuResampler {
         srcLen: Int,
         dstLen: Int,
         horizontal: Boolean,
+        deadline: Long,
     ): Bitmap? {
         val shader = mitchellShader.apply {
             setInputShader(
@@ -304,7 +336,7 @@ internal object GpuResampler {
         }
         val dstW = if (horizontal) dstLen else srcBitmap.width
         val dstH = if (horizontal) srcBitmap.height else dstLen
-        return renderPass(renderer, dstW, dstH) { canvas ->
+        return renderPass(renderer, dstW, dstH, deadline) { canvas ->
             canvas.drawRect(
                 0f, 0f, dstW.toFloat(), dstH.toFloat(),
                 Paint().apply { this.shader = shader },
@@ -319,6 +351,7 @@ internal object GpuResampler {
         size: Int,
         amount: Float,
         tau: Float,
+        deadline: Long,
     ): Bitmap? {
         val shader = unsharpShader.apply {
             setInputShader(
@@ -328,7 +361,7 @@ internal object GpuResampler {
             setFloatUniform("amount", amount)
             setFloatUniform("tau", tau)
         }
-        return renderPass(renderer, size, size) { canvas ->
+        return renderPass(renderer, size, size, deadline) { canvas ->
             canvas.drawRect(
                 0f, 0f, size.toFloat(), size.toFloat(),
                 Paint().apply { this.shader = shader },
@@ -337,12 +370,14 @@ internal object GpuResampler {
     }
 
     /** 探针: 强制编译两个 AGSL 程序 + 一趟 2x2 渲染, 管线不可用在这里暴露 */
-    private fun probe(): Boolean = runCatching {
+    private fun probe(deadline: Long): Boolean = runCatching {
         // 触发 lazy 编译 —— 着色器编译器异常应在探针期就判死, 而不是留到首个真实任务
         mitchellShader; unsharpShader
         val renderer = HardwareRenderer()
         try {
-            renderPass(renderer, 2, 2) { it.drawColor(Color.TRANSPARENT) } != null
+            val bitmap = renderPass(renderer, 2, 2, deadline) { it.drawColor(Color.TRANSPARENT) }
+            bitmap?.recycle()
+            bitmap != null
         } finally {
             renderer.destroy()
         }
@@ -362,6 +397,6 @@ internal object GpuResampler {
         }
     }
 
-    /** 成功清零（在 [doEnhance] 返回值处调用方已处理 —— 见 enhance 的 FutureTask 包装） */
+    /** 完成整条渲染管线后清零连续失败数。 */
     private fun noteSuccess() = consecutiveFails.set(0)
 }

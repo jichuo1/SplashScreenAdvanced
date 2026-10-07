@@ -1,6 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.data.preference
 
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 
 /**
  * 模块远程 SharedPreferences 的键值定义

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">配色</string>
+    <string name="lumen_palette_summary">従来のアクセントカラーまたは壁紙の色を使用</string>
+    <string name="lumen_palette_classic">従来のアクセントカラー</string>
+    <string name="lumen_palette_dynamic">壁紙の色</string>
+    <string name="lumen_material">Lumen マテリアル</string>
+    <string name="lumen_material_summary">高度なガラスを描画できない場合は自動的にフォールバック</string>
+    <string name="lumen_material_soft">柔らかな光</string>
+    <string name="lumen_material_liquid">高度なガラス</string>
+    <string name="lumen_capture">背景のリアルタイム取得</string>
+    <string name="lumen_capture_summary">ガラス面の背後にあるこのアプリのウィンドウ内容を取得</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="native_title" type="id" />
+    <item name="native_chrome" type="id" />
+    <item name="native_content_viewport" type="id" />
+    <item name="native_scroll" type="id" />
+    <item name="native_master_scroll" type="id" />
+    <item name="native_search" type="id" />
+    <item name="native_list" type="id" />
+    <item name="native_save" type="id" />
+    <item name="native_icon_job" type="id" />
+    <item name="native_update_notes" type="id" />
+    <item name="native_update_action" type="id" />
+    <item name="native_update_cancel" type="id" />
+    <string name="native_back">Back</string>
+    <style name="NativePageTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

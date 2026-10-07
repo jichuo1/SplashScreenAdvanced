@@ -22,14 +22,9 @@ import com.SplashScreenAdvanced.xposedmodule.wrapper.SplashScreenViewBuilderWrap
  * 此对象用于处理 背景 Hook
  */
 object BgHookHandler : BaseHookHandler() {
-    private var mTmpAttrsInstance: Any? = null
-
-    /**
-     * 重置当前应用的属性
-     */
-    fun resetCache() {
-        mTmpAttrsInstance = null
-    }
+    private var mTmpAttrsInstance: Any?
+        get() = GenerateHookHandler.currentSession?.tmpAttrs
+        set(value) { GenerateHookHandler.currentSession?.tmpAttrs = value }
 
     /** 开始 Hook */
     override fun onHook() {

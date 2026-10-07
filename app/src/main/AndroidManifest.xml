@@ -39,6 +39,24 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.nativeview.BasicActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.ScopeActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.IconActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.BottomActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.BackgroundActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.DisplayActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.DeveloperActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.AboutActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.CustomScopeActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.IgnoreAppIconActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.HideIconActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.RemoveBrandingActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.BackgroundExceptActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.ForceSplashActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.MinDurationActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.BgIndividualActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.nativeview.ColorPickerActivity" android:exported="false" android:theme="@style/NativePageTheme" android:windowSoftInputMode="adjustResize" />
+
         <activity-alias
             android:name=".Home"
             android:enabled="true"

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">主题配色</string>
+    <string name="lumen_palette_summary">使用经典强调色或跟随壁纸取色</string>
+    <string name="lumen_palette_classic">经典强调色</string>
+    <string name="lumen_palette_dynamic">壁纸取色</string>
+    <string name="lumen_material">凝光材质</string>
+    <string name="lumen_material_summary">高级材质无法正常渲染时自动回退</string>
+    <string name="lumen_material_soft">柔光</string>
+    <string name="lumen_material_liquid">高级材质</string>
+    <string name="lumen_capture">实时背景取样</string>
+    <string name="lumen_capture_summary">让高级材质跟随本应用窗口下方的内容变化</string>
+</resources>

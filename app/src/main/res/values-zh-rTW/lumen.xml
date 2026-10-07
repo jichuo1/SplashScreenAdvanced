@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">主題配色</string>
+    <string name="lumen_palette_summary">使用經典強調色或跟隨桌布取色</string>
+    <string name="lumen_palette_classic">經典強調色</string>
+    <string name="lumen_palette_dynamic">桌布取色</string>
+    <string name="lumen_material">凝光材質</string>
+    <string name="lumen_material_summary">進階材質無法正常繪製時自動回退</string>
+    <string name="lumen_material_soft">柔光</string>
+    <string name="lumen_material_liquid">進階材質</string>
+    <string name="lumen_capture">即時背景取樣</string>
+    <string name="lumen_capture_summary">讓進階材質跟隨視窗下方的內容變化</string>
+</resources>

@@ -1,5 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.hook
 
+import android.app.Application
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.ComponentInfo
@@ -7,6 +8,7 @@ import androidx.annotation.Keep
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker.init
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker.onHook
 import com.SplashScreenAdvanced.xposedmodule.hook.base.HookManager
+import com.SplashScreenAdvanced.xposedmodule.data.Scope
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.BgHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.BottomHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler
@@ -27,6 +29,7 @@ import com.highcapable.kavaref.extension.makeAccessible
 import com.highcapable.kavaref.extension.toClass
 import com.highcapable.kavaref.extension.toClassOrNull
 import io.github.libxposed.api.XposedModule
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * SystemUI 进程内的 Hook 入口
@@ -356,13 +359,11 @@ object SystemUIHooker {
         }
     }
 
-    /** 是否已经完成首次 Hook（attachBaseContext 可能被多次调用，仅首次执行） */
-    @Volatile
-    private var isHooked = false
+    private val isHooked = AtomicBoolean(false)
 
     /**
      * 由外部在 SystemUI 进程加载时调用：注入 [module]/[classLoader]，
-     * Hook `Application#attachBaseContext` 以捕获宿主 Context 并触发实际 Hook。
+     * Hook `Application#attach`，完成绑定后捕获真实的 SystemUI Application。
      */
     fun init(module: XposedModule, classLoader: ClassLoader) {
         this.module = module
@@ -370,35 +371,41 @@ object SystemUIHooker {
 
         val attachHook = HookManager {
             "android.app.Application".toClass(loader = classLoader).resolve().optional().firstMethodOrNull {
-                name = "attachBaseContext"
+                name = "attach"
                 parameters(Context::class)
-                superclass()
             }?.self
         }
         attachHook.addAfterHook({ true }) {
-            if (isHooked) return@addAfterHook
-            appContext = args(0).any() as? Context
-            isHooked = true
+            if (!hasResult) return@addAfterHook // attach 原方法异常时只让宿主自行处理。
+            val application = instance as? Application ?: return@addAfterHook
+            if (application.baseContext == null || application.packageName != Scope.SYSTEM_UI) return@addAfterHook
+            if (!isHooked.compareAndSet(false, true)) return@addAfterHook
+            appContext = application
+            XMLog.i { "[SystemUI] captured Application: ${application.javaClass.name}" }
             onHook()
             // Context 已捕获、功能 Hook 已安装，此 hook 使命完成，自摘除避免后续空转
             attachHook.unhook()
         }.startHook(module)
-        // 非门控：确认 SystemUI 进程内入口已执行、attachBaseContext 目标是否解析成功
-        XMLog.i { "[SystemUI] init: attachBaseContext ${if (attachHook.member != null) "resolved" else "UNRESOLVED"}" }
+        XMLog.i { "[SystemUI] init: Application.attach ${if (attachHook.member != null) "resolved" else "UNRESOLVED"}" }
     }
 
     /**
      * 热重载后由新一代代码调用：复用上一代捕获的宿主 [classLoader] 与 [appContext]，直接重新安装功能 Hook。
      *
-     * 热重载不会重放 `attachBaseContext`（宿主 Application 早已创建），因此不能走 [init] 的捕获流程，
+     * 热重载不会重放 `attach`（宿主 Application 早已创建），因此不能走 [init] 的捕获流程，
      * 需在 classLoader/Context 就绪后直接执行 [onHook]。[Members] 在新一代为全新单例，
      * 首次访问时会基于此处设置的 [classLoader] 解析宿主成员。
      */
     fun reHook(module: XposedModule, classLoader: ClassLoader, appContext: Context?) {
         this.module = module
         this.classLoader = classLoader
-        this.appContext = appContext
-        isHooked = true
+        val application = (appContext as? Application) ?: (appContext?.applicationContext as? Application)
+        if (application?.packageName != Scope.SYSTEM_UI) {
+            XMLog.w { "[SystemUI] reHook: no verified SystemUI Application" }
+            return
+        }
+        this.appContext = application
+        isHooked.set(true)
         onHook()
     }
 

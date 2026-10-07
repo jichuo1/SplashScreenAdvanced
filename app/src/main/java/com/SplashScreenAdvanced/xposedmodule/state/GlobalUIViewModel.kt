@@ -1,59 +1,65 @@
 package com.SplashScreenAdvanced.xposedmodule.state
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.manager.XposedServiceManager
 import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class ModuleUiState(
+    val moduleActive: Boolean = false,
+    val devMode: Boolean = false,
+    val systemUIRestartNeeded: Boolean = true,
+    val androidRestartNeeded: Boolean? = null,
+    val xposedFrameworkName: String = "Xposed",
+    val xposedApiVersion: Int = 0,
+)
+
+/** Application-owned status; Activity collectors stop when their native page is hidden. */
 class GlobalUIViewModel(
     private val repo: GlobalPreferencesRepository,
     private val xposedServiceManager: XposedServiceManager,
-) : ViewModel() {
+) {
     val configFlow = repo.uiConfigFlow
-
-    var moduleActive by mutableStateOf(false)
-        private set
-    var devMode by mutableStateOf(false)
-        private set
-    var systemUIRestartNeeded by mutableStateOf(true)
-        private set
-    var androidRestartNeeded by mutableStateOf<Boolean?>(null)
-        private set
-    var xposedFrameworkName by mutableStateOf("Xposed")
-        private set
-    var xposedApiVersion by mutableIntStateOf(0)
-        private set
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val mutableState = MutableStateFlow(ModuleUiState())
+    val state = mutableState.asStateFlow()
+    val moduleActive: Boolean get() = state.value.moduleActive
+    val devMode: Boolean get() = state.value.devMode
+    val systemUIRestartNeeded: Boolean get() = state.value.systemUIRestartNeeded
+    val androidRestartNeeded: Boolean? get() = state.value.androidRestartNeeded
+    val xposedFrameworkName: String get() = state.value.xposedFrameworkName
+    val xposedApiVersion: Int get() = state.value.xposedApiVersion
+    private var restartGeneration = 0L
 
     init {
-        viewModelScope.launch {
+        scope.launch {
             xposedServiceManager.serviceFlow.collect { service ->
-                moduleActive = isModuleActivated(service)
-                xposedFrameworkName = service?.frameworkName ?: "Xposed"
-                xposedApiVersion = service?.apiVersion ?: 0
-                if (service != null) {
-                    devMode = repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS)
+                mutableState.update {
+                    it.copy(moduleActive = isModuleActivated(service),
+                        xposedFrameworkName = service?.frameworkName ?: "Xposed",
+                        xposedApiVersion = service?.apiVersion ?: 0,
+                        devMode = if (service != null) repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS) else it.devMode)
                 }
                 refreshRestartState()
             }
         }
-        viewModelScope.launch {
+        scope.launch {
             repo.preferenceUpdates
                 .filter { it == Preferences.Dev.ENABLE_DEV_SETTINGS }
-                .collect { devMode = repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS) }
+                .collect { syncDevMode() }
         }
-        viewModelScope.launch {
+        scope.launch {
             repo.globalReloadEvent.collect {
-                devMode = repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS)
+                syncDevMode()
             }
         }
     }
@@ -66,15 +72,17 @@ class GlobalUIViewModel(
      * 只把结果切回主线程写状态
      */
     fun refreshRestartState() {
-        viewModelScope.launch {
+        val generation = ++restartGeneration
+        scope.launch {
             val state = withContext(Dispatchers.IO) { xposedServiceManager.queryRestartState() }
-            systemUIRestartNeeded = state?.systemUI ?: false
-            androidRestartNeeded = state?.android
+            if (generation == restartGeneration) mutableState.update {
+                it.copy(systemUIRestartNeeded = state?.systemUI ?: false, androidRestartNeeded = state?.android)
+            }
         }
     }
 
     fun syncDevMode() {
-        devMode = repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS)
+        mutableState.update { it.copy(devMode = repo.get(Preferences.Dev.ENABLE_DEV_SETTINGS)) }
     }
 
     private fun isModuleActivated(service: XposedService?): Boolean {

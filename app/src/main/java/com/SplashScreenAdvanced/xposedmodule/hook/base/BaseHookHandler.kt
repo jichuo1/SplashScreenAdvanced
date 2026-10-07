@@ -2,7 +2,7 @@ package com.SplashScreenAdvanced.xposedmodule.hook.base
 
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 
 /**
  * SystemUI 各 Hook 处理器的抽象基类

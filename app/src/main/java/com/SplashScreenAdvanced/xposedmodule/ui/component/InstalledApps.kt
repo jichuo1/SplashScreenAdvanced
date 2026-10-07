@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 /**
  * 应用列表页共用的应用基础信息
  *
- * 不含图标 —— 图标由 [rememberAppIcon] 在行被组合时按需加载
+ * 不含图标 —— 图标由 [bindAppIcon] 在原生列表行显示时按需加载
  */
 data class InstalledApp(
     val packageName: String,

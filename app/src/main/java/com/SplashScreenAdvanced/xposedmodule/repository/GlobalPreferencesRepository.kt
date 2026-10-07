@@ -5,9 +5,8 @@ import android.net.Uri
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
-import dev.lackluster.hyperx.ui.layout.HyperXLayoutConfig
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
-import dev.lackluster.hyperx.ui.theme.UiStyle
+import com.SplashScreenAdvanced.xposedmodule.state.NativeUiConfig
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,11 +62,11 @@ class GlobalPreferencesRepository(
         _uiConfigFlow.value = readUiConfig()
     }
 
-    private fun readUiConfig(): HyperXLayoutConfig {
-        return HyperXLayoutConfig(
+    private fun readUiConfig(): NativeUiConfig {
+        return NativeUiConfig(
             isSplitScreenEnabled = prefStore.get(Preferences.Module.SPLIT_VIEW),
             isBlurEnabled = prefStore.get(Preferences.Module.MODULE_APP_BLUR),
-            uiStyle = UiStyle.fromPref(prefStore.get(Preferences.Module.UI_STYLE)),
+            paletteStyle = prefStore.get(Preferences.Module.UI_STYLE),
         )
     }
 
@@ -86,7 +85,7 @@ class GlobalPreferencesRepository(
             Preferences.Module.SPLIT_VIEW -> _uiConfigFlow.update { it.copy(isSplitScreenEnabled = value as Boolean) }
             Preferences.Module.MODULE_APP_BLUR -> _uiConfigFlow.update { it.copy(isBlurEnabled = value as Boolean) }
             Preferences.Module.UI_STYLE -> _uiConfigFlow.update {
-                it.copy(uiStyle = UiStyle.fromPref(value as Int))
+                it.copy(paletteStyle = value as Int)
             }
 
             Preferences.Log.ENABLE_LOG -> XMLog.isDebugEnabled = (value as Boolean)

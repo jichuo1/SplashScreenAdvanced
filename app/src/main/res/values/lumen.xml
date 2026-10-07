@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">Palette</string>
+    <string name="lumen_palette_summary">Use the classic accent or colors from your wallpaper</string>
+    <string name="lumen_palette_classic">Classic accent</string>
+    <string name="lumen_palette_dynamic">Wallpaper colors</string>
+    <string name="lumen_material">Lumen material</string>
+    <string name="lumen_material_summary">Advanced glass falls back automatically if rendering is unavailable</string>
+    <string name="lumen_material_soft">Soft light</string>
+    <string name="lumen_material_liquid">Advanced glass</string>
+    <string name="lumen_capture">Live backdrop</string>
+    <string name="lumen_capture_summary">Sample this app window behind advanced glass surfaces</string>
+</resources>

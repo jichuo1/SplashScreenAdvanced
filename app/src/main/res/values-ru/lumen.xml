@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">Палитра</string>
+    <string name="lumen_palette_summary">Классический акцент или цвета обоев</string>
+    <string name="lumen_palette_classic">Классический акцент</string>
+    <string name="lumen_palette_dynamic">Цвета обоев</string>
+    <string name="lumen_material">Материал Lumen</string>
+    <string name="lumen_material_summary">При ошибке отрисовки улучшенное стекло автоматически отключается</string>
+    <string name="lumen_material_soft">Мягкий свет</string>
+    <string name="lumen_material_liquid">Улучшенное стекло</string>
+    <string name="lumen_capture">Фон в реальном времени</string>
+    <string name="lumen_capture_summary">Получать содержимое окна приложения под стеклом</string>
+</resources>

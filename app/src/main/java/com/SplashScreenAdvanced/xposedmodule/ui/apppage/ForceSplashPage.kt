@@ -1,18 +1,9 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.apppage
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
+import android.view.View
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import com.SplashScreenAdvanced.xposedmodule.ui.component.AppListPage
+import com.SplashScreenAdvanced.xposedmodule.ui.component.appList
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 
-/**
- * 实验功能 - 强制显示遮罩 - 配置应用列表
- */
-@Composable
-fun ForceSplashPage() {
-    AppListPage(
-        stringResource(R.string.force_show_splash_screen_title),
-        Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST
-    )
-}
+fun NativePageUi.buildForceSplashPage(): View = appList(Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST)

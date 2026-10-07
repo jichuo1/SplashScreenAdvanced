@@ -7,7 +7,6 @@ import com.SplashScreenAdvanced.xposedmodule.state.GlobalUIViewModel
 import com.SplashScreenAdvanced.xposedmodule.utils.RemotePreferenceStore
 import org.koin.core.module.dsl.createdAtStart
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val appModule = module {
@@ -18,5 +17,5 @@ val appModule = module {
     singleOf(::GlobalPreferencesRepository) { createdAtStart() }
     singleOf(::AppPreferenceActions)
 
-    viewModelOf(::GlobalUIViewModel)
+    singleOf(::GlobalUIViewModel)
 }

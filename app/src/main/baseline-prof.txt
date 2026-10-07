@@ -4,10 +4,10 @@ HSPLcom/SplashScreenAdvanced/xposedmodule/SplashScreenAdvancedApp;-><init>()V
 HSPLcom/SplashScreenAdvanced/xposedmodule/SplashScreenAdvancedApp;->onCreate()V
 HSPLcom/SplashScreenAdvanced/xposedmodule/ui/MainActivity;-><init>()V
 HSPLcom/SplashScreenAdvanced/xposedmodule/ui/MainActivity;->onCreate(Landroid/os/Bundle;)V
-HSPLdev/lackluster/hyperx/core/HyperXActivity;-><init>()V
-HSPLdev/lackluster/hyperx/core/HyperXActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/SplashScreenAdvanced/xposedmodule/ui/nativeview/NativeSettingsActivity;-><init>()V
+HSPLcom/SplashScreenAdvanced/xposedmodule/ui/nativeview/NativeSettingsActivity;->onCreate(Landroid/os/Bundle;)V
 Lcom/SplashScreenAdvanced/xposedmodule/ui/**
 Lcom/SplashScreenAdvanced/xposedmodule/di/**
 Lcom/SplashScreenAdvanced/xposedmodule/state/**
 Lcom/SplashScreenAdvanced/xposedmodule/provider/**
-Ldev/lackluster/hyperx/**
+Lcom/lumen/coacervation/engine/host/**

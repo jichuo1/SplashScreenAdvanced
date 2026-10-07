@@ -1,8 +1,7 @@
 package com.SplashScreenAdvanced.xposedmodule.fairmemory
 
 import android.content.Context
-import androidx.navigation3.runtime.NavKey
-import dev.lackluster.hyperx.navigation.HyperXRoute
+import com.SplashScreenAdvanced.xposedmodule.data.Route
 
 /**
  * 查杀广播到达时把当前页 token 同步写进进程私有 SP。
@@ -16,7 +15,7 @@ object FairMemorySessionStore {
     @Volatile
     private var currentToken: String = "Main"
 
-    fun remember(key: NavKey?) {
+    fun remember(key: Route?) {
         currentToken = key?.toFairMemoryToken() ?: "Main"
     }
 
@@ -29,10 +28,10 @@ object FairMemorySessionStore {
             .commit()
     }
 
-    fun consumeRestoreBackStack(context: Context): List<NavKey> {
+    fun consumeRestoreBackStack(context: Context): List<Route> {
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_PENDING, false)) return listOf(HyperXRoute.Main)
+        if (!prefs.getBoolean(KEY_PENDING, false)) return listOf(Route.Main)
         prefs.edit().putBoolean(KEY_PENDING, false).apply()
         return restoreBackStackFromToken(prefs.getString(KEY_TOKEN, null))
     }

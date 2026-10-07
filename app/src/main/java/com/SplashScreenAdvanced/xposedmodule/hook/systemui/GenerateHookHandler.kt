@@ -2,71 +2,46 @@ package com.SplashScreenAdvanced.xposedmodule.hook.systemui
 
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import com.SplashScreenAdvanced.xposedmodule.data.StartingWindowInfo
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.base.BaseHookHandler
-import com.SplashScreenAdvanced.xposedmodule.hook.systemui.GenerateHookHandler.delayScope
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.DeferredRemovalQueue
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookCallScope
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.StartingTaskRegistry
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getMapPrefs
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
 import io.github.libxposed.api.XposedInterface
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.lang.reflect.Method
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * 此对象用于处理 基础设置 和 实验功能 中的 Hook
  */
 object GenerateHookHandler : BaseHookHandler() {
-    // 以下状态由 makeSplashScreenContentView (shell 的启动遮罩线程) 写入,
-    // 由 removeStartingWindow / build() 等可能位于其它线程的 hook 读取,
-    // 必须 @Volatile, 否则跨线程可见性没有保证
-    @Volatile
-    var currentPackageName = ""
+    internal class RenderSession(val entered: Boolean) {
+        var activityInfo: ActivityInfo? = null
+        var except: Boolean = true
+        val icon = IconHookHandler.RenderState()
+        var tmpAttrs: Any? = null
+    }
 
-    @Volatile
-    var currentComponentName = ""
-
-    @Volatile
-    var currentActivity = ""
-
-    @Volatile
-    var currentApplicationInfo = null as ApplicationInfo?
-
-    @Volatile
-    var currentActivityInfo = null as ActivityInfo?
-
-    @Volatile
-    var exceptCurrentApp = false
-
-    /** 本次启动遮罩流程的开始时刻 (uptime, ms); 0 表示当前不在流程中 */
-    @Volatile
-    private var hookingStartedAt = 0L
-
-    /**
-     * 是否正处于一次启动遮罩构建流程中
-     *
-     * 带超时兜底: 正常由 `removeStartingWindow` 复位, 但宿主若因异常中断或走了别的移除路径而没能调到那里,
-     * 原先的纯布尔标志会永久停在 true, 使所有依赖 `defaultExecCondition` 的 hook 在整个 SystemUI
-     * 生命周期内常开。[HOOKING_TIMEOUT_MS] 取得足够宽松 (远超任何正常冷启动 + 最小持续时长),
-     * 只用于兜住这种已经异常的状态, 不会影响正常流程
-     */
-    var isHooking: Boolean
-        get() = hookingStartedAt != 0L &&
-                SystemClock.uptimeMillis() - hookingStartedAt < HOOKING_TIMEOUT_MS
-        set(value) {
-            hookingStartedAt = if (value) SystemClock.uptimeMillis() else 0L
-        }
-
-    private const val HOOKING_TIMEOUT_MS = 60_000L
+    private data class StartingTask(val packageName: String, val durationMs: Long)
+    private val calls = HookCallScope<RenderSession>()
+    private val tasks = StartingTaskRegistry<StartingTask>(SystemClock::uptimeMillis)
+    private val removals = DeferredRemovalQueue()
+    internal val currentSession get() = calls.current
+    val currentActivityInfo: ActivityInfo? get() = currentSession?.activityInfo
+    val currentApplicationInfo: ApplicationInfo? get() = currentActivityInfo?.applicationInfo
+    val currentPackageName: String get() = currentActivityInfo?.packageName.orEmpty()
+    val currentComponentName: String get() = currentActivityInfo?.name.orEmpty()
+    val currentActivity: String get() = currentActivityInfo?.targetActivity ?: "unknown activity"
+    val exceptCurrentApp: Boolean get() = currentSession?.except != false
+    val isHooking: Boolean get() = currentSession?.activityInfo != null
 
     /** 首次触发 `makeSplashScreenContentView` 时落一条非门控日志，用于区分「Hook 未安装」与「安装了但宿主从未调用」 */
     private val firstContentViewLogged = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -95,30 +70,15 @@ object GenerateHookHandler : BaseHookHandler() {
         return null
     }
 
-    /** 延迟调用 removeStartingWindow 原方法 */
-    private val delayScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    /**
-     * 重置当前应用信息的缓存
-     */
-    private fun resetCache() {
-        currentPackageName = ""
-        currentComponentName = ""
-        currentActivity = ""
-        currentApplicationInfo = null
-        currentActivityInfo = null
-        isHooking = false
-        exceptCurrentApp = false
-
-        IconHookHandler.resetCache()
-        BgHookHandler.resetCache()
-    }
-
     /** 开始 Hook */
     override fun onHook() {
 
         // Hook 起始位置, 获取应用信息
         SystemUIHooker.Members.makeSplashScreenContentView.addBeforeHook({ true }) {
+            // 即使提取失败也压入空会话，防止嵌套调用误用外层应用的数据。
+            val session = RenderSession(removals.enterCall())
+            calls.enter(session)
+            if (!session.entered) return@addBeforeHook
             if (firstContentViewLogged.compareAndSet(false, true)) {
                 XMLog.i { "****** makeSplashScreenContentView(): first invocation" }
             }
@@ -144,13 +104,12 @@ object GenerateHookHandler : BaseHookHandler() {
                 return@addBeforeHook
             }
 
-            isHooking = true
-            currentPackageName = activityInfo.packageName
-            currentComponentName = activityInfo.name
-            currentActivity = activityInfo.targetActivity ?: "unknown activity"
-            currentApplicationInfo = activityInfo.applicationInfo
-            currentActivityInfo = activityInfo
-            exceptCurrentApp = isExcept()
+            session.activityInfo = activityInfo
+            session.except = isExcept(activityInfo.packageName)
+            tasks.put(taskId(args, creation = true), StartingTask(
+                activityInfo.packageName,
+                if (session.except) 0L else minimumDuration(activityInfo.packageName),
+            ))
 
             printLog {
                 "****** $currentPackageName; $currentActivity: makeSplashScreenContentView(): ${if (exceptCurrentApp) "except" else "allow"} this app"
@@ -177,6 +136,17 @@ object GenerateHookHandler : BaseHookHandler() {
                         }
                     }
                 }
+            }
+        }
+
+        // HookManager 的 finally 路径也执行 after：异常/提前返回均恢复外层会话。
+        SystemUIHooker.Members.makeSplashScreenContentView.addAfterHook({ true }) {
+            val session = calls.current ?: return@addAfterHook
+            try {
+                session.icon.steeredTmpAttrs?.let { ReflectCache.setField(it, "mIconBgColor", 0) }
+            } finally {
+                calls.exit()
+                if (session.entered) removals.exitCall()
             }
         }
 
@@ -234,45 +204,32 @@ object GenerateHookHandler : BaseHookHandler() {
             printLog { "build(): force $fieldName=STARTING_WINDOW_TYPE_SPLASH_SCREEN for $currentPackageName (chooseStyle absent)" }
         }
 
-        // 遮罩最小持续时间, 也是 Hook 结束位置, 清除缓存的应用信息
+        // 移除只消费对应任务的不可变记录，不清理其它启动会话。
         SystemUIHooker.Members.removeStartingWindow.addReplaceHook({ true }) {
-            if (exceptCurrentApp || !isHooking) callOriginal()
-            else when (currentPackageName) {
-                "" -> {
-                    callOriginal()
-                }
-
-                // 单独配置应用最小持续时长
-                in prefs.get(Preferences.AppList.MIN_DURATION_LIST) -> {
-                    val configMap = getMapPrefs(Preferences.AppList.MIN_DURATION_CONFIG_MAP)
-                    try {
-                        val duration = configMap[currentPackageName].toString().toLong()
-
-                        if (duration == 0L) callOriginal()
-                        else {
-                            printLog { "removeStartingWindow(): remove splash screen of $currentPackageName after $duration ms" }
-                            delayCallOriginal(duration, instance, args)
-                        }
-
-                    } catch (_: NumberFormatException) {
-                        printLog { "removeStartingWindow(): $currentPackageName: a NumberFormatException is threw, maybe it's MIN_DURATION config is incorrect" }
-                        callOriginal()
-                    }
-                }
-
-                // 默认值
-                else -> prefs.get(Preferences.Display.MIN_DURATION).let { duration ->
-                    if (duration == 0) callOriginal()
-                    else {
-                        printLog { "removeStartingWindow(): remove splash screen of $currentPackageName after $duration ms (default value)" }
-                        delayCallOriginal(duration.toLong(), instance, args)
-                    }
-                }
+            if (!removals.enterCall()) return@addReplaceHook callOriginal()
+            try {
+                val task = tasks.take(taskId(args, creation = false))
+                if (task == null || task.durationMs <= 0L) return@addReplaceHook callOriginal()
+                // 日志放在接管原方法之前；接管成功后只返回，避免异常兜底重复调用。
+                printLog { "removeStartingWindow(): remove ${task.packageName} after ${task.durationMs} ms" }
+                if (delayCallOriginal(task.durationMs, instance, args)) null else callOriginal()
+            } finally {
+                removals.exitCall()
             }
+        }
+    }
 
-            // 清除缓存的应用信息
-            resetCache()
-            null
+    private fun minimumDuration(packageName: String): Long {
+        val duration = if (packageName in prefs.get(Preferences.AppList.MIN_DURATION_LIST)) {
+            getMapPrefs(Preferences.AppList.MIN_DURATION_CONFIG_MAP)[packageName]?.toLongOrNull() ?: 0L
+        } else prefs.get(Preferences.Display.MIN_DURATION).toLong()
+        return duration.coerceAtLeast(0L)
+    }
+
+    private fun taskId(args: Array<Any?>, creation: Boolean): Int? = args.firstNotNullOfOrNull { arg ->
+        if (arg == null || arg is ActivityInfo || arg is Int) null else {
+            val info = if (creation) ReflectCache.getField<Any>(arg, "taskInfo") else arg
+            info?.let { ReflectCache.getField<Int>(it, "taskId") }?.takeIf { it >= 0 }
         }
     }
 
@@ -314,21 +271,16 @@ object GenerateHookHandler : BaseHookHandler() {
      * 延迟 [duration] 毫秒后调用 `removeStartingWindow` 的原方法
      *
      */
-    private fun delayCallOriginal(duration: Long, instance: Any?, args: Array<Any?>) {
-        // 复用 Members.removeStartingWindow 已解析的成员，避免重复反射解析，
-        // 同时保证延迟调用与 hook 落点是同一个方法
-        val method = SystemUIHooker.Members.removeStartingWindow.member as? Method
+    private fun delayCallOriginal(duration: Long, instance: Any?, args: Array<Any?>): Boolean {
+        // 沿用本次宿主回调的 Looper；未知线程模型时同步放行，禁止猜测主线程。
+        val looper = Looper.myLooper() ?: return false
+        val method = SystemUIHooker.Members.removeStartingWindow.member as? Method ?: return false
+        val invoker: XposedInterface.Invoker<*, Method> = module.getInvoker(method)
+        invoker.setType(XposedInterface.Invoker.Type.Origin())
         val argsCopy = args.copyOf()
-        delayScope.launch {
-            delay(duration.milliseconds)
+        return removals.schedule({ Handler(looper).postDelayed(it, duration) }) {
             try {
-                if (method != null) {
-                    val invoker: XposedInterface.Invoker<*, Method> = module.getInvoker(method)
-                    invoker.setType(XposedInterface.Invoker.Type.Origin())
-                    invoker.invoke(instance, *argsCopy)
-                } else {
-                    XMLog.w { "delayCallOriginal(): removeStartingWindow Method 解析失败，无法延迟调用原方法" }
-                }
+                invoker.invoke(instance, *argsCopy)
             } catch (e: Throwable) {
                 XMLog.e(e)
             }
@@ -336,13 +288,9 @@ object GenerateHookHandler : BaseHookHandler() {
     }
 
     /**
-     * 取消所有挂起的延迟摘除协程
-     *
-     * 热重载时由**旧代**调用：冻结旧代前主动取消，避免残留协程在新一代生效后误触发。
+     * 有未完成的宿主操作时拒绝重载，待其正常执行后再重试。
      */
-    fun cancelPendingDelays() {
-        delayScope.coroutineContext.cancelChildren()
-    }
+    fun prepareHotReload(): Boolean = removals.prepareReload()
 
     /**
      * 判断是否应执行Hook操作

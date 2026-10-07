@@ -1,64 +1,38 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.page
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.res.stringResource
+import android.view.View
+import android.widget.SeekBar
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
-import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
-import com.SplashScreenAdvanced.xposedmodule.ui.LocalAppUiState
-import com.SplashScreenAdvanced.xposedmodule.ui.component.SwitchPreference
-import dev.lackluster.hyperx.navigation.LocalNavigator
-import dev.lackluster.hyperx.ui.layout.HyperXPage
-import dev.lackluster.hyperx.ui.preference.EditTextInputType
-import dev.lackluster.hyperx.ui.preference.ItemPosition
-import dev.lackluster.hyperx.ui.preference.SeekBarPreference
-import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
-import org.koin.compose.koinInject
-import kotlin.math.roundToInt
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 
-/**
- * 开发者选项
- */
-@Composable
-fun DevPage() {
-    val navigator = LocalNavigator.current
-    val repo = koinInject<GlobalPreferencesRepository>()
-    val uiState = LocalAppUiState.current
-    HyperXPage(
-        title = stringResource(R.string.dev_settings),
-    ) {
-        itemPreferenceGroup(key = "general", position = ItemPosition.First) {
-            SwitchPreference(
-                title = stringResource(R.string.dev_settings),
-                key = Preferences.Dev.ENABLE_DEV_SETTINGS,
-                onCheckedChange = {
-                    uiState.syncDevMode()
-                    navigator.pop()
-                }
-            )
-        }
-        itemPreferenceGroup(
-            titleRes = R.string.icon_settings,
-            position = ItemPosition.Last
-        ) {
-            val roundCornerRate = remember {
-                mutableFloatStateOf(repo.get(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE).toFloat())
-            }
-            SeekBarPreference(
-                title = stringResource(R.string.dev_icon_round_corner_rate),
-                value = roundCornerRate.floatValue,
-                onValueChange = { roundCornerRate.floatValue = it },
-                onValueChangeFinished = {
-                    repo.update(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE, roundCornerRate.floatValue.roundToInt())
-                },
-                defaultValue = Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE.default.toFloat(),
-                min = 0f,
-                max = 50f,
-                dialogInputType = EditTextInputType.Number,
-                valueFormatter = { "%d%% / 50%%".format(it.roundToInt()) }
-            )
-        }
+fun NativePageUi.buildDevPage(): View = scrollContent {
+    addSetting(switch(R.string.dev_settings, Preferences.Dev.ENABLE_DEV_SETTINGS) {
+        activity.uiState.syncDevMode(); activity.requestBack()
+    })
+    val card = column().apply {
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        background = lumen.cardBackground(palette.surface, 16f)
     }
+    val value = text("")
+    card.addView(text(string(R.string.dev_icon_round_corner_rate)))
+    card.addView(value)
+    val slider = SeekBar(activity).apply {
+        max = 50
+        progress = repo.get(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE).coerceIn(0, 50)
+        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) { value.text = progress.toString() + "% / 50%" }
+            override fun onStartTrackingTouch(bar: SeekBar) = Unit
+            override fun onStopTrackingTouch(bar: SeekBar) { write(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE, bar.progress) }
+        })
+    }
+    card.addView(slider)
+    value.setOnClickListener { numberDialog(string(R.string.dev_icon_round_corner_rate), null, slider.progress, max = 50) {
+        if (it != null && write(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE, it)) { slider.progress = it; refresh() }
+    } }
+    bind {
+        val current = repo.get(Preferences.Dev.DEV_ICON_ROUND_CORNER_RATE).coerceIn(0, 50)
+        slider.progress = current; value.text = current.toString() + "% / 50%"
+    }
+    addSetting(card)
 }

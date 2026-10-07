@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">Paleta</string>
+    <string name="lumen_palette_summary">Usar el color clásico o los colores del fondo de pantalla</string>
+    <string name="lumen_palette_classic">Color clásico</string>
+    <string name="lumen_palette_dynamic">Colores del fondo de pantalla</string>
+    <string name="lumen_material">Material Lumen</string>
+    <string name="lumen_material_summary">El vidrio avanzado cambia al modo simple si falla el renderizado</string>
+    <string name="lumen_material_soft">Luz suave</string>
+    <string name="lumen_material_liquid">Vidrio avanzado</string>
+    <string name="lumen_capture">Fondo en tiempo real</string>
+    <string name="lumen_capture_summary">Muestrear el contenido de esta ventana detrás del vidrio</string>
+</resources>

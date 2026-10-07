@@ -1,7 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.fairmemory
 
 import com.SplashScreenAdvanced.xposedmodule.data.Route
-import dev.lackluster.hyperx.navigation.HyperXRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,7 +24,7 @@ class FairMemoryProtocolTest {
     @Test
     fun sessionTokensRoundTripKnownRoutes() {
         val keys = listOf(
-            HyperXRoute.Main,
+            Route.Main,
             Route.Basic,
             Route.Background,
             Route.ColorPicker("com.example.app"),
@@ -41,10 +40,10 @@ class FairMemoryProtocolTest {
     @Test
     fun restoreBackStackInsertsMainUnderDetailPage() {
         val stack = restoreBackStackFromToken(Route.Icon.toFairMemoryToken())
-        assertEquals(listOf(HyperXRoute.Main, Route.Icon), stack)
-        assertEquals(listOf(HyperXRoute.Main), restoreBackStackFromToken("Main"))
-        assertEquals(listOf(HyperXRoute.Main), restoreBackStackFromToken(null))
-        assertEquals(listOf(HyperXRoute.Main), restoreBackStackFromToken("not-a-route"))
+        assertEquals(listOf(Route.Main, Route.Icon), stack)
+        assertEquals(listOf(Route.Main), restoreBackStackFromToken("Main"))
+        assertEquals(listOf(Route.Main), restoreBackStackFromToken(null))
+        assertEquals(listOf(Route.Main), restoreBackStackFromToken("not-a-route"))
     }
 
     @Test

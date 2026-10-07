@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lumen_palette">Palette</string>
+    <string name="lumen_palette_summary">Utiliser une couleur classique ou les couleurs du fond d’écran</string>
+    <string name="lumen_palette_classic">Couleur classique</string>
+    <string name="lumen_palette_dynamic">Couleurs du fond d’écran</string>
+    <string name="lumen_material">Matériau Lumen</string>
+    <string name="lumen_material_summary">Le verre avancé revient au mode simple si le rendu échoue</string>
+    <string name="lumen_material_soft">Lumière douce</string>
+    <string name="lumen_material_liquid">Verre avancé</string>
+    <string name="lumen_capture">Arrière-plan en direct</string>
+    <string name="lumen_capture_summary">Échantillonner le contenu de cette fenêtre derrière le verre</string>
+</resources>

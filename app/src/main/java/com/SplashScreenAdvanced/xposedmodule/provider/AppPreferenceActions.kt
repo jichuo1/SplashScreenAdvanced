@@ -1,8 +1,8 @@
 package com.SplashScreenAdvanced.xposedmodule.provider
 
 import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
-import dev.lackluster.hyperx.ui.preference.core.PreferenceActions
-import dev.lackluster.hyperx.ui.preference.core.PreferenceKey
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceActions
+import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import kotlinx.coroutines.flow.Flow
 
 class AppPreferenceActions(

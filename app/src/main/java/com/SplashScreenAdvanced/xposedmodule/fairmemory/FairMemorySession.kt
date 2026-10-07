@@ -1,8 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.fairmemory
 
-import androidx.navigation3.runtime.NavKey
 import com.SplashScreenAdvanced.xposedmodule.data.Route
-import dev.lackluster.hyperx.navigation.HyperXRoute
 
 private const val COLOR_PICKER_PREFIX = "ColorPicker:"
 
@@ -11,9 +9,9 @@ private const val COLOR_PICKER_PREFIX = "ColorPicker:"
  *
  * 只记栈顶: 设置页没有必须成对出现的中间页, `Main + 栈顶` 足够回得去。
  */
-fun NavKey.toFairMemoryToken(): String = when (this) {
-    is HyperXRoute.Main -> "Main"
-    is HyperXRoute.Empty -> "Empty"
+fun Route.toFairMemoryToken(): String = when (this) {
+    is Route.Main -> "Main"
+    is Route.Empty -> "Empty"
     is Route.About -> "About"
     is Route.Basic -> "Basic"
     is Route.Scope -> "Scope"
@@ -34,9 +32,9 @@ fun NavKey.toFairMemoryToken(): String = when (this) {
     else -> this::class.qualifiedName ?: "Main"
 }
 
-fun parseFairMemoryToken(token: String): NavKey? = when (token) {
-    "Main" -> HyperXRoute.Main
-    "Empty" -> HyperXRoute.Empty
+fun parseFairMemoryToken(token: String): Route? = when (token) {
+    "Main" -> Route.Main
+    "Empty" -> Route.Empty
     "About" -> Route.About
     "Basic" -> Route.Basic
     "Scope" -> Route.Scope
@@ -60,8 +58,8 @@ fun parseFairMemoryToken(token: String): NavKey? = when (token) {
     }
 }
 
-fun restoreBackStackFromToken(token: String?): List<NavKey> {
-    val key = token?.let { parseFairMemoryToken(it) } ?: return listOf(HyperXRoute.Main)
-    if (key is HyperXRoute.Main) return listOf(HyperXRoute.Main)
-    return listOf(HyperXRoute.Main, key)
+fun restoreBackStackFromToken(token: String?): List<Route> {
+    val key = token?.let { parseFairMemoryToken(it) } ?: return listOf(Route.Main)
+    if (key is Route.Main) return listOf(Route.Main)
+    return listOf(Route.Main, key)
 }

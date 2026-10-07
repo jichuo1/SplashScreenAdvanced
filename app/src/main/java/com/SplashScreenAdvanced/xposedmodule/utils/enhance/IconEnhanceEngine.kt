@@ -93,7 +93,8 @@ internal object IconEnhanceEngine {
         val key = "$cacheKey|$targetSize|$lv"
         synchronized(cache) { cache[key] }?.let { return BitmapDrawable(it) }
 
-        val bitmap = runCatching { render(src, targetSize, lv) }
+        val input = src.copyForRendering() ?: return null
+        val bitmap = runCatching { render(input, targetSize, lv) }
             .onFailure { XMLog.e(t = it) { "IconEnhanceEngine: render failed" } }
             .getOrNull()
             ?: return null
@@ -178,24 +179,27 @@ internal object IconEnhanceEngine {
                 dstSize = targetSize,
                 sharpenAmount = if (rasterSize < targetSize) sharpenAmount(lv) else 0f,
                 sharpenTau = SHARPEN_TAU / 255f,
+                deadline = deadline,
             )?.let { return it }
         }
 
+        if (SystemClock.uptimeMillis() >= deadline) return null
         var pixels = Resampler.rasterize(src, rasterSize) ?: return null
+        if (SystemClock.uptimeMillis() >= deadline) return null
         pixels = Resampler.premultiply(pixels)
 
         // 只有确实需要放大时才走 Mitchell; 源已达目标尺寸时保持 1:1, 不做无谓重采样。
         //
         // 锐化必须与放大绑定, 不能无条件执行: 锐化补偿的是"重采样造成的边缘软化", 源分辨率
         // 本就达标时再锐化只会让边缘过冲, 在深色背景上表现为一圈亮边(负收益)。
-        if (rasterSize < targetSize && SystemClock.uptimeMillis() < deadline) {
+        if (rasterSize < targetSize) {
             pixels = Resampler.upscaleMitchell(pixels, rasterSize, rasterSize, targetSize, targetSize)
-
+            if (SystemClock.uptimeMillis() >= deadline) return null
             if (SystemClock.uptimeMillis() < deadline) {
                 pixels = Resampler.unsharpMask(pixels, targetSize, targetSize, sharpenAmount(lv), SHARPEN_TAU)
             }
         }
-
+        if (SystemClock.uptimeMillis() >= deadline) return null
         pixels = Resampler.unpremultiply(pixels)
         return Resampler.toBitmap(pixels, targetSize)
     }
