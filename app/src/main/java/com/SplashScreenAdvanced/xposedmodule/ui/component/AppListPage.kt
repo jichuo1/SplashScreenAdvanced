@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -18,6 +19,7 @@ import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeAppDraft
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeAppDraftSnapshot
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeContentViewport
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeRow
 import com.SplashScreenAdvanced.xposedmodule.utils.HanziToPinyin
@@ -152,7 +154,9 @@ fun NativePageUi.appList(checkedKey: PreferenceKey<Set<String>>? = null, duratio
         }
     }
     list.adapter = adapter
-    root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+    root.addView(NativeContentViewport(activity).apply {
+        addView(list, FrameLayout.LayoutParams(-1, -1))
+    }, LinearLayout.LayoutParams(-1, 0, 1f))
     search.addTextChangedListener(object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { query = s?.toString().orEmpty(); filter() }

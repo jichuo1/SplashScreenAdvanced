@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.widget.FrameLayout
 
-/** Scroll/elastic children may draw into their margins, but never into window chrome. */
+// Elastic interactions can temporarily disable the standard ViewGroup clipping flags.
 internal class NativeContentViewport(context: Context) : FrameLayout(context) {
     override fun dispatchDraw(canvas: Canvas) {
         val checkpoint = canvas.save()
