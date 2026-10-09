@@ -1,31 +1,33 @@
 [versions]
-agp = "9.4.0"
-kotlin = "2.4.20"
+agp = "9.4.1"
+kotlin = "2.4.21"
 ksp = "2.3.12"
 
 libxposed-api = "102.0.0"
 libxposed-service = "102.0.0"
-kavaref = "1.1.0"
+kavaref = "1.1.1"
 koin = "4.2.2"
 palette = "1.0.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 
-miuix = "0.9.3"
+miuix = "0.9.4"
+# The retired Navigation 3 adapter's last published version is 0.9.3; 0.9.4 uses miuix-nav instead.
+miuix-navigation3 = "0.9.3"
 compose-foundation = "1.12.1"
 activity-compose = "1.13.0"
-navigation3 = "1.1.7"
+navigation3 = "1.2.0"
 navigationevent = "1.1.0"
 lifecycle = "2.11.0"
-betterandroid = "1.1.4"
-dexkit = "2.2.0"
+betterandroid = "1.1.6"
+dexkit = "2.3.0"
 profileinstaller = "1.4.1"
-lumen = "1.2.1"
-benchmark = "1.4.1"
-androidx-junit = "1.2.1"
-androidx-test-runner = "1.6.2"
-espresso = "3.6.1"
-uiautomator = "2.3.0"
+lumen = "1.2.2"
+benchmark = "1.5.0"
+androidx-junit = "1.3.0"
+androidx-test-runner = "1.7.0"
+espresso = "3.7.0"
+uiautomator = "2.4.0"
 
 [libraries]
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed-api" }
@@ -44,7 +46,7 @@ miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference", version.
 miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur", version.ref = "miuix" }
 miuix-squircle = { module = "top.yukonga.miuix.kmp:miuix-squircle", version.ref = "miuix" }
-miuix-navigation3-ui = { module = "top.yukonga.miuix.kmp:miuix-navigation3-ui", version.ref = "miuix" }
+miuix-navigation3-ui = { module = "top.yukonga.miuix.kmp:miuix-navigation3-ui", version.ref = "miuix-navigation3" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose-foundation" }
 androidx-material-ripple = { module = "androidx.compose.material:material-ripple", version.ref = "compose-foundation" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }

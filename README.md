@@ -86,7 +86,7 @@ MIUI / HyperOS 与 ColorOS 走专门分支，其余系统走 AOSP 通用路径�
 
 ### 设置界面
 
-界面使用 Android 原生 View，直接接入 [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) `1.0.0`：设置页由原生 Activity 承载，卡片、顶栏和弹窗采用引擎材质，二级页打开、关闭和预测返回由引擎的容器形变控制器驱动。开关、滑块、输入框和颜色拖动使用原生控件及 Canvas。
+界面使用 Android 原生 View，直接接入 [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) `1.2.2`：设置页由原生 Activity 承载，卡片、顶栏和弹窗采用引擎材质，二级页打开、关闭和预测返回由引擎的容器形变控制器驱动。开关、滑块、输入框和颜色拖动使用原生控件及 Canvas。
 
 在「基础设置」中可选择柔光或高级材质，以及经典强调色或壁纸配色。高级材质可开启本应用窗口的实时背景取样；渲染无法正常工作时由引擎自动回退。材质健康状态由引擎在模块应用私有目录内保存。
 
