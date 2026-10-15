@@ -140,6 +140,25 @@ android {
         buildConfig = true
     }
 
+    androidResources {
+        localeFilters += listOf("en", "zh-rCN", "zh-rTW", "ja", "es", "ru", "fr")
+    }
+
+    lint {
+        // 发布流水线 verify 阶段已强制执行全量 lintDebug，
+        // 关闭 assembleRelease 阶段重复运行的子集任务 lintVitalRelease。
+        checkReleaseBuilds = false
+        checkDependencies = false
+        // 屏蔽三方库推广自身扩展函数的 UAST 扫描规则与无关的 AppCompat 组件建议。
+        disable += setOf(
+            "ReplaceWithKavaRefExtension",
+            "ReplaceWithIntentExtension",
+            "ReplaceWithServiceExtension",
+            "ReplaceWithAndroidVersion",
+            "UseSwitchCompatOrMaterialCode",
+        )
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
@@ -194,7 +213,7 @@ dependencies {
     implementation(libs.dexkit)
     implementation(libs.androidx.profileinstaller)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.uiautomator)
