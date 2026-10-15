@@ -138,29 +138,26 @@ jobs:
       - name: Set up Gradle and restore build cache
         uses: gradle/actions/setup-gradle@v6
         with:
-          # Keep the cache provider open-source and avoid overlapping setup-java caches.
+          # Keep the cache provider open-source and overwrite existing entries so
+          # source-only commits still update the task cache for subsequent runs and publish.
           cache-provider: basic
+          cache-overwrite-existing: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           # packages 默认值 "tools platform-tools" 会跑 `sdkmanager tools`，而 Google 已把废弃多年的
           # tools 包从 SDK 仓库下架，该调用直接 exit 1，把整个 job 卡死在 setup 阶段。
-          # 上游 v4.0.1 还没改这个默认值，只能在调用处覆盖。其余 SDK 包由下一步显式声明。
-          packages: platform-tools
-
-      - name: Install Android SDK packages
-        shell: bash
-        run: sdkmanager "${CI_COMPILE_SDK_PACKAGE}" "build-tools;${CI_BUILD_TOOLS}"
+          # 上游 v4.0.1 还没改这个默认值，只能在调用处显式声明所需 SDK 包，单次调用装齐。
+          packages: platform-tools ${{ env.CI_COMPILE_SDK_PACKAGE }} build-tools;${{ env.CI_BUILD_TOOLS }}
 
       - name: Build, test, lint and validate Release minification
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew \
-            "-Dorg.gradle.jvmargs=-Xmx6144m -Dfile.encoding=UTF-8" \
-            assembleDebug testDebugUnitTest lintDebug minifyReleaseWithR8 \
-            --console=plain --no-daemon --continue
+            :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:minifyReleaseWithR8 \
+            --console=plain --continue
 
       - name: Upload lint reports on failure
         if: failure()
@@ -226,18 +223,15 @@ jobs:
         with:
           # Restore the verify job's dependency/R8 task cache before signing.
           cache-provider: basic
+          cache-read-only: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           # packages 默认值 "tools platform-tools" 会跑 `sdkmanager tools`，而 Google 已把废弃多年的
           # tools 包从 SDK 仓库下架，该调用直接 exit 1，把整个 job 卡死在 setup 阶段。
-          # 上游 v4.0.1 还没改这个默认值，只能在调用处覆盖。其余 SDK 包由下一步显式声明。
-          packages: platform-tools
-
-      - name: Install Android SDK packages
-        shell: bash
-        run: sdkmanager "${CI_COMPILE_SDK_PACKAGE}" "build-tools;${CI_BUILD_TOOLS}"
+          # 上游 v4.0.1 还没改这个默认值，只能在调用处显式声明所需 SDK 包，单次调用装齐。
+          packages: platform-tools ${{ env.CI_COMPILE_SDK_PACKAGE }} build-tools;${{ env.CI_BUILD_TOOLS }}
 
       - name: Restore fixed release signing identity
         id: signing
@@ -271,9 +265,8 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew \
-            "-Dorg.gradle.jvmargs=-Xmx6144m -Dfile.encoding=UTF-8" \
-            assembleRelease \
-            --console=plain --no-daemon
+            :app:assembleRelease \
+            --console=plain
 
       - name: Verify signed Stable APK and generate provenance
         id: apk
