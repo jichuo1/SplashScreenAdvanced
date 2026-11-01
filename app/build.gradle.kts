@@ -83,7 +83,11 @@ val releaseVersionNameOverride: String? =
 
 android {
     namespace = projectProperty("project.app.packageName")
-    compileSdk = projectProperty("project.android.compileSdk").toInt()
+    compileSdk {
+        version = release(projectProperty("project.android.compileSdk").toInt()) {
+            minorApiLevel = projectProperty("project.android.compileSdkMinor").toInt()
+        }
+    }
 
     defaultConfig {
         applicationId = projectProperty("project.app.packageName")

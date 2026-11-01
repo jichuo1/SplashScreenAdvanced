@@ -23,8 +23,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # sdkmanager 的包 id 带小版本号（platforms;android-37.0），与 Gradle 属性不同名。
-  CI_COMPILE_SDK_PACKAGE: 'platforms;android-37.0'
+  # sdkmanager 的包 id 带小版本号（platforms;android-37.2），与 Gradle 属性不同名。
+  CI_COMPILE_SDK_PACKAGE: 'platforms;android-37.2'
   # 发布阶段要用这套 build-tools 里的 aapt / apksigner 做产物校验。
   CI_BUILD_TOOLS: '37.0.0'
 

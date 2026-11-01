@@ -140,7 +140,7 @@ flowchart TD
 
 ## Build
 
-Requires **JDK 21** and **Android SDK Platform 37**.
+Requires **JDK 21** and **Android SDK Platform 37.2**.
 
 ```bash
 git clone https://github.com/jichuo1/SplashScreenAdvanced.git
