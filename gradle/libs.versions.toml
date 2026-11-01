@@ -4,7 +4,7 @@ kotlin = "2.4.21"
 
 libxposed-api = "102.0.0"
 libxposed-service = "102.0.0"
-kavaref = "1.1.1"
+meguviz-ref = "1.0.0"
 koin = "4.2.2"
 palette = "1.0.0"
 kotlinx-coroutines = "1.11.0"
@@ -23,9 +23,7 @@ uiautomator = "2.4.0"
 [libraries]
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed-api" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed-service" }
-kavaref-core = { module = "com.highcapable.kavaref:kavaref-core", version.ref = "kavaref" }
-kavaref-android = { module = "com.highcapable.kavaref:kavaref-android", version.ref = "kavaref" }
-kavaref-extension = { module = "com.highcapable.kavaref:kavaref-extension", version.ref = "kavaref" }
+meguviz-ref-core = { module = "io.github.jichuo1.meguviz:meguviz-ref-core", version.ref = "meguviz-ref" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "palette" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

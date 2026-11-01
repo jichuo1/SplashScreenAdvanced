@@ -186,7 +186,7 @@ cd SplashScreenAdvanced
 |:---|:---|
 | [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) | 上游项目 |
 | [libxposed](https://github.com/libxposed) | 模块 API 与服务 |
-| [KavaRef](https://github.com/HighCapable/KavaRef) | 运行期反射 |
+| [MeguvizRef](https://github.com/jichuo1/MeguvizRef) | 运行期反射 |
 | [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) | 界面材质与页面过渡 |
 | [DexKit](https://github.com/LuckyPray/DexKit) | 宿主类查找 |
 | [BetterAndroid](https://github.com/BetterAndroid/BetterAndroid) | Android 系统扩展 |

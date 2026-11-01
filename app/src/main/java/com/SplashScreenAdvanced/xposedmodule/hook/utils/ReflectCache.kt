@@ -1,6 +1,5 @@
 package com.SplashScreenAdvanced.xposedmodule.hook.utils
 
-import com.highcapable.kavaref.extension.makeAccessible
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -30,15 +29,9 @@ object ReflectCache {
         val key = FieldKey(clazz, name)
         fieldCache[key]?.let { return it }
         if (key in fieldMisses) return null
-        var current: Class<*>? = clazz
-        while (current != null) {
-            try {
-                return current.getDeclaredField(name)
-                    .apply { makeAccessible() }
-                    .also { fieldCache[key] = it }
-            } catch (_: NoSuchFieldException) {
-                current = current.superclass
-            }
+        val fieldName = name
+        clazz.findField(superclasses = true) { this.name = fieldName }?.let {
+            return it.makeAccessible().also { field -> fieldCache[key] = field }
         }
         fieldMisses += key
         return null
@@ -49,14 +42,12 @@ object ReflectCache {
         val key = MethodKey(clazz, name, paramCount)
         methodCache[key]?.let { return it }
         if (key in methodMisses) return null
-        var current: Class<*>? = clazz
-        while (current != null) {
-            current.declaredMethods.firstOrNull { it.name == name && it.parameterCount == paramCount }?.let {
-                it.makeAccessible()
-                methodCache[key] = it
-                return it
-            }
-            current = current.superclass
+        val methodName = name
+        clazz.findMethod(superclasses = true) {
+            this.name = methodName
+            parameterCount = paramCount
+        }?.let {
+            return it.makeAccessible().also { method -> methodCache[key] = method }
         }
         methodMisses += key
         return null

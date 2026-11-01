@@ -192,7 +192,7 @@ The original author's personal branding assets, community links and donation inf
 |:---|:---|
 | [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) | Upstream project |
 | [libxposed](https://github.com/libxposed) | Module API and services |
-| [KavaRef](https://github.com/HighCapable/KavaRef) | Runtime reflection |
+| [MeguvizRef](https://github.com/jichuo1/MeguvizRef) | Runtime reflection |
 | [DexKit](https://github.com/LuckyPray/DexKit) | Host class lookup |
 | [BetterAndroid](https://github.com/BetterAndroid/BetterAndroid) | Android system extensions |
 | [miuix](https://github.com/miuix-kotlin-multiplatform/miuix) | Settings UI components |

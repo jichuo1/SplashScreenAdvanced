@@ -1,7 +1,7 @@
 package com.SplashScreenAdvanced.xposedmodule.utils
 
 import android.os.Build
-import com.highcapable.kavaref.extension.toClass
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClass
 
 /**
  * 进程内的设备判断

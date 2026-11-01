@@ -6,10 +6,10 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.DexHostQueries
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getField
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.findMethod
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.toTyped
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.get
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
-import com.highcapable.kavaref.KavaRef.Companion.resolve
 import io.github.libxposed.api.XposedModule
 import java.io.File
 
@@ -48,7 +48,7 @@ object AndroidHooker {
 
         // launchedFromSystemSurface 进程内恒定, 解析一次复用; 下方 hook 每次 activity 启动都会执行,
         // 不能在 hook 体内做全表反射扫描
-        val launchedFromSystemSurface = activityRecordClass.resolve().optional().firstMethodOrNull {
+        val launchedFromSystemSurface = activityRecordClass.findMethod {
             name = "launchedFromSystemSurface"
             parameterCount = 0
         }?.toTyped<Boolean>()
@@ -69,10 +69,10 @@ object AndroidHooker {
          * 此处在 evaluateStartingWindowTheme() 中被调用，最终将参数传递给 showStartingWindow()
          */
         HookManager {
-            activityRecordClass.resolve().optional().firstMethodOrNull {
+            activityRecordClass.findMethod {
                 name = "validateStartingWindowTheme"
                 parameterCount = 3
-            }?.self
+            }
         }.counted("validateStartingWindowTheme").addBeforeHook({ true }) {
             val pkgName = args(1).string()
             // 惰性求值: 功能未启用 / 不在列表时, 不触发 launchedFromSystemSurface 反射调用
@@ -92,27 +92,25 @@ object AndroidHooker {
         // 保证 args[1] 语义不漂移; 彻底缺失时由下方 showStartingWindow 的参数改写兜底,
         // 末尾还会 dump ActivityRecord 上候选方法供定位
         val getStartingWindowTypeHook = HookManager {
-            activityRecordClass.resolve().optional().let { resolver ->
-                resolver.firstMethodOrNull {
-                    name = "getStartingWindowType"
-                    parameterCount = 7
-                } ?: resolver.firstMethodOrNull {
-                    name = "getStartingWindowType"
-                    parameters { types ->
-                        types.size >= 2 &&
-                                types[0] == Boolean::class.javaPrimitiveType &&
-                                types[1] == Boolean::class.javaPrimitiveType
-                    }
+            activityRecordClass.findMethod {
+                name = "getStartingWindowType"
+                parameterCount = 7
+            } ?: activityRecordClass.findMethod {
+                name = "getStartingWindowType"
+                parameters { types ->
+                    types.size >= 2 &&
+                            types[0] == Boolean::class.javaPrimitiveType &&
+                            types[1] == Boolean::class.javaPrimitiveType
                 }
-            }?.self
+            }
         }.counted("getStartingWindowType")
 
         // 彻底关闭 Splash Screen
         HookManager {
-            activityRecordClass.resolve().optional().firstMethodOrNull {
+            activityRecordClass.findMethod {
                 name = "showStartingWindow"
                 parameterCount = 7
-            }?.self
+            }
         }.counted("showStartingWindow").addBeforeHook({ true }) {
             val currentPkgName = instance!!.getField<String>("packageName")
 

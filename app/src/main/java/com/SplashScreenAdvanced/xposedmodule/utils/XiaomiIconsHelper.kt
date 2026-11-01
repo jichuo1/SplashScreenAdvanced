@@ -14,13 +14,15 @@ import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.base.HookManager
 import com.SplashScreenAdvanced.xposedmodule.hook.systemui.IconHookHandler.getActivityIconOrApp
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.classOf
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.findField
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.findMethod
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.requireField
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClass
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClassOrNull
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.getValueFrom
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.setValueTo
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.toTyped
-import com.highcapable.kavaref.KavaRef.Companion.resolve
-import com.highcapable.kavaref.extension.classOf
-import com.highcapable.kavaref.extension.toClass
-import com.highcapable.kavaref.extension.toClassOrNull
 
 /**
  * 用于从小米桌面检索大图标的辅助类
@@ -45,11 +47,11 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
     }
 
     private val mDependencyGet by lazy {
-        dependencyClazz?.resolve()?.optional()?.firstMethodOrNull {
+        dependencyClazz?.findMethod {
             name = "get"
             parameterCount = 1
             parameters(Class::class)
-        }?.self
+        }
     }
 
     private val interfacesImplManagerClazz by lazy {
@@ -57,11 +59,11 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
     }
 
     private val mImplManagerGet by lazy {
-        interfacesImplManagerClazz?.resolve()?.optional()?.firstMethodOrNull {
+        interfacesImplManagerClazz?.findMethod {
             name = "getImpl"
             parameterCount = 1
             parameters(Class::class)
-        }?.self
+        }
     }
 
     private val appIconsManagerClazz by lazy {
@@ -149,11 +151,11 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
     }
 
     private val getFancyChildOrSelf by lazy {
-        drawableUtilsClazz?.resolve()?.optional()?.firstMethodOrNull {
+        drawableUtilsClazz?.findMethod {
             name = "getFancyChildOrSelf"
             parameterCount = 2
             parameters(Drawable::class, Boolean::class)
-        }?.self
+        }
     }
 
     /** 当前是否启用 MIUI 完美图标 */
@@ -168,32 +170,32 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
     // 每次应用启动都会调用, 不能在方法体内重复做全表反射扫描
 
     private val userHandleCurrent by lazy {
-        classOf<UserHandle>().resolve().firstField { name = "CURRENT" }.getValueFrom<UserHandle, Any>(null)
+        classOf<UserHandle>().requireField { name = "CURRENT" }.getValueFrom<UserHandle, Any>(null)
     }
 
     private val hasLargeIconMethod by lazy {
-        largeIconsHelperClazz.resolve().optional().firstMethodOrNull {
+        largeIconsHelperClazz.findMethod {
             name = "hasLargeIcon"
             parameters(String::class, String::class, String::class, UserHandle::class)
         }?.toTyped<Boolean>()
     }
 
     private val getLargeIconConfigFileMethod by lazy {
-        largeIconsHelperClazz.resolve().optional().firstMethodOrNull {
+        largeIconsHelperClazz.findMethod {
             name = "getLargeIconConfigFile"
             parameters(String::class, Boolean::class)
         }?.toTyped<Any>()
     }
 
     private val getLargeIconDrawableMethod by lazy {
-        largeIconsHelperClazz.resolve().optional().firstMethodOrNull {
+        largeIconsHelperClazz.findMethod {
             name = "getLargeIconDrawable"
             parameters(Context::class, String::class, String::class, String::class, String::class, Long::class, UserHandle::class)
         }?.toTyped<Any>()
     }
 
     private val sManagerListField by lazy {
-        largeIconsHelperClazz.resolve().optional().firstFieldOrNull { name = "sManagerList" }
+        largeIconsHelperClazz.findField { name = "sManagerList" }
     }
 
     private val hasLargeIconCache = ConcurrentHashMap<String, Boolean>()
@@ -228,7 +230,7 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
                 // 防止获取到 System UI 的 Resources
                 HookManager(true) {
                     "miuix.pickerwidget.date.CalendarFormatSymbols".toClassOrNull(loader = miuiHomeContext.classLoader)
-                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getWeekDays" }?.self
+                        ?.findMethod { name = "getWeekDays" }
                 }.addReplaceHook({ true }) {
                     val resources = miuiHomeContext.resources
                     val id = resources.getIdentifier("week_days", "array", "com.miui.home")
@@ -238,7 +240,7 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
                 // 为获取完美图标时设置一个缓存时间, 避免获取费时图标(如天气)时, 经常显示不出数据的问题 原调用为固定值 0.
                 HookManager(true) {
                     "com.miui.maml.util.AppIconsHelper".toClassOrNull(loader = miuiHomeContext.classLoader)
-                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getFancyIconDrawable" }?.self
+                        ?.findMethod { name = "getFancyIconDrawable" }
                 }.addBeforeHook({ true }) {
                     val packageName = args(args.indexOfFirst { it is String }).string()
                     val cacheTimeIndex = args.indexOfFirst { it is Long }
@@ -248,7 +250,7 @@ class XiaomiIconsHelper(private val context: Context, private val classLoader: C
                 // 只获取本地天气数据, 不获取网络数据; 参考 https://zhuti.designer.xiaomi.com/docs/blog/weatherApi.html
                 HookManager(true) {
                     "com.miui.maml.data.ContentProviderBinder".toClassOrNull(loader = miuiHomeContext.classLoader)
-                        ?.resolve()?.optional()?.firstMethodOrNull { name = "getUriText" }?.self
+                        ?.findMethod { name = "getUriText" }
                 }.addAfterHook({ true }) {
                     if (result == "content://weather/actualWeatherData/1")
                         result = "content://weather/actualWeatherData/2"

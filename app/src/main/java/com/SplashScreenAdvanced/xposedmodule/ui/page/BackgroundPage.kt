@@ -9,7 +9,7 @@ import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
-import com.highcapable.kavaref.extension.toClassOrNull
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClassOrNull
 
 fun NativePageUi.buildBackgroundPage(): View = scrollContent {
     addSetting(header(R.drawable.demo_background, "BACKGROUND"))

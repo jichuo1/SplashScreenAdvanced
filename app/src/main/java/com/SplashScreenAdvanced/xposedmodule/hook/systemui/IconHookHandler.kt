@@ -26,7 +26,11 @@ import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getDevPrefs
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.RemotePreferences.observe
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.ReflectCache
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.SplashOutcomeLog
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.classOf
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.getValueFrom
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.requireField
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClass
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.BGColorModes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ChangeBGColorTypes
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
@@ -43,9 +47,6 @@ import com.SplashScreenAdvanced.xposedmodule.utils.XiaomiIconsHelper
 import com.SplashScreenAdvanced.xposedmodule.wrapper.AdaptiveForegroundLayerDrawable
 import com.SplashScreenAdvanced.xposedmodule.wrapper.NoStrokeAdaptiveIconDrawable
 import com.SplashScreenAdvanced.xposedmodule.wrapper.TransparentAdaptiveIconDrawable
-import com.highcapable.kavaref.KavaRef.Companion.resolve
-import com.highcapable.kavaref.extension.classOf
-import com.highcapable.kavaref.extension.toClass
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -111,8 +112,8 @@ object IconHookHandler : BaseHookHandler() {
      */
     private val startingSurfaceIconSizeResId by lazy {
         runCatching {
-            $$"com.android.internal.R$dimen".toClass(loader = appClassLoader).resolve()
-                .firstField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)
+            $$"com.android.internal.R$dimen".toClass(loader = appClassLoader)
+                .requireField { name = "starting_surface_icon_size" }.getValueFrom<Any, Int>(null)
         }.getOrNull()
     }
 
@@ -251,13 +252,31 @@ object IconHookHandler : BaseHookHandler() {
                     currentIsNeedShrinkIcon &&
                     currentUseBigHyperOSLagerIcon != true
             // 不为小米大图标绘制圆角
-            val needRoundCorner = prefs.get(Preferences.Display.ENABLE_DRAW_ROUND_CORNER) &&
-                    currentUseBigHyperOSLagerIcon != true
+            val roundCornerEnabled = prefs.get(Preferences.Display.ENABLE_DRAW_ROUND_CORNER)
+            val needRoundCorner = roundCornerEnabled && currentUseBigHyperOSLagerIcon != true
+            if (roundCornerEnabled && !needRoundCorner) {
+                SplashOutcomeLog.note(currentPackageName, "round corner skipped: HyperOS large icon")
+            }
             if (!needBlurBg && !needRoundCorner) return@addAfterHook
 
-            val splashScreenView = result as? FrameLayout ?: return@addAfterHook
-            val iconView = ReflectCache.getField<ImageView>(splashScreenView, "mIconView")
-                ?: return@addAfterHook
+            val splashScreenView = result as? FrameLayout ?: run {
+                if (roundCornerEnabled) SplashOutcomeLog.note(
+                    currentPackageName, "round corner skipped: splash view is ${result?.javaClass?.simpleName}, not FrameLayout"
+                )
+                return@addAfterHook
+            }
+            val iconViewRaw = ReflectCache.getField<View>(splashScreenView, "mIconView") ?: run {
+                if (roundCornerEnabled) SplashOutcomeLog.note(currentPackageName, "round corner skipped: mIconView not found")
+                return@addAfterHook
+            }
+            // 动画图标走 SurfaceView 路径 (mIconView 不是 ImageView); 直接按 ImageView 取会在此抛
+            // ClassCastException 并被 invokeIsolated 吞掉, 行为同样是整体跳过, 这里改为显式跳过并记录原因
+            val iconView = iconViewRaw as? ImageView ?: run {
+                if (roundCornerEnabled) SplashOutcomeLog.note(
+                    currentPackageName, "round corner skipped: mIconView is ${iconViewRaw.javaClass.simpleName} (animated icon surface)"
+                )
+                return@addAfterHook
+            }
 
             // 创建模糊背景 View —— 纯 View 层实现, 全部走 GPU:
             // 放大图标经圆角轮廓裁剪后由 RenderEffect 模糊向外溢出, 不再预烘软件位图
@@ -315,11 +334,18 @@ object IconHookHandler : BaseHookHandler() {
                 val iconDrawable = ReflectCache.getField<Drawable>(instance!!, "mIconDrawable")
                 when {
                     // 没有图标时不绘制圆角
-                    iconDrawable == null ->
+                    iconDrawable == null -> {
+                        SplashOutcomeLog.note(currentPackageName, "round corner skipped: no icon drawable")
                         printLog { "build_SplashScreenViewBuilder(): skip round corner, no icon drawable" }
+                    }
                     // 不为动态图标绘制圆角
-                    iconAnimateListenerClass in iconDrawable.javaClass.interfaces ->
+                    iconAnimateListenerClass in iconDrawable.javaClass.interfaces -> {
+                        SplashOutcomeLog.note(
+                            currentPackageName,
+                            "round corner skipped: animated icon (${iconDrawable.javaClass.simpleName})"
+                        )
                         printLog { "build_SplashScreenViewBuilder(): skip round corner for animated icon" }
+                    }
 
                     else -> {
                         // 通过 View 轮廓剪裁绘制圆角
@@ -332,6 +358,12 @@ object IconHookHandler : BaseHookHandler() {
                             }
                         }
                         iconView.clipToOutline = true
+                        // 仅前景层时不绘制背景与遮罩形状, 圆角只裁剪视图边界, 前景未铺满时看不出圆角
+                        SplashOutcomeLog.note(
+                            currentPackageName,
+                            "round corner applied (source=$currentIconSourceTag, icon=${iconDrawable.javaClass.simpleName}" +
+                                    if (currentIconSourceTag.endsWith("|fg")) ", foreground-only: corners visible only if the layer is full-bleed)" else ")"
+                        )
                         printLog { "build_SplashScreenViewBuilder(): draw icon round corner" }
                     }
                 }

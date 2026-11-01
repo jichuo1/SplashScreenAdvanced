@@ -1,7 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.hook.utils
 
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
-import com.highcapable.kavaref.extension.toClassOrNull
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher

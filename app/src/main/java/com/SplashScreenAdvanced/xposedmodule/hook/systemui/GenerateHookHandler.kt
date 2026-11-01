@@ -11,6 +11,8 @@ import com.SplashScreenAdvanced.xposedmodule.hook.SystemUIHooker
 import com.SplashScreenAdvanced.xposedmodule.hook.base.BaseHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.DeferredRemovalQueue
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookCallScope
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.ScopeRule
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.SplashOutcomeLog
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.StartingTaskRegistry
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.getMapPrefs
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.printLog
@@ -107,6 +109,13 @@ object GenerateHookHandler : BaseHookHandler() {
 
             session.activityInfo = activityInfo
             session.except = isExcept(activityInfo.packageName)
+            if (session.except) {
+                SplashOutcomeLog.note(
+                    activityInfo.packageName,
+                    "out of custom scope (${if (prefs.get(Preferences.Scope.IS_CUSTOM_SCOPE_EXCEPTION_MODE)) "excluded" else "not selected"}), " +
+                            "icon / round corner / background left to the system"
+                )
+            }
             tasks.put(taskId(args, creation = true), StartingTask(
                 activityInfo.packageName,
                 if (session.except) 0L else minimumDuration(activityInfo.packageName),
@@ -301,14 +310,17 @@ object GenerateHookHandler : BaseHookHandler() {
      * @return 是否应执行Hook操作
      */
     internal fun isExcept(packageName: String = currentPackageName): Boolean {
-        return if (packageName.isBlank())
-            true
-        else {
-            val list = prefs.get(Preferences.AppList.CUSTOM_SCOPE_LIST)
-            val isExceptionMode = prefs.get(Preferences.Scope.IS_CUSTOM_SCOPE_EXCEPTION_MODE)
-            (prefs.get(Preferences.Scope.ENABLE_CUSTOM_SCOPE)
-                    && ((isExceptionMode && (packageName in list))
-                    || (!isExceptionMode && packageName !in list)))
-        }
+        if (packageName.isBlank()) return true
+        val customScopeEnabled = prefs.get(Preferences.Scope.ENABLE_CUSTOM_SCOPE)
+        if (!customScopeEnabled) return false
+        return ScopeRule.isExcept(
+            packageName = packageName,
+            customScopeEnabled = true,
+            exceptionMode = prefs.get(Preferences.Scope.IS_CUSTOM_SCOPE_EXCEPTION_MODE),
+            scopeList = prefs.get(Preferences.AppList.CUSTOM_SCOPE_LIST),
+            forceShowPackages = if (prefs.get(Preferences.Display.FORCE_SHOW_SPLASH_SCREEN))
+                prefs.get(Preferences.AppList.FORCE_SHOW_SPLASH_SCREEN_LIST)
+            else emptySet(),
+        )
     }
 }

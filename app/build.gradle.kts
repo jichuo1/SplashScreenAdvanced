@@ -151,7 +151,6 @@ android {
         checkDependencies = false
         // 屏蔽三方库推广自身扩展函数的 UAST 扫描规则与无关的 AppCompat 组件建议。
         disable += setOf(
-            "ReplaceWithKavaRefExtension",
             "ReplaceWithIntentExtension",
             "ReplaceWithServiceExtension",
             "ReplaceWithAndroidVersion",
@@ -200,9 +199,7 @@ dependencies {
 
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)
-    implementation(libs.kavaref.core)
-    implementation(libs.kavaref.android)
-    implementation(libs.kavaref.extension)
+    implementation(libs.meguviz.ref.core)
     implementation(libs.koin.android)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.kotlinx.coroutines.android)

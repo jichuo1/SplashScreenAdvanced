@@ -3,9 +3,9 @@ package com.SplashScreenAdvanced.xposedmodule.wrapper
 import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
-import com.highcapable.kavaref.extension.classOf
-import com.highcapable.kavaref.extension.makeAccessible
-import com.highcapable.kavaref.extension.toClassOrNull
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.classOf
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.makeAccessible
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClassOrNull
 import java.lang.reflect.Method
 
 /**

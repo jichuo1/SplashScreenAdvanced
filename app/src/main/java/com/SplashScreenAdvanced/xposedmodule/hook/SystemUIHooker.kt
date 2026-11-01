@@ -19,15 +19,16 @@ import com.SplashScreenAdvanced.xposedmodule.hook.systemui.XiaomiHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.DexHostQueries
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HookExt.loadHookHandler
 import com.SplashScreenAdvanced.xposedmodule.hook.utils.HostDexLookup
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.classOf
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.findConstructor
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.findMethod
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.makeAccessible
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClass
+import com.SplashScreenAdvanced.xposedmodule.hook.utils.toClassOrNull
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isColorOS
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils.isHyperOS
 import com.SplashScreenAdvanced.xposedmodule.utils.XMLog
-import com.highcapable.kavaref.KavaRef.Companion.resolve
-import com.highcapable.kavaref.extension.classOf
-import com.highcapable.kavaref.extension.makeAccessible
-import com.highcapable.kavaref.extension.toClass
-import com.highcapable.kavaref.extension.toClassOrNull
 import io.github.libxposed.api.XposedModule
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -95,41 +96,40 @@ object SystemUIHooker {
         }
 
         val makeSplashScreenContentView = HookManager {
-            splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.let { resolver ->
-                    // 优先匹配参数含 ActivityInfo/StartingWindowInfo 的重载:
-                    // ROM 若加了同名重载, 无条件 firstMethodOrNull 可能钩到错误签名
-                    resolver.firstMethodOrNull {
-                        name = "makeSplashScreenContentView"
-                        parameters { types ->
-                            types.any {
-                                it == classOf<ActivityInfo>() || it.name.endsWith("StartingWindowInfo")
-                            }
+            splashscreenContentDrawerClass?.let { owner ->
+                // 优先匹配参数含 ActivityInfo/StartingWindowInfo 的重载:
+                // ROM 若加了同名重载, 无条件取首个同名方法可能钩到错误签名
+                owner.findMethod {
+                    name = "makeSplashScreenContentView"
+                    parameters { types ->
+                        types.any {
+                            it == classOf<ActivityInfo>() || it.name.endsWith("StartingWindowInfo")
                         }
-                    } ?: resolver.firstMethodOrNull { name = "makeSplashScreenContentView" }
-                }?.self
+                    }
+                } ?: owner.findMethod { name = "makeSplashScreenContentView" }
+            }
         }
         val getWindowAttrs = HookManager {
             splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "getWindowAttrs"
                     parameterCount = 2
-                }?.self
+                }
         }
         val getBGColorFromCache = HookManager {
             splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "getBGColorFromCache"
                     parameterCount = 2
-                }?.self
+                }
         }
         val startingWindowViewBuilderConstructor = HookManager {
             startingWindowViewBuilderClass
-                ?.resolve()?.optional()?.firstConstructorOrNull { parameterCount { it >= 2 } }?.self
+                ?.findConstructor { parameterCount { it >= 2 } }
         }
         val createIconDrawable = HookManager {
             startingWindowViewBuilderClass
-                ?.resolve()?.optional()?.firstMethodOrNull { name = "createIconDrawable" }?.self
+                ?.findMethod { name = "createIconDrawable" }
         }
         /**
          * 强制样式落到最终决策点
@@ -144,9 +144,9 @@ object SystemUIHooker {
          */
         val chooseStyle_SplashViewBuilder = HookManager {
             startingWindowViewBuilderClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "chooseStyle"
-                }?.self
+                }
         }
         /**
          * chooseStyle 缺失 ROM (如 OneUI 8.5 实测未解析) 的兜底落点:
@@ -154,17 +154,17 @@ object SystemUIHooker {
          */
         val build_StartingWindowViewBuilder = HookManager {
             startingWindowViewBuilderClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "build"
-                }?.self
+                }
         }
         /** 消除 ROM 的 suggestType → splashType 降级分支; AOSP 14 无此方法, 解析为 null 即不安装 */
         val canUseIcon_SplashscreenContentDrawer = HookManager {
             splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "canUseIcon"
                     parameterCount = 1
-                }?.self
+                }
         }
         /**
          * 图标栅格化尺寸修正的落点
@@ -182,7 +182,7 @@ object SystemUIHooker {
             HostDexLookup.findClass(
                 "com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory\$ImmobileIconDrawable",
                 query = DexHostQueries.immobileIconDrawable,
-            )?.resolve()?.optional()?.firstConstructorOrNull()?.self
+            )?.findConstructor()
         }
 
         /**
@@ -197,10 +197,10 @@ object SystemUIHooker {
             HostDexLookup.findClass(
                 "com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory\$ImmobileIconDrawable",
                 query = DexHostQueries.immobileIconDrawable,
-            )?.resolve()?.optional()?.firstMethodOrNull {
+            )?.findMethod {
                 name = "preDrawIcon"
                 parameterCount { it >= 2 }
-            }?.self
+            }
         }
         val iconColor_constructor = HookManager {
             val outerName = splashscreenContentDrawerClass?.name
@@ -208,52 +208,52 @@ object SystemUIHooker {
                 $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$ColorCache$IconColor",
                 *(outerName?.let { arrayOf("$it\$ColorCache\$IconColor") } ?: emptyArray<String>()),
                 query = DexHostQueries.iconColor(outerName),
-            )?.resolve()?.optional()?.firstConstructorOrNull()?.self
+            )?.findConstructor()
         }
         val getIcon_IconProvider = HookManager(!isColorOS) {
             HostDexLookup.findClass(
                 "com.android.launcher3.icons.IconProvider",
                 query = DexHostQueries.iconProvider,
-            )?.resolve()?.optional()?.let { resolver ->
-                resolver.firstMethodOrNull {
+            )?.let { owner ->
+                owner.findMethod {
                     name = "getIcon"
                     parameterCount = 2
                     parameters { types ->
                         Integer.TYPE in types &&
                                 (classOf<ActivityInfo>() in types || classOf<ComponentInfo>() in types)
                     }
-                } ?: resolver.firstMethodOrNull {
+                } ?: owner.findMethod {
                     // 签名细筛落空时的二级匹配: IconProvider 内所有 getIcon 重载返回的都是
                     // 应用图标 Drawable, 回调里 result as Drawable 失败会被 HookManager 隔离
                     name = "getIcon"
                     parameterCount = 2
                     parameters { types -> Integer.TYPE in types }
                 }
-            }?.self
+            }
         }
         val normalizeAndWrapToAdaptiveIcon = HookManager {
-            baseIconFactoryClass?.resolve()?.optional()?.firstMethodOrNull {
+            baseIconFactoryClass?.findMethod {
                 name = "normalizeAndWrapToAdaptiveIcon"
-            }?.self
+            }
         }
         val createIconBitmap_BaseIconFactory = HookManager {
-            baseIconFactoryClass?.resolve()?.optional()?.firstMethodOrNull {
+            baseIconFactoryClass?.findMethod {
                 name = "createIconBitmap"
                 parameters(android.graphics.drawable.Drawable::class, Float::class, Int::class)
-            }?.self
+            }
         }
         val build_SplashScreenViewBuilder = HookManager {
-            $$"android.window.SplashScreenView$Builder".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            $$"android.window.SplashScreenView$Builder".toClassOrNull(loader = classLoader)?.findMethod {
                 name = "build"
-            }?.self
+            }
         }
         val removeStartingWindow = HookManager {
             HostDexLookup.findClass(
                 "com.android.wm.shell.ShellTaskOrganizer",
                 query = DexHostQueries.shellTaskOrganizer,
-            )?.resolve()?.optional()?.firstMethodOrNull {
+            )?.findMethod {
                 name = "removeStartingWindow"
-            }?.self
+            }
         }
 
         /**
@@ -263,10 +263,10 @@ object SystemUIHooker {
          */
         val drawThemeBGColor = HookManager {
             splashscreenContentDrawerClass
-                ?.resolve()?.optional()?.firstMethodOrNull {
+                ?.findMethod {
                     name = "drawThemeBGColor"
                     parameterCount = 2
-                }?.self
+                }
         }
         /**
          * 任务级背景色查询点 (转场/windowless 路径在 view 挂上前先给 surface 涂该色):
@@ -277,32 +277,32 @@ object SystemUIHooker {
                 "com.android.wm.shell.startingsurface.SplashscreenWindowCreator",
                 "com.android.wm.shell.startingsurface.AbsSplashWindowCreator",
             ).firstNotNullOfOrNull { className ->
-                className.toClassOrNull(loader = classLoader)?.resolve()?.optional()
-                    ?.firstMethodOrNull {
+                className.toClassOrNull(loader = classLoader)
+                    ?.findMethod {
                         name = "estimateTaskBackgroundColor"
                         parameterCount = 1
-                    }?.self
+                    }
             } ?: HostDexLookup.findClass(
                 "estimateTaskBackgroundColor",
                 query = DexHostQueries.estimateTaskBackgroundColor,
-            )?.resolve()?.optional()?.firstMethodOrNull {
+            )?.findMethod {
                 name = "estimateTaskBackgroundColor"
                 parameterCount = 1
-            }?.self
+            }
         }
         /** OneUI 8.5 的对应实现: StartingWindowController$StartingSurfaceImpl.getBackgroundColor(TaskInfo) */
         val getBackgroundColor_StartingSurface = HookManager {
             $$"com.android.wm.shell.startingsurface.StartingWindowController$StartingSurfaceImpl"
-                .toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+                .toClassOrNull(loader = classLoader)?.findMethod {
                     name = "getBackgroundColor"
                     parameterCount = 1
-                }?.self ?: HostDexLookup.findClass(
+                } ?: HostDexLookup.findClass(
                 "startingSurfaceBgColor",
                 query = DexHostQueries.startingSurfaceBgColor,
-            )?.resolve()?.optional()?.firstMethodOrNull {
+            )?.findMethod {
                 name = "getBackgroundColor"
                 parameterCount = 1
-            }?.self
+            }
         }
         /**
          * 预加载遮罩复用门 (OneUI 实测存在 SplashscreenContentDrawer$PreloadData):
@@ -315,47 +315,47 @@ object SystemUIHooker {
                 $$"com.android.wm.shell.startingsurface.SplashscreenContentDrawer$PreloadData",
                 *(outerName?.let { arrayOf("$it\$PreloadData") } ?: emptyArray<String>()),
                 query = DexHostQueries.preloadData(outerName),
-            )?.resolve()?.optional()?.firstMethodOrNull {
+            )?.findMethod {
                 name = "canUseContext"
                 parameterCount = 2
-            }?.self
+            }
         }
 
         // Xiaomi
         val isMiuiHome_TaskSnapshotHelperImpl = HookManager(
             isHyperOS && HostDexLookup.findClass("android.app.TaskSnapshotHelperImpl") != null
         ) {
-            HostDexLookup.findClass("android.app.TaskSnapshotHelperImpl")?.resolve()?.optional()?.firstMethodOrNull {
+            HostDexLookup.findClass("android.app.TaskSnapshotHelperImpl")?.findMethod {
                 name = "isMiuiHome"
                 parameters(String::class)
-            }?.self
+            }
         }
         val updateForceDarkSplashScreen_ForceDarkHelperStubImpl = HookManager(isHyperOS) {
-            $$"android.window.SplashScreenView$Builder".toClassOrNull(loader = classLoader)?.resolve()?.optional()?.firstMethodOrNull {
+            $$"android.window.SplashScreenView$Builder".toClassOrNull(loader = classLoader)?.findMethod {
                 name = "isStaringWindowUnderNightMode"
                 emptyParameters()
-            }?.self ?: "android.view.ForceDarkHelperStubImpl".toClassOrNull(loader = classLoader)?.resolve()?.optional()
-                ?.firstMethodOrNull {
+            } ?: "android.view.ForceDarkHelperStubImpl".toClassOrNull(loader = classLoader)
+                ?.findMethod {
                     name = "updateForceDarkSplashScreen"
-                }?.self
+                }
         }
 
         // Oplus
         val setContentViewBackground_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+            oplusStartingWindowManagerClass?.findMethod {
                 name = "setContentViewBackground"
-            }?.self
+            }
         }
         val getIconExt_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+            oplusStartingWindowManagerClass?.findMethod {
                 name = "getIconExt"
                 parameterCount { it >= 4 }
-            }?.self
+            }
         }
         val getWindowAttrsIfPresent_OplusShellStartingWindowManager = HookManager(isColorOS) {
-            oplusStartingWindowManagerClass?.resolve()?.optional()?.firstMethodOrNull {
+            oplusStartingWindowManagerClass?.findMethod {
                 name = "getWindowAttrsIfPresent"
-            }?.self
+            }
         }
     }
 
@@ -370,10 +370,10 @@ object SystemUIHooker {
         this.classLoader = classLoader
 
         val attachHook = HookManager {
-            "android.app.Application".toClass(loader = classLoader).resolve().optional().firstMethodOrNull {
+            "android.app.Application".toClass(loader = classLoader).findMethod {
                 name = "attach"
                 parameters(Context::class)
-            }?.self
+            }
         }
         attachHook.addAfterHook({ true }) {
             if (!hasResult) return@addAfterHook // attach 原方法异常时只让宿主自行处理。
