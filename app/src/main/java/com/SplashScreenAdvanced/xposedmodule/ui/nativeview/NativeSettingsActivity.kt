@@ -1,10 +1,10 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.nativeview
 
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.LayerDrawable
@@ -12,7 +12,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowInsets
+import android.view.ViewGroup
 import android.window.BackEvent
 import android.window.OnBackAnimationCallback
 import android.window.OnBackInvokedDispatcher
@@ -33,7 +33,9 @@ import com.lumen.coacervation.engine.model.SkinId
 import com.SplashScreenAdvanced.xposedmodule.ui.page.*
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.*
 import com.SplashScreenAdvanced.xposedmodule.ui.component.buildColorPickerPage
-import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ModulePreferenceRes
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSearch
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSearchItem
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsTab
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
 import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizFamilyBridge
@@ -53,6 +55,8 @@ import com.lumen.coacervation.engine.motion.morph.ContainerMorphOrigin
 import com.lumen.coacervation.engine.motion.pager.LumenPagePager
 import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +65,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.github.jichuo1.meguviz.android.extensions.isUiInNightMode
 import org.koin.java.KoinJavaComponent
+
+private val SYSTEM_INSETS = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
 
 /** Each settings page is a native Activity; the engine owns the title and container transition. */
 abstract class NativeSettingsActivity : Activity() {
@@ -200,12 +207,8 @@ abstract class NativeSettingsActivity : Activity() {
             addView(body, FrameLayout.LayoutParams(-1, -1))
         }
         page.addView(viewport, LinearLayout.LayoutParams(-1, 0, 1f))
-        val configuration = resources.configuration
-        val split = renderingConfig.isSplitScreenEnabled &&
-            (configuration.screenWidthDp > configuration.screenHeightDp ||
-                configuration.screenWidthDp >= 840 && configuration.screenHeightDp >= 480)
-        page.setOnApplyWindowInsetsListener { _, insets ->
-            val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        val split = splitLayout
+        meguviz.claimInsets(page, SYSTEM_INSETS) { safe ->
             val left = if (!split || pageRoute == Route.Main) safe.left else 0
             val right = if (!split || pageRoute != Route.Main) safe.right else 0
             val chromeParams = chrome.layoutParams as LinearLayout.LayoutParams
@@ -215,7 +218,6 @@ abstract class NativeSettingsActivity : Activity() {
             if (toolbarParams.topMargin != safe.top) { toolbarParams.topMargin = safe.top; toolbar.layoutParams = toolbarParams }
             toolbar.setPaddingRelative(dp(12) + left, dp(6), dp(12) + right, dp(6))
             viewport.setPadding(left, 0, right, safe.bottom)
-            insets
         }
         if (!split) return page
         return LinearLayout(this).apply {
@@ -231,11 +233,7 @@ abstract class NativeSettingsActivity : Activity() {
             } else {
                 addView(NativeContentViewport(this@NativeSettingsActivity).apply {
                     addView(pageUi.buildMainPage("masterScroll"), FrameLayout.LayoutParams(-1, -1))
-                    setOnApplyWindowInsetsListener { _, insets ->
-                        val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-                        setPadding(safe.left, safe.top, 0, safe.bottom)
-                        insets
-                    }
+                    meguviz.claimInsets(this, SYSTEM_INSETS) { safe -> setPadding(safe.left, safe.top, 0, safe.bottom) }
                 }, LinearLayout.LayoutParams(0, -1, 1f))
                 addView(page, LinearLayout.LayoutParams(0, -1, 2f))
             }
@@ -243,20 +241,21 @@ abstract class NativeSettingsActivity : Activity() {
         }
     }
 
-    private enum class HomeTab(val titleResource: Int, val labelResource: Int, val iconResource: Int) {
-        Overview(R.string.app_name, R.string.home_tab_overview, R.drawable.ic_app),
-        Icon(R.string.icon_settings, R.string.icon_settings, R.drawable.ic_picture),
-        Background(R.string.background_settings, R.string.background_settings, R.drawable.ic_color),
-        Display(R.string.display_settings, R.string.display_settings, R.drawable.ic_monitor),
-        Basic(R.string.basic_settings, R.string.home_tab_basic, R.drawable.ic_setting),
-    }
+    /** Adaptive two-pane layout: wide landscape or tablet screens with the setting on. */
+    private val splitLayout: Boolean
+        get() {
+            val configuration = resources.configuration
+            return renderingConfig.isSplitScreenEnabled &&
+                (configuration.screenWidthDp > configuration.screenHeightDp ||
+                    configuration.screenWidthDp >= 840 && configuration.screenHeightDp >= 480)
+        }
 
     private fun buildHomeBody(): View {
         val pager = LumenPagePager(this)
         val dock = MeguvizNavigationBar(
             this,
-            HomeTab.entries.map { getString(it.labelResource) },
-            HomeTab.entries.map { it.iconResource },
+            SettingsTab.entries.map { getString(it.labelRes) },
+            SettingsTab.entries.map { it.iconRes },
             lumen.palette.textSecondary,
             lumen.palette.surface,
             LayerDrawable(arrayOf(
@@ -271,20 +270,20 @@ abstract class NativeSettingsActivity : Activity() {
         )
         homePager = pager
         homeDock = dock
-        HomeTab.entries.forEach {
+        SettingsTab.entries.forEach {
             homePageHosts += FrameLayout(this).also { host -> pager.addView(host, FrameLayout.LayoutParams(-1, -1)) }
         }
         pager.onPositionChanged = {
-            ensureHomePage(pager.pagePosition.toInt().coerceIn(0, HomeTab.entries.lastIndex))
-            ensureHomePage(kotlin.math.ceil(pager.pagePosition.toDouble()).toInt().coerceIn(0, HomeTab.entries.lastIndex))
+            ensureHomePage(pager.pagePosition.toInt().coerceIn(0, SettingsTab.entries.lastIndex))
+            ensureHomePage(kotlin.math.ceil(pager.pagePosition.toDouble()).toInt().coerceIn(0, SettingsTab.entries.lastIndex))
             dock.setPageProgress(pager.pagePosition)
         }
         pager.onPageSelected = { index ->
             ensureHomePage(index)
             dock.setSelectedPage(index)
-            updatePageTitle(getString(HomeTab.entries[index].titleResource))
+            updatePageTitle(getString(SettingsTab.entries[index].titleRes))
         }
-        val restored = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, HomeTab.entries.lastIndex) ?: 0
+        val restored = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, SettingsTab.entries.lastIndex) ?: 0
         ensureHomePage(restored)
         pager.selectPage(restored, false)
         dock.setSelectedPage(restored)
@@ -302,22 +301,28 @@ abstract class NativeSettingsActivity : Activity() {
     private fun ensureHomePage(index: Int) {
         val host = homePageHosts[index]
         if (host.childCount > 0) return
-        val tab = HomeTab.entries[index]
+        val tab = SettingsTab.entries[index]
         pageUi.stateNamespace = "home.${tab.name}."
         val content = when (tab) {
-            HomeTab.Overview -> pageUi.buildMainPage("scroll")
-            HomeTab.Icon -> pageUi.buildIconPage()
-            HomeTab.Background -> pageUi.buildBackgroundPage()
-            HomeTab.Display -> pageUi.buildDisplayPage()
-            HomeTab.Basic -> pageUi.buildBasicPage()
+            SettingsTab.Home -> pageUi.buildHomePage(withRoutes = splitLayout)
+            SettingsTab.Icon -> pageUi.buildIconPage()
+            SettingsTab.Background -> pageUi.buildBackgroundPage()
+            SettingsTab.Display -> pageUi.buildDisplayPage(withBranding = true)
+            SettingsTab.Module -> pageUi.buildModulePage()
         }
         content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, dp(84))
         host.addView(content, FrameLayout.LayoutParams(-1, -1))
         meguviz.adopt(content, "home/${tab.name}")
     }
 
+    /** Searches every row on every dock page, so each page is built first: pages are lazy, rows register as they are built. */
     private fun showSettingsSearch() {
-        val destinations = ModulePreferenceRes.entries.map { getString(it.stringRes) to checkNotNull(it.navigateTo) }
+        SettingsTab.entries.indices.forEach(::ensureHomePage)
+        val targets = pageUi.searchTargets.associateBy { it.titleRes }
+        val items = targets.values.map {
+            SettingsSearchItem(it.titleRes, getString(it.titleRes), getString(it.section.titleRes),
+                getString(it.section.tab.labelRes), SettingsSearch.order(it.section, it.sequence))
+        }
         pageUi.dialog(getString(R.string.settings_search)) { dialog, container ->
             val results = pageUi.column().apply { id = R.id.native_settings_search_results }
             val input = EditText(this).apply {
@@ -329,19 +334,19 @@ abstract class NativeSettingsActivity : Activity() {
             }
             fun render(query: String) {
                 results.removeAllViews()
-                val normalized = query.trim()
-                if (normalized.isEmpty()) {
+                if (query.isBlank()) {
                     results.addView(pageUi.text(getString(R.string.settings_search_hint), 14f, secondary = true))
                     return
                 }
-                val matches = destinations.filter { it.first.contains(normalized, ignoreCase = true) }
+                val matches = SettingsSearch.rank(query, items)
                 if (matches.isEmpty()) {
                     results.addView(pageUi.text(getString(R.string.settings_search_empty), 14f, secondary = true))
                     return
                 }
-                matches.forEach { (title, route) ->
-                    results.addView(pageUi.action(title, moduleRequired = false) { source ->
-                        modals.dismiss(dialog, container) { navigate(route, source, source.titleView) }
+                matches.forEach { match ->
+                    val place = getString(R.string.settings_search_location, match.tab, match.section)
+                    results.addView(pageUi.action(match.title, place, moduleRequired = false) {
+                        modals.dismiss(dialog, container) { targets[match.key]?.let(::revealSetting) }
                     })
                 }
             }
@@ -352,6 +357,41 @@ abstract class NativeSettingsActivity : Activity() {
             render("")
             input.requestFocus()
         }
+    }
+
+    /** Opens the row's dock page, scrolls the row into view and pulses it so the eye finds it. */
+    private fun revealSetting(target: NativePageUi.SettingsTarget) {
+        val index = target.section.tab.ordinal
+        val pager = homePager ?: return
+        ensureHomePage(index)
+        pager.selectPage(index)
+        val scroll = homePageHosts[index].getChildAt(0) as? ScrollView ?: return
+        val anchor = revealAnchor(target.view)
+        anchor.doOnLayout {
+            var top = 0
+            var node: View = it
+            while (node !== scroll) { top += node.top; node = node.parent as? View ?: break }
+            scroll.smoothScrollTo(0, (top - dp(96)).coerceAtLeast(0))
+            val base = it.alpha
+            ObjectAnimator.ofFloat(it, View.ALPHA, base, base * .35f, base, base * .35f, base)
+                .apply { duration = 900L; start() }
+        }
+    }
+
+    /** A dependent row collapsed under its switch cannot be shown; the nearest visible row before it stands in. */
+    private fun revealAnchor(view: View): View {
+        var collapsed: View? = null
+        var node: View? = view
+        while (node != null) {
+            if (node.visibility == View.GONE) collapsed = node
+            node = node.parent as? View
+        }
+        val hidden = collapsed ?: return view
+        val parent = hidden.parent as? ViewGroup ?: return view
+        for (i in parent.indexOfChild(hidden) - 1 downTo 0) {
+            parent.getChildAt(i).takeIf { it.visibility == View.VISIBLE }?.let { return it }
+        }
+        return parent
     }
 
     fun navigate(route: Route, source: View, title: TextView) {
@@ -377,7 +417,7 @@ abstract class NativeSettingsActivity : Activity() {
 
     private fun closePage() { morph?.commitBack() ?: finish() }
     fun dp(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
-    fun isDark(): Boolean = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+    fun isDark(): Boolean = resources.configuration.isUiInNightMode
 
     @Suppress("DEPRECATION")
     fun launchBackup() {

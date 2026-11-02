@@ -4,6 +4,8 @@ import android.app.Activity
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
+import io.github.jichuo1.meguviz.android.window.InsetsSlot
+import io.github.jichuo1.meguviz.android.window.InsetsValue
 import io.github.jichuo1.meguviz.android.window.WindowSession
 import io.github.jichuo1.meguviz.drawable.android.OwnedDrawableWrapper
 import io.github.jichuo1.meguviz.drawable.android.RecipeDrawable
@@ -24,6 +26,7 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
     private var window: WindowSession? = null
     private var installed = false
     private val ownedDrawables = mutableListOf<OwnedDrawableWrapper>()
+    private val pendingInsets = mutableListOf<InsetsClaim>()
     private var closed = false
 
     val isActive: Boolean get() = !closed && ui.state == SessionState.ACTIVE
@@ -39,6 +42,27 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
             WindowSession.Permission.OWN_WINDOW,
         )
         installed = true
+        pendingInsets.forEach { it.bind(checkNotNull(window)) }
+        pendingInsets.clear()
+    }
+
+    /**
+     * Observes window insets on [view] through an exclusive slot owned by this window session, so the listener
+     * is released with the session instead of leaking a raw listener. A claim made before [install] waits for it.
+     * [onInsets] only reads the snapshot; a throwing callback closes the view scope.
+     */
+    fun claimInsets(view: View, typeMask: Int, onInsets: (InsetsValue) -> Unit) {
+        if (closed) return
+        val claim = InsetsClaim(view, typeMask, onInsets)
+        val session = window
+        if (session != null) claim.bind(session) else pendingInsets.add(claim)
+    }
+
+    private class InsetsClaim(val view: View, val typeMask: Int, val onInsets: (InsetsValue) -> Unit) {
+        fun bind(session: WindowSession) {
+            val scope = session.scope(view)
+            scope.own(InsetsSlot.claimExclusive(scope).observe { onInsets(it.combined(typeMask)) })
+        }
     }
 
     fun adopt(view: View, key: String) {
@@ -94,6 +118,7 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
     override fun close() {
         if (closed) return
         closed = true
+        pendingInsets.clear()
         try {
             window?.close()
             window = null

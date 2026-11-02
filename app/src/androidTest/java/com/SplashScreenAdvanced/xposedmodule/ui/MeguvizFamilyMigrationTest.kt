@@ -3,6 +3,7 @@ package com.SplashScreenAdvanced.xposedmodule.ui
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.SystemClock
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,7 +11,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
 import com.SplashScreenAdvanced.xposedmodule.R
-import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.lumen.coacervation.engine.background.LiquidBackgroundImportResult
 import com.lumen.coacervation.engine.background.LiquidBackgroundMode
 import com.lumen.coacervation.engine.background.LiquidBackgroundStore
@@ -75,23 +75,28 @@ class MeguvizFamilyMigrationTest {
         }
     }
 
-    @Test fun toolbarSearchNavigatesToRealSetting() {
-        ActivityScenario.launch(MainActivity::class.java).use {
-            val search = device.findObject(UiSelector().description(
-                instrumentation.targetContext.getString(R.string.settings_search)))
+    @Test fun toolbarSearchRevealsARealSettingOnItsDockPage() {
+        val context = instrumentation.targetContext
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val search = device.findObject(UiSelector().description(context.getString(R.string.settings_search)))
             assertTrue(search.waitForExists(3000))
             search.click()
-            val input = device.findObject(UiSelector().resourceId(
-                "${instrumentation.targetContext.packageName}:id/native_settings_search"))
+            val input = device.findObject(UiSelector().resourceId("${context.packageName}:id/native_settings_search"))
             assertTrue(input.waitForExists(3000))
-            input.setText("Background")
-            val destination = device.findObject(UiSelector().resourceId(
-                "${instrumentation.targetContext.packageName}:id/native_settings_search_results")
-                .childSelector(UiSelector().text(
-                    instrumentation.targetContext.getString(R.string.background_settings))))
-            assertTrue(destination.waitForExists(3000))
-            destination.click()
-            NativeTestSupport.awaitRoute(Route.Background)
+            input.setText(context.getString(R.string.min_duration))
+            val result = device.findObject(UiSelector().resourceId("${context.packageName}:id/native_settings_search_results")
+                .childSelector(UiSelector().text(context.getString(R.string.min_duration))))
+            assertTrue(result.waitForExists(3000))
+            result.click()
+            val expected = context.getString(R.string.display_settings)
+            val deadline = SystemClock.uptimeMillis() + 5000
+            var actual = ""
+            while (actual != expected && SystemClock.uptimeMillis() < deadline) {
+                scenario.onActivity { actual = it.findViewById<TextView>(R.id.native_title).text.toString() }
+                if (actual != expected) SystemClock.sleep(50)
+            }
+            assertEquals(expected, actual)
+            assertTrue(device.findObject(UiSelector().text(context.getString(R.string.min_duration))).waitForExists(3000))
         }
     }
 }

@@ -88,7 +88,17 @@ MIUI / HyperOS and ColorOS are handled by dedicated branches; other systems use 
 
 The UI uses native Android Views and integrates [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) `1.2.2` directly. Native Activities host the settings pages; engine surfaces style cards, bars, and dialogs. The engine's container morph controller drives secondary-page entry, closing, and predictive back. Switches, sliders, text fields, and color gestures use native widgets and Canvas.
 
-Basic settings provides soft light or advanced glass, classic or wallpaper-derived colors, and optional live backdrop sampling of this app window. The engine automatically falls back when advanced rendering fails and stores its material health state in the module app’s private storage.
+The settings are five horizontal dock pages: Home (module status and scope), Icon, Background, Display and Module. Each page groups its rows under titled sections, and the toolbar search jumps straight to a single setting, switching page and highlighting the row.
+
+| Page | Sections |
+|:---|:---|
+| Home | Scope |
+| Icon | Shape & size · Icon source · Quality · Per-app rules |
+| Background | Background color · Per-app rules · System compatibility |
+| Display | Timing & visibility · Branding image · Compatibility & disable |
+| Module | Appearance · Launcher & logs · Backup & restore · About · Updates · Open-source licenses |
+
+The Module page provides soft light or advanced glass, classic or wallpaper-derived colors, and optional live backdrop sampling of this app window. The engine automatically falls back when advanced rendering fails and stores its material health state in the module app’s private storage.
 
 The app UI and page state no longer use Compose, Miuix, or Navigation 3. Existing preference keys, application selection and saving, backup formats, and FairMemory restoration tokens remain compatible. Native saved state restores application lists and editing drafts. The historical `hyperx-compose` module is retained in the repository but excluded from the app build.
 

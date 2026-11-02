@@ -5,5 +5,18 @@
     <string name="settings_search_hint">Escribe el nombre de un ajuste</string>
     <string name="settings_search_empty">No hay ajustes coincidentes</string>
     <string name="home_tab_overview">Inicio</string>
-    <string name="home_tab_basic">Básico</string>
+    <string name="home_tab_module">Módulo</string>
+    <string name="section_icon_shape">Forma y tamaño</string>
+    <string name="section_icon_source">Origen del icono</string>
+    <string name="section_icon_enhance">Calidad</string>
+    <string name="section_icon_per_app">Reglas por app</string>
+    <string name="section_background_color">Color de fondo</string>
+    <string name="section_background_per_app">Reglas por app</string>
+    <string name="section_background_system">Compatibilidad del sistema</string>
+    <string name="section_display_timing">Duración y visibilidad</string>
+    <string name="section_display_branding">Imagen de marca</string>
+    <string name="section_display_compat">Compatibilidad y desactivación</string>
+    <string name="section_module_appearance">Apariencia</string>
+    <string name="section_module_system">Launcher y registro</string>
+    <string name="section_module_backup">Copia y restauración</string>
 </resources>

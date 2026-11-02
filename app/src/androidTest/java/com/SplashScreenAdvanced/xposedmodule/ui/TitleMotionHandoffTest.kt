@@ -11,6 +11,8 @@ import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiSelector
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.BasicActivity
@@ -73,9 +75,17 @@ class TitleMotionHandoffTest {
         try {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 SystemClock.sleep(1200)
+                val context = instrumentation.targetContext
+                val dockItem = UiDevice.getInstance(instrumentation)
+                    .findObject(UiSelector().description(context.getString(R.string.home_tab_module)))
+                assertTrue(dockItem.waitForExists(5000)); dockItem.click()
+                SystemClock.sleep(1200)
                 scenario.onActivity {
-                    descendants(it.window.decorView).filterIsInstance<NativeRow>()
-                        .first { row -> row.titleView.text.toString() == "Basic settings" }.performClick()
+                    // Detail rows are gated on an active module and the dock no longer lists the Basic route:
+                    // morph from a short-titled row on the last dock page to the plain scroll page this test measures.
+                    val row = descendants(it.window.decorView).filterIsInstance<NativeRow>()
+                        .first { item -> item.titleView.text.toString() == context.getString(R.string.lumen_palette) }
+                    it.navigate(Route.Basic, row, row.titleView)
                 }
                 NativeTestSupport.awaitRoute(Route.Basic)
                 val deadline = SystemClock.uptimeMillis() + 6000

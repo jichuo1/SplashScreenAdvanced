@@ -3,6 +3,8 @@ package com.SplashScreenAdvanced.xposedmodule.ui
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ListView
 import androidx.test.core.app.ActivityScenario
@@ -26,20 +28,37 @@ class LumenUiRolloutTest {
     private val device = UiDevice.getInstance(instrumentation)
     @Before fun prepare() { NativeTestSupport.prepare() }
 
-    @Test fun primaryEntriesLaunchNativeActivitiesAndReturnToMain() {
-        ActivityScenario.launch(MainActivity::class.java).use {
-            val routes = listOf(Route.Basic, Route.Scope, Route.Icon, Route.Bottom, Route.Background, Route.Display, Route.About)
-            routes.forEach { route ->
-                val title = instrumentation.targetContext.getString(pageTitleResource(route))
-                val row = device.findObject(UiSelector().text(title))
-                if (!row.waitForExists(1500)) device.swipe(540, 1500, 540, 500, 14)
-                assertTrue("Missing entry " + title, row.waitForExists(5000))
-                row.click()
-                NativeTestSupport.awaitRoute(route)
-                assertTrue(NativeTestSupport.resumedActivity().lumen.isPrepared)
-                device.pressBack()
-                NativeTestSupport.awaitRoute(Route.Main)
+    @Test fun primaryRoutePagesRenderAndRecreateOnTheirOwn() {
+        // Phone layout reaches these features through dock pages; the standalone routes stay for restore and the two-pane layout.
+        val routes = listOf(Route.Basic, Route.Scope, Route.Icon, Route.Bottom, Route.Background, Route.Display, Route.About)
+        routes.forEach { route ->
+            val intent = Intent(instrumentation.targetContext, activityForRoute(route))
+            ActivityScenario.launch<NativeSettingsActivity>(intent).use { scenario ->
+                SystemClock.sleep(600)
+                scenario.onActivity { assertEquals(route, it.pageRoute); assertTrue(it.lumen.isPrepared) }
+                scenario.recreate()
+                SystemClock.sleep(450)
+                scenario.onActivity { assertEquals(route, it.pageRoute); assertTrue(it.lumen.isPrepared) }
             }
+        }
+    }
+
+    @Test fun dockRowOpensDetailPageAndReturnsToMain() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val context = instrumentation.targetContext
+            val dockItem = device.findObject(UiSelector().description(context.getString(R.string.display_settings)))
+            assertTrue(dockItem.waitForExists(5000)); dockItem.click()
+            SystemClock.sleep(1200)
+            // Detail rows are gated on an active module, which a test device is not: drive the same navigation call the row uses.
+            scenario.onActivity { activity ->
+                val row = descendants(activity.window.decorView).filterIsInstance<NativeRow>()
+                    .first { it.titleView.text.toString() == context.getString(R.string.min_duration) }
+                activity.navigate(Route.MinDuration, row, row.titleView)
+            }
+            NativeTestSupport.awaitRoute(Route.MinDuration)
+            assertTrue(NativeTestSupport.resumedActivity().lumen.isPrepared)
+            device.pressBack()
+            NativeTestSupport.awaitRoute(Route.Main)
         }
     }
 
@@ -118,5 +137,10 @@ class LumenUiRolloutTest {
             device.pressBack()
             NativeTestSupport.awaitRoute(Route.Main)
         }
+    }
+
+    private fun descendants(view: View): List<View> = buildList {
+        add(view)
+        if (view is ViewGroup) repeat(view.childCount) { addAll(descendants(view.getChildAt(it))) }
     }
 }

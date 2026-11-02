@@ -2,17 +2,27 @@ package com.SplashScreenAdvanced.xposedmodule.ui.page
 
 import android.os.SystemClock
 import android.view.View
+import android.widget.LinearLayout
 import com.SplashScreenAdvanced.xposedmodule.BuildConfig
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.component.header
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeChoice
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSection
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.update.GitHubReleaseChecker
 import com.SplashScreenAdvanced.xposedmodule.utils.update.UpdateCheckManager
 
-fun NativePageUi.buildAboutPage(): View = scrollContent {
+fun NativePageUi.aboutSections(parent: LinearLayout) {
+    aboutSection(parent)
+    updateSection(parent)
+    licensesSection(parent)
+}
+
+fun NativePageUi.buildAboutPage(): View = scrollContent { aboutSections(this) }
+
+private fun NativePageUi.aboutSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleAbout) {
     var taps = 0
     var lastTap = 0L
     val brand = header(R.drawable.ic_launcher_foreground, string(R.string.app_name) + System.lineSeparator() +
@@ -30,8 +40,10 @@ fun NativePageUi.buildAboutPage(): View = scrollContent {
     addSetting(action("GitHub", string(R.string.open_source_repo)) { openUrl("https://github.com/jichuo1/SplashScreenAdvanced") })
     addSetting(action(string(R.string.upstream_project), string(R.string.upstream_project_summary)) {
         openUrl("https://github.com/GSWXXN/RestoreSplashScreen")
-    })
-    addSetting(text(string(R.string.update_settings), 14f, secondary = true))
+    }.tracked(R.string.upstream_project))
+}
+
+private fun NativePageUi.updateSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleUpdate) {
     addSetting(switch(R.string.update_auto_check, Preferences.Module.AUTO_UPDATE_CHECK,
         R.string.update_auto_check_tips, moduleRequired = false))
     addSetting(choice(R.string.update_channel, {
@@ -44,12 +56,14 @@ fun NativePageUi.buildAboutPage(): View = scrollContent {
         if (!UpdateCheckManager.isChecking()) UpdateCheckManager.checkNow(activity) {
             GitHubReleaseChecker.UpdateChannel.fromStorageValue(repo.get(Preferences.Module.UPDATE_CHANNEL))
         }
-    }
+    }.tracked(R.string.update_check_now)
     bind { update.summaryView.visibility = View.VISIBLE; update.summaryView.text =
         if (UpdateCheckManager.isChecking()) string(R.string.update_checking)
         else string(R.string.update_check_now_tips, BuildConfig.VERSION_NAME) }
     addSetting(update)
-    addSetting(text(string(R.string.open_source_license), 14f, secondary = true))
+}
+
+private fun NativePageUi.licensesSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleLicenses) {
     OpenSourceReference.entries.forEach { project ->
         addSetting(action(project.author + "/" + project.name, project.license) {
             activity.toast(string(R.string.thanks_to, project.author)); openUrl(project.link)

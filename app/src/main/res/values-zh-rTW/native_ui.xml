@@ -5,5 +5,18 @@
     <string name="settings_search_hint">輸入設定名稱</string>
     <string name="settings_search_empty">沒有相符的設定</string>
     <string name="home_tab_overview">首頁</string>
-    <string name="home_tab_basic">基礎</string>
+    <string name="home_tab_module">模組</string>
+    <string name="section_icon_shape">形狀與尺寸</string>
+    <string name="section_icon_source">圖示來源</string>
+    <string name="section_icon_enhance">畫質增強</string>
+    <string name="section_icon_per_app">依應用程式設定</string>
+    <string name="section_background_color">背景顏色</string>
+    <string name="section_background_per_app">依應用程式設定</string>
+    <string name="section_background_system">系統相容</string>
+    <string name="section_display_timing">時長與顯示</string>
+    <string name="section_display_branding">底部品牌圖</string>
+    <string name="section_display_compat">相容與關閉</string>
+    <string name="section_module_appearance">介面外觀</string>
+    <string name="section_module_system">桌面與日誌</string>
+    <string name="section_module_backup">備份與還原</string>
 </resources>

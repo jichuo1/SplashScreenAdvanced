@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
+import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.AboutActivity
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeRow
 import com.lumen.coacervation.engine.LumenEngine
@@ -34,7 +35,8 @@ class LumenBridgePocTest {
                 assertTrue(activity.lumen.isPrepared)
                 assertNoCompose(activity.window.decorView)
                 val rows = descendants(activity.window.decorView).filterIsInstance<NativeRow>()
-                assertTrue(rows.size >= 8)
+                // Home page: module status plus the scope switch; the other dock pages build lazily.
+                assertTrue(rows.size >= 2)
                 assertTrue(rows.all { it.background != null })
             }
         }
@@ -45,9 +47,13 @@ class LumenBridgePocTest {
             SystemClock.sleep(700)
             lateinit var row: NativeRow
             val before = IntArray(2)
+            val context = instrumentation.targetContext
+            val dockItem = device.findObject(UiSelector().description(context.getString(R.string.display_settings)))
+            assertTrue(dockItem.waitForExists(5000)); dockItem.click()
+            SystemClock.sleep(1200)
             scenario.onActivity { activity ->
                 row = descendants(activity.window.decorView).filterIsInstance<NativeRow>()
-                    .first { it.titleView.text.toString() == "Basic settings" }
+                    .first { it.titleView.text.toString() == context.getString(R.string.min_duration) }
                 row.getLocationOnScreen(before)
             }
             val down = SystemClock.uptimeMillis()

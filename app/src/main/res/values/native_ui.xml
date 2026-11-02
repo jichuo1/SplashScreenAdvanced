@@ -21,7 +21,21 @@
     <string name="settings_search_hint">Type a setting name</string>
     <string name="settings_search_empty">No matching settings</string>
     <string name="home_tab_overview">Home</string>
-    <string name="home_tab_basic">Basic</string>
+    <string name="home_tab_module">Module</string>
+    <string name="section_icon_shape">Shape &amp; size</string>
+    <string name="section_icon_source">Icon source</string>
+    <string name="section_icon_enhance">Quality</string>
+    <string name="section_icon_per_app">Per-app rules</string>
+    <string name="section_background_color">Background color</string>
+    <string name="section_background_per_app">Per-app rules</string>
+    <string name="section_background_system">System compatibility</string>
+    <string name="section_display_timing">Timing &amp; visibility</string>
+    <string name="section_display_branding">Branding image</string>
+    <string name="section_display_compat">Compatibility &amp; disable</string>
+    <string name="section_module_appearance">Appearance</string>
+    <string name="section_module_system">Launcher &amp; logs</string>
+    <string name="section_module_backup">Backup &amp; restore</string>
+    <string name="settings_search_location" translatable="false">%1$s · %2$s</string>
     <style name="NativePageTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>

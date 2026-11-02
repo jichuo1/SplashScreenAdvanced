@@ -5,5 +5,18 @@
     <string name="settings_search_hint">Введите название настройки</string>
     <string name="settings_search_empty">Совпадающих настроек нет</string>
     <string name="home_tab_overview">Главная</string>
-    <string name="home_tab_basic">Основные</string>
+    <string name="home_tab_module">Модуль</string>
+    <string name="section_icon_shape">Форма и размер</string>
+    <string name="section_icon_source">Источник значка</string>
+    <string name="section_icon_enhance">Качество</string>
+    <string name="section_icon_per_app">Правила для приложений</string>
+    <string name="section_background_color">Цвет фона</string>
+    <string name="section_background_per_app">Правила для приложений</string>
+    <string name="section_background_system">Совместимость с системой</string>
+    <string name="section_display_timing">Время и показ</string>
+    <string name="section_display_branding">Фирменное изображение</string>
+    <string name="section_display_compat">Совместимость и отключение</string>
+    <string name="section_module_appearance">Внешний вид</string>
+    <string name="section_module_system">Лаунчер и журнал</string>
+    <string name="section_module_backup">Резервные копии</string>
 </resources>

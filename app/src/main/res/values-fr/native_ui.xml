@@ -5,5 +5,18 @@
     <string name="settings_search_hint">Saisissez le nom d’un paramètre</string>
     <string name="settings_search_empty">Aucun paramètre correspondant</string>
     <string name="home_tab_overview">Accueil</string>
-    <string name="home_tab_basic">Base</string>
+    <string name="home_tab_module">Module</string>
+    <string name="section_icon_shape">Forme et taille</string>
+    <string name="section_icon_source">Source de l\'icône</string>
+    <string name="section_icon_enhance">Qualité</string>
+    <string name="section_icon_per_app">Règles par appli</string>
+    <string name="section_background_color">Couleur d\'arrière-plan</string>
+    <string name="section_background_per_app">Règles par appli</string>
+    <string name="section_background_system">Compatibilité système</string>
+    <string name="section_display_timing">Durée et affichage</string>
+    <string name="section_display_branding">Image de marque</string>
+    <string name="section_display_compat">Compatibilité et désactivation</string>
+    <string name="section_module_appearance">Apparence</string>
+    <string name="section_module_system">Lanceur et journal</string>
+    <string name="section_module_backup">Sauvegarde et restauration</string>
 </resources>

@@ -20,7 +20,9 @@ import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import com.SplashScreenAdvanced.xposedmodule.ui.component.observeNativeUpdates
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSection
 import com.SplashScreenAdvanced.xposedmodule.utils.execShell
+import io.github.jichuo1.meguviz.android.extensions.textColor
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.lumen.coacervation.engine.interaction.ElasticInteractionController
 import com.lumen.coacervation.engine.model.SurfaceRole
@@ -83,6 +85,43 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
     }
 
+    /** A row that settings search can reveal; [sequence] is the order rows were registered in. */
+    class SettingsTarget(val titleRes: Int, val section: SettingsSection, val view: View, val sequence: Int)
+
+    private val targets = LinkedHashMap<Int, SettingsTarget>()
+    private var activeSection: SettingsSection? = null
+    val searchTargets: Collection<SettingsTarget> get() = targets.values
+    fun target(titleResource: Int): SettingsTarget? = targets[titleResource]
+
+    /** Registers the row for search; only rows built inside a [section] are tracked, the first title wins. */
+    fun <V : View> V.tracked(titleResource: Int): V = also { view ->
+        val section = activeSection ?: return@also
+        if (titleResource !in targets) targets[titleResource] = SettingsTarget(titleResource, section, view, targets.size)
+    }
+
+    /**
+     * Titled group of rows. A section that ends up with no rows (a platform-only group on another
+     * platform) adds nothing, so no heading is ever left dangling.
+     */
+    fun LinearLayout.section(section: SettingsSection, build: LinearLayout.() -> Unit) {
+        val body = column()
+        val outer = activeSection
+        activeSection = section
+        try { body.build() } finally { activeSection = outer }
+        if (body.childCount == 0) return
+        addView(sectionTitle(string(section.titleRes)), LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(10); bottomMargin = dp(8)
+        })
+        addView(body, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+    }
+
+    private fun sectionTitle(value: String): TextView = text(value, 13f, bold = true).apply {
+        textColor = palette.primary
+        alpha = .9f
+        setPaddingRelative(dp(6), 0, dp(6), 0)
+        isAccessibilityHeading = true
+    }
+
     fun bind(update: () -> Unit) { bindings += update; update() }
     fun refresh() { if (!released) bindings.forEach { it() } }
     fun addStateWriter(write: (Bundle) -> Unit) { stateWriters += write }
@@ -123,9 +162,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     }
 
     fun navigation(titleResource: Int, route: Route, summaryResource: Int? = null,
-                   moduleRequired: Boolean = true): View = action(string(titleResource), summaryResource?.let(::string), moduleRequired) {
-        activity.navigate(route, it, it.titleView)
-    }
+                   moduleRequired: Boolean = true, searchable: Boolean = true): View =
+        action(string(titleResource), summaryResource?.let(::string), moduleRequired) {
+            activity.navigate(route, it, it.titleView)
+        }.also { if (searchable) it.tracked(titleResource) }
 
     fun switch(titleResource: Int, key: PreferenceKey<Boolean>, summaryResource: Int? = null,
                moduleRequired: Boolean = true, enabled: () -> Boolean = { true }, after: (Boolean) -> Unit = {}): View {
@@ -150,7 +190,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             rebinding = true; toggle.isChecked = repo.get(key); rebinding = false
             row.isEnabled = enabled(); toggle.isEnabled = enabled(); row.alpha = if (enabled()) 1f else .45f
         }
-        return row
+        return row.tracked(titleResource)
     }
 
     fun <T : Any> choice(titleResource: Int, entries: () -> List<NativeChoice<T>>, current: () -> T,
@@ -175,7 +215,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             }
         }
         bind { row.valueView.text = entries().firstOrNull { it.value == current() }?.title.orEmpty() }
-        return row
+        return row.tracked(titleResource)
     }
 
     fun intChoice(titleResource: Int, key: PreferenceKey<Int>, titles: List<Int>, summaryResource: Int? = null,

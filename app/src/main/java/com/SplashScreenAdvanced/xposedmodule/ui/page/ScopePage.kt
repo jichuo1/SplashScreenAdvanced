@@ -1,15 +1,16 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.page
 
 import android.view.View
+import android.widget.LinearLayout
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.component.header
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSection
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 
-fun NativePageUi.buildScopePage(): View = scrollContent {
-    addSetting(header(R.drawable.demo_scope, "SCOPE"))
+fun NativePageUi.scopeSection(parent: LinearLayout) = parent.section(SettingsSection.Scope) {
     addSetting(switch(R.string.custom_scope, Preferences.Scope.ENABLE_CUSTOM_SCOPE) {
         if (it) activity.toast(R.string.custom_scope_message)
     })
@@ -18,4 +19,9 @@ fun NativePageUi.buildScopePage(): View = scrollContent {
             R.string.replace_to_empty_splash_screen_tips))
         addSetting(navigation(R.string.exception_mode_list, Route.CustomScope))
     })
+}
+
+fun NativePageUi.buildScopePage(): View = scrollContent {
+    addSetting(header(R.drawable.demo_scope, "SCOPE"))
+    scopeSection(this)
 }

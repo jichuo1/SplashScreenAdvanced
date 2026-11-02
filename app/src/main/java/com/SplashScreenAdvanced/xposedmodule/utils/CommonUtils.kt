@@ -6,19 +6,20 @@ import android.content.Context
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.annotation.StringRes
+import io.github.jichuo1.meguviz.android.extensions.toast as meguvizToast
 import java.io.DataOutputStream
 
 /**
  * 显示 Toast
  *
+ * 实现交给 MeguvizAndroid：只允许主线程调用，不会隐式创建后台队列。
+ *
  * @receiver 需要显示 Toast 应用的 Context
  * @param message 显示文本内容
  * @param duration 显示时长, 默认 [Toast.LENGTH_SHORT]
- * @return [Toast]
  */
-fun Context.toast(message: CharSequence, duration: Int = Toast.LENGTH_SHORT): Toast = Toast
-    .makeText(this, message, duration)
-    .apply { show() }
+fun Context.toast(message: CharSequence, duration: Int = Toast.LENGTH_SHORT) =
+    meguvizToast(message, duration)
 
 /**
  * 显示 Toast, 内容来自字符串资源 ID
@@ -26,7 +27,6 @@ fun Context.toast(message: CharSequence, duration: Int = Toast.LENGTH_SHORT): To
  * @receiver 需要显示 Toast 应用的 Context
  * @param stringID 字符串资源的 ID
  * @param duration 显示时长, 默认 [Toast.LENGTH_SHORT]
- * @return [Toast]
  */
 fun Context.toast(@StringRes stringID: Int, duration: Int = Toast.LENGTH_SHORT) =
     toast(getString(stringID), duration)
