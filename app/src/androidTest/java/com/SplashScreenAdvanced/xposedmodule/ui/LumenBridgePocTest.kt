@@ -35,7 +35,7 @@ class LumenBridgePocTest {
                 assertTrue(activity.lumen.isPrepared)
                 assertNoCompose(activity.window.decorView)
                 val rows = descendants(activity.window.decorView).filterIsInstance<NativeRow>()
-                // Home page: module status plus the scope switch; the other dock pages build lazily.
+                // Home page: module status plus the scope switch (the other dock pages are built later, when idle).
                 assertTrue(rows.size >= 2)
                 assertTrue(rows.all { it.background != null })
             }

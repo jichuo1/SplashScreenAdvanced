@@ -22,6 +22,7 @@ import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
 import com.SplashScreenAdvanced.xposedmodule.ui.component.observeNativeUpdates
 import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSection
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsTab
 import com.SplashScreenAdvanced.xposedmodule.utils.execShell
 import io.github.jichuo1.meguviz.android.extensions.textColor
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
@@ -48,7 +49,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     var backButton: View? = null
     private val bindings = mutableListOf<() -> Unit>()
     private val stateWriters = mutableListOf<(Bundle) -> Unit>()
-    private val visibleWork = mutableListOf<suspend () -> Unit>()
+    private val gatedWork = TabGatedWork()
+
+    /** The dock tab on screen; null when this page stands alone (a routed page). */
+    val shownTab get() = gatedWork.shownTab
     private var dirty: () -> Boolean = { false }
     private var discard: () -> Unit = {}
     private var reloadDraft: () -> Unit = {}
@@ -168,12 +172,14 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         released = true
         pageScrolls.forEach { it.onScrollPositionChanged = null }
         pageScrolls.clear()
-        bindings.clear(); stateWriters.clear(); visibleWork.clear()
+        bindings.clear(); stateWriters.clear(); gatedWork.clear()
     }
-    fun whileVisible(work: suspend () -> Unit) { visibleWork += work }
+
+    /** Work that only matters while [tab] is on screen: it runs while the activity is resumed and the tab is shown. */
+    fun whileVisible(tab: SettingsTab, work: suspend () -> Unit) = gatedWork.add(tab, work)
     suspend fun observeUpdates() = coroutineScope {
         launch { observeNativeUpdates() }
-        visibleWork.forEach { work -> launch { work() } }
+        launch { gatedWork.run() }
     }
 
     fun confirmDiscard(onDiscarded: () -> Unit): Boolean {

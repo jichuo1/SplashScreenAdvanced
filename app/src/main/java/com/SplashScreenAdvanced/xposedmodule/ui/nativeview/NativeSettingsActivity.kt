@@ -34,6 +34,7 @@ import com.SplashScreenAdvanced.xposedmodule.ui.component.buildColorPickerPage
 import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSearch
 import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSearchItem
 import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsTab
+import com.SplashScreenAdvanced.xposedmodule.utils.PerfTrace
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
 import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizFamilyBridge
@@ -93,6 +94,8 @@ private const val DOCK_BOTTOM_MARGIN_DP = 16
 private const val DOCK_MAX_WIDTH_DP = 480
 /** Strength of the contrast mask behind the selected dock item (engine standard §12.4; sample default). */
 private const val DOCK_SELECTION_MASK = 0.2f
+/** Pause before the dock pages that are not on screen start building (after the enter motion and the first frames). */
+private const val PREWARM_DELAY_MS = 400L
 /** Until the dock is measured: its default height, so the first frame already leaves room. */
 private const val DOCK_FALLBACK_HEIGHT_DP = 68
 
@@ -136,6 +139,8 @@ abstract class NativeSettingsActivity : Activity() {
     private var dockHeightPx = 0
     private var topButtons: List<View> = emptyList()
     private val homePageHosts = mutableListOf<FrameLayout>()
+    private var touching = false
+    private var prewarmQueued = false
     lateinit var pageUi: NativePageUi
         private set
     protected var restoredPageState: Bundle? = null
@@ -160,14 +165,14 @@ abstract class NativeSettingsActivity : Activity() {
         window.navigationBarColor = Color.TRANSPARENT
         window.isNavigationBarContrastEnforced = false
         ContainerMorphController.suppressSystemTransitions(this)
-        lumen.prepare()
+        PerfTrace.section("act.lumen.prepare") { lumen.prepare() }
         pageUi = NativePageUi(this, restoredPageState)
-        val page = buildPage()
+        val page = PerfTrace.section("act.buildPage") { buildPage() }
         if (pageRoute == Route.Main) {
-            meguviz.install(page)
+            PerfTrace.section("act.meguviz.install") { meguviz.install(page) }
             page.requestApplyInsets()
             lumen.bindRoot(page) { if (!isFinishing && !isDestroyed) recreate() }
-            setupChrome()
+            PerfTrace.section("act.setupChrome") { setupChrome() }
         } else {
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
             val host = ContainerMorphHost(this, lumen.palette.surface, lumen.palette.background,
@@ -352,6 +357,7 @@ abstract class NativeSettingsActivity : Activity() {
         }
         pager.onPageSelected = { index ->
             ensureHomePage(index)
+            pageUi.shownTab.value = SettingsTab.entries[index]
             stretches.getOrNull(previousPage)?.let(lumen::finishStretch)
             previousPage = index
             dock.setSelectedPage(index)
@@ -360,6 +366,7 @@ abstract class NativeSettingsActivity : Activity() {
         pager.onMotionStarted = { stretches.forEach(lumen::finishStretch) }
         val restored = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, SettingsTab.entries.lastIndex) ?: 0
         ensureHomePage(restored)
+        pageUi.shownTab.value = SettingsTab.entries[restored]
         pager.selectPage(restored, false)
         previousPage = restored
         dock.setSelectedPage(restored)
@@ -516,19 +523,34 @@ abstract class NativeSettingsActivity : Activity() {
         if (host.childCount > 0) return
         val tab = SettingsTab.entries[index]
         pageUi.stateNamespace = "home.${tab.name}."
-        val content = when (tab) {
+        val content = PerfTrace.section("page.build.${tab.name}") { when (tab) {
             SettingsTab.Home -> pageUi.buildHomePage(withRoutes = splitLayout)
             SettingsTab.Icon -> pageUi.buildIconPage()
             SettingsTab.Background -> pageUi.buildBackgroundPage()
             SettingsTab.Display -> pageUi.buildDisplayPage(withBranding = true)
             SettingsTab.Module -> pageUi.buildModulePage()
-        }
+        } }
         (content as? NestedScrollView)?.let { contentScrolls += it; applyScrollPadding(it) }
         host.addView(content, FrameLayout.LayoutParams(-1, -1))
-        meguviz.adopt(content, "home/${tab.name}")
-        installPageStretch(index)
+        PerfTrace.section("page.adopt.${tab.name}") { meguviz.adopt(content, "home/${tab.name}") }
+        PerfTrace.section("page.stretch.${tab.name}") { installPageStretch(index) }
         (content as? NestedScrollView)?.let(::pageHeading)?.let { headings += it }
     }
+
+    /**
+     * Builds the dock pages that are not on screen yet, one per idle frame and nearest to the current page first, so a swipe
+     * or the search never builds a page on the main thread while the user is moving. The frames come from the window's
+     * Meguviz frame scheduler, which only runs them while the window is started; a touch or a moving pager defers the queue.
+     */
+    private fun prewarmHomePages() {
+        if (isFinishing || isDestroyed) return
+        val current = homePager?.selectedPage ?: return
+        SettingsTab.entries.indices.filter { homePageHosts[it].childCount == 0 }
+            .sortedBy { kotlin.math.abs(it - current) }
+            .forEach { index -> meguviz.runWhenIdle(ready = ::isIdleForPrewarm) { ensureHomePage(index) } }
+    }
+
+    private fun isIdleForPrewarm() = !touching && !isFinishing && homePager?.isSettled == true
 
     /** The first text on a page (its header card title, or the status title on Home) is the heading of the text chain. */
     private fun pageHeading(scroll: NestedScrollView): TextView? {
@@ -540,9 +562,9 @@ abstract class NativeSettingsActivity : Activity() {
         return firstText((scroll.getChildAt(0) as? ViewGroup)?.getChildAt(0))
     }
 
-    /** Searches every row on every dock page, so each page is built first: pages are lazy, rows register as they are built. */
+    /** Searches every row on every dock page, so each page is built first (usually done already by [prewarmHomePages]): rows register as they are built. */
     private fun showSettingsSearch() {
-        SettingsTab.entries.indices.forEach(::ensureHomePage)
+        PerfTrace.section("search.buildAllPages") { SettingsTab.entries.indices.forEach(::ensureHomePage) }
         val targets = pageUi.searchTargets.associateBy { it.titleRes }
         val items = targets.values.map {
             SettingsSearchItem(it.titleRes, getString(it.titleRes), getString(it.section.titleRes),
@@ -724,6 +746,11 @@ abstract class NativeSettingsActivity : Activity() {
         FairMemorySessionStore.remember(pageRoute)
         uiState.refreshRestartState()
         pageUi.refresh()
+        if (pageRoute == Route.Main && !prewarmQueued) {
+            prewarmQueued = true
+            // After the enter motion and the first frames: the visible page comes first, the rest follow when idle.
+            window.decorView.postDelayed(::prewarmHomePages, PREWARM_DELAY_MS)
+        }
         startedJob?.cancel()
         startedJob = uiScope.launch {
             launch { uiState.state.collect { pageUi.refresh() } }
@@ -734,6 +761,10 @@ abstract class NativeSettingsActivity : Activity() {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> touching = true
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> touching = false
+        }
         lumen.onDispatchTouchEvent(event)
         return elastic.dispatch(event) { super.dispatchTouchEvent(it) }
     }

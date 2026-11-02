@@ -9,6 +9,7 @@ import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeChoice
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ShrinkIconType
 import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsSection
+import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsTab
 import com.SplashScreenAdvanced.xposedmodule.utils.DeviceUtils
 import com.SplashScreenAdvanced.xposedmodule.utils.IconPackManager
 import com.SplashScreenAdvanced.xposedmodule.utils.sr.IconCacheStore
@@ -61,7 +62,7 @@ fun NativePageUi.buildIconPage(): View {
             val scan = action(string(R.string.sr_factory), string(R.string.sr_factory_tips)) { activity.requestScanPermission() }
                 .tracked(R.string.sr_factory)
             addSetting(scan)
-            whileVisible {
+            whileVisible(SettingsTab.Icon) {
                 while (true) {
                     val stats = withContext(Dispatchers.IO) {
                         IconCacheStore.readIndex(activity).entries.size to IconCacheStore.totalBytes(activity) / 1024f / 1024f

@@ -20,6 +20,9 @@ android {
     }
 
     targetProjectPath = ":app"
+
+    // Macrobenchmark force-stops and relaunches the target: the instrumentation must live in its own process, not the app's.
+    experimentalProperties["android.experimental.self-instrumenting"] = true
 }
 
 kotlin {

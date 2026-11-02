@@ -4,6 +4,8 @@ import android.app.Activity
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
+import io.github.jichuo1.meguviz.android.runtime.core.FrameScheduler
+import io.github.jichuo1.meguviz.android.runtime.core.FrameTick
 import io.github.jichuo1.meguviz.android.window.InsetsSlot
 import io.github.jichuo1.meguviz.android.window.InsetsValue
 import io.github.jichuo1.meguviz.android.window.WindowSession
@@ -22,6 +24,9 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
     private val ownedDrawables = mutableListOf<OwnedDrawableWrapper>()
     private val pendingInsets = mutableListOf<InsetsClaim>()
     private var closed = false
+    private val idleTasks = ArrayDeque<() -> Unit>()
+    private var idleChannel: WindowSession.WindowFrameChannel? = null
+    private var idleGate: () -> Boolean = { true }
 
     val isActive: Boolean get() = !closed && ui.state == SessionState.ACTIVE
 
@@ -59,6 +64,33 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
         }
     }
 
+    /**
+     * Queues [task] for a later frame. The window's frame scheduler hands the channel one unit per frame and only while
+     * the window is started, so a queue of page builds spreads over frames instead of landing in one. While [ready]
+     * is false (a finger is down, a page is moving) the queue waits, and is asked again a moment later.
+     */
+    fun runWhenIdle(ready: () -> Boolean, task: () -> Unit) {
+        val session = window
+        if (closed || session == null) return
+        idleGate = ready
+        idleTasks.addLast(task)
+        val channel = idleChannel ?: session.openFrameChannel(this, FrameScheduler.FrameWork { tick, allowance -> drainIdle(tick, allowance) }, 1)
+            .also { idleChannel = it }
+        channel.requestFrame()
+    }
+
+    private fun drainIdle(tick: FrameTick, allowance: Int): Int {
+        val channel = idleChannel ?: return 0
+        if (allowance <= 0 || idleTasks.isEmpty()) return 0
+        if (!idleGate()) {
+            activity.window?.decorView?.postDelayed({ if (!closed) channel.requestFrame() }, IDLE_RETRY_MS)
+            return 0
+        }
+        idleTasks.removeFirst().invoke()
+        if (idleTasks.isNotEmpty()) channel.requestFrame()
+        return 1
+    }
+
     fun adopt(view: View, key: String) {
         if (installed && !closed) registerTree(view, key)
     }
@@ -86,11 +118,15 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
     }
 
     fun onResume() {
-        if (!closed) window?.setVisible(true)
+        if (closed) return
+        window?.setVisible(true)
+        if (idleTasks.isNotEmpty()) idleChannel?.requestFrame()
     }
 
     fun onPause() {
-        if (!closed) window?.setVisible(false)
+        if (closed) return
+        idleChannel?.cancelPending()
+        window?.setVisible(false)
     }
 
     fun onStop() {
@@ -103,6 +139,9 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
         if (closed) return
         closed = true
         pendingInsets.clear()
+        idleTasks.clear()
+        idleChannel?.close()
+        idleChannel = null
         try {
             window?.close()
             window = null
@@ -114,5 +153,9 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
                 ownedDrawables.clear()
             }
         }
+    }
+
+    private companion object {
+        const val IDLE_RETRY_MS = 120L
     }
 }
