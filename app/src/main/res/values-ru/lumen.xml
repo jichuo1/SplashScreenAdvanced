@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">Улучшенное стекло</string>
     <string name="lumen_capture">Фон в реальном времени</string>
     <string name="lumen_capture_summary">Получать содержимое окна приложения под стеклом</string>
+    <string name="module_background">Фоновое изображение</string>
+    <string name="module_background_summary">Выберите изображение модуля; оно будет нормализовано и сохранено приватно</string>
+    <string name="module_background_automatic">Автоматически</string>
+    <string name="module_background_custom">Своё изображение</string>
+    <string name="module_background_restore">Восстановить автоматический фон</string>
+    <string name="background_import_failed">Не удалось импортировать изображение</string>
 </resources>

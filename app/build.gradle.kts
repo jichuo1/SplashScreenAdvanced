@@ -200,6 +200,11 @@ kotlin {
 dependencies {
     implementation(libs.lumen.engine)
     implementation(libs.lumen.motion)
+    implementation(libs.meguviz.ui.core)
+    implementation(libs.meguviz.android.runtime)
+    implementation(libs.meguviz.android.window)
+    implementation(libs.meguviz.drawable.core)
+    implementation(libs.meguviz.drawable.android)
 
     compileOnly(libs.libxposed.api)
     implementation(libs.libxposed.service)

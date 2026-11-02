@@ -12,7 +12,16 @@
     <item name="native_update_notes" type="id" />
     <item name="native_update_action" type="id" />
     <item name="native_update_cancel" type="id" />
+    <item name="native_bottom_navigation" type="id" />
+    <item name="native_bottom_selection" type="id" />
+    <item name="native_settings_search" type="id" />
+    <item name="native_settings_search_results" type="id" />
     <string name="native_back">Back</string>
+    <string name="settings_search">Search settings</string>
+    <string name="settings_search_hint">Type a setting name</string>
+    <string name="settings_search_empty">No matching settings</string>
+    <string name="home_tab_overview">Home</string>
+    <string name="home_tab_basic">Basic</string>
     <style name="NativePageTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>

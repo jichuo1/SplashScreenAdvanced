@@ -195,7 +195,7 @@ private class NativeAppRow(ui: NativePageUi, colorBrowsing: Boolean) : NativeRow
     val icon = ImageView(ui.activity)
     val toggle = CheckBox(ui.activity).apply { buttonTintList = ColorStateList.valueOf(ui.palette.primary) }
     init {
-        background = ui.lumen.cardBackground(ui.palette.surface, 16f)
+        background = ui.activity.meguviz.own(ui.lumen.cardBackground(ui.palette.surface, 16f))
         addView(icon, 0, LayoutParams(ui.dp(40), ui.dp(40)).apply { marginEnd = ui.dp(12) })
         if (colorBrowsing) toggle.visibility = View.GONE
         else tag = ElasticInteractionController.EXCLUDED_TAG

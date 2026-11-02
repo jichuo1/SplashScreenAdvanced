@@ -12,7 +12,7 @@ fun NativePageUi.buildDevPage(): View = scrollContent {
     })
     val card = column().apply {
         setPadding(dp(16), dp(16), dp(16), dp(16))
-        background = lumen.cardBackground(palette.surface, 16f)
+        background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
     }
     val value = text("")
     card.addView(text(string(R.string.dev_icon_round_corner_rate)))

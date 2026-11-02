@@ -7,7 +7,7 @@ import android.widget.ImageView
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 
 fun NativePageUi.header(imageResource: Int, title: String): View = FrameLayout(activity).apply {
-    background = lumen.cardBackground(palette.surfaceVariant, 20f)
+    background = activity.meguviz.own(lumen.cardBackground(palette.surfaceVariant, 20f))
     addView(ImageView(activity).apply {
         setImageResource(imageResource); scaleType = ImageView.ScaleType.FIT_CENTER
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO

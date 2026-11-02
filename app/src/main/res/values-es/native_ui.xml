@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_back">Atrás</string>
+    <string name="settings_search">Buscar ajustes</string>
+    <string name="settings_search_hint">Escribe el nombre de un ajuste</string>
+    <string name="settings_search_empty">No hay ajustes coincidentes</string>
+    <string name="home_tab_overview">Inicio</string>
+    <string name="home_tab_basic">Básico</string>
 </resources>

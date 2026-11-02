@@ -38,6 +38,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     val repo get() = activity.repository
     val lumen get() = activity.lumen
     val palette get() = lumen.palette
+    var stateNamespace = ""
     var backButton: View? = null
     private val bindings = mutableListOf<() -> Unit>()
     private val stateWriters = mutableListOf<(Bundle) -> Unit>()
@@ -69,12 +70,13 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
 
     fun scrollContent(stateKey: String = "scrollY", build: LinearLayout.() -> Unit = {}): ScrollView = ScrollView(activity).apply {
         id = if (stateKey == "masterScroll") R.id.native_master_scroll else R.id.native_scroll
+        val namespacedKey = stateNamespace + stateKey
         isFillViewport = true
         clipToPadding = false
         clipChildren = false
         addView(column().apply { setPadding(dp(16), dp(12), dp(16), dp(24)); build() })
-        addStateWriter { it.putInt(stateKey, scrollY) }
-        post { scrollTo(0, restored?.getInt(stateKey) ?: 0) }
+        addStateWriter { it.putInt(namespacedKey, scrollY) }
+        post { scrollTo(0, restored?.getInt(namespacedKey) ?: 0) }
     }
 
     fun LinearLayout.addSetting(view: View) {
@@ -108,8 +110,8 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     }
 
     fun row(title: String, summary: String? = null): NativeRow = NativeRow(activity, title, summary).apply {
-        background = lumen.cardBackground(palette.surface, 16f)
-        foreground = CoverableRippleDrawable.rounded(palette, dp(16).toFloat())
+        background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
+        foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(16).toFloat()))
         clipChildren = false
         clipToPadding = false
     }
@@ -195,15 +197,15 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     fun actionButton(label: String, description: String, clicked: () -> Unit) = text(label, 26f).apply {
         gravity = Gravity.CENTER
         contentDescription = description
-        foreground = CoverableRippleDrawable.rounded(palette, dp(24).toFloat())
+        foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(24).toFloat()))
         setOnClickListener { clicked() }
     }
 
     fun button(label: String, clicked: () -> Unit): Button = Button(activity).apply {
         text = label
         setTextColor(palette.primary)
-        background = lumen.surface(palette.surface, 12f, SurfaceRole.TEXT_BUTTON)
-        foreground = CoverableRippleDrawable.rounded(palette, dp(12).toFloat())
+        background = activity.meguviz.own(lumen.surface(palette.surface, 12f, SurfaceRole.TEXT_BUTTON))
+        foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(12).toFloat()))
         setOnClickListener { clicked() }
     }
 

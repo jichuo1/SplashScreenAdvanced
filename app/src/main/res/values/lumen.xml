@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">Advanced glass</string>
     <string name="lumen_capture">Live backdrop</string>
     <string name="lumen_capture_summary">Sample this app window behind advanced glass surfaces</string>
+    <string name="module_background">Background image</string>
+    <string name="module_background_summary">Choose an image for this module; it is normalized and stored privately</string>
+    <string name="module_background_automatic">Automatic</string>
+    <string name="module_background_custom">Custom image</string>
+    <string name="module_background_restore">Restore automatic background</string>
+    <string name="background_import_failed">Unable to import this image</string>
 </resources>

@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">Vidrio avanzado</string>
     <string name="lumen_capture">Fondo en tiempo real</string>
     <string name="lumen_capture_summary">Muestrear el contenido de esta ventana detrás del vidrio</string>
+    <string name="module_background">Imagen de fondo</string>
+    <string name="module_background_summary">Elige una imagen para el módulo; se normaliza y guarda de forma privada</string>
+    <string name="module_background_automatic">Automático</string>
+    <string name="module_background_custom">Imagen personalizada</string>
+    <string name="module_background_restore">Restaurar fondo automático</string>
+    <string name="background_import_failed">No se pudo importar esta imagen</string>
 </resources>

@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">進階材質</string>
     <string name="lumen_capture">即時背景取樣</string>
     <string name="lumen_capture_summary">讓進階材質跟隨視窗下方的內容變化</string>
+    <string name="module_background">背景圖片</string>
+    <string name="module_background_summary">為模組選擇圖片，正規化後僅儲存在應用程式私有目錄</string>
+    <string name="module_background_automatic">自動背景</string>
+    <string name="module_background_custom">自訂圖片</string>
+    <string name="module_background_restore">恢復自動背景</string>
+    <string name="background_import_failed">無法匯入此圖片</string>
 </resources>

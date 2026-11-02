@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_back">戻る</string>
+    <string name="settings_search">設定を検索</string>
+    <string name="settings_search_hint">設定名を入力</string>
+    <string name="settings_search_empty">一致する設定がありません</string>
+    <string name="home_tab_overview">ホーム</string>
+    <string name="home_tab_basic">基本</string>
 </resources>

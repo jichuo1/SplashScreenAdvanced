@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
@@ -17,6 +18,7 @@ import android.window.OnBackAnimationCallback
 import android.window.OnBackInvokedDispatcher
 import android.widget.LinearLayout
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.TextView
 import com.SplashScreenAdvanced.xposedmodule.R
@@ -31,8 +33,14 @@ import com.lumen.coacervation.engine.model.SkinId
 import com.SplashScreenAdvanced.xposedmodule.ui.page.*
 import com.SplashScreenAdvanced.xposedmodule.ui.apppage.*
 import com.SplashScreenAdvanced.xposedmodule.ui.component.buildColorPickerPage
+import com.SplashScreenAdvanced.xposedmodule.ui.page.data.ModulePreferenceRes
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
+import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizFamilyBridge
+import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizNavigationBar
+import com.lumen.coacervation.engine.background.LiquidBackgroundConfig
+import com.lumen.coacervation.engine.background.LiquidBackgroundImportResult
+import com.lumen.coacervation.engine.background.LiquidBackgroundStore
 import com.lumen.coacervation.engine.host.LumenActivityDelegate
 import com.lumen.coacervation.engine.interaction.LumenElasticInteraction
 import com.lumen.coacervation.engine.model.LumenPalette
@@ -42,13 +50,17 @@ import com.lumen.coacervation.engine.motion.morph.ContainerMorphController
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphHost
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphLauncher
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphOrigin
+import com.lumen.coacervation.engine.motion.pager.LumenPagePager
 import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
+import androidx.core.graphics.ColorUtils
+import androidx.core.widget.doAfterTextChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent
 
 /** Each settings page is a native Activity; the engine owns the title and container transition. */
@@ -56,6 +68,7 @@ abstract class NativeSettingsActivity : Activity() {
     abstract val pageRoute: Route
     val repository: GlobalPreferencesRepository by lazy { KoinJavaComponent.get(GlobalPreferencesRepository::class.java) }
     val uiState: GlobalUIViewModel by lazy { KoinJavaComponent.get(GlobalUIViewModel::class.java) }
+    val meguviz = MeguvizFamilyBridge(this)
     val lumen = LumenActivityDelegate(this, ::resolvePalette)
     val elastic by lazy { LumenElasticInteraction(this, lumen) }
     val modals by lazy { LumenModalPresenter(this, lumen, elastic = elastic) }
@@ -66,6 +79,10 @@ abstract class NativeSettingsActivity : Activity() {
     private var toolbarTitle: TextView? = null
     private lateinit var renderingConfig: NativeUiConfig
     private lateinit var renderingSkin: SkinId
+    private lateinit var renderingBackground: LiquidBackgroundConfig
+    private var homePager: LumenPagePager? = null
+    private var homeDock: MeguvizNavigationBar? = null
+    private val homePageHosts = mutableListOf<FrameLayout>()
     lateinit var pageUi: NativePageUi
         private set
     protected var restoredPageState: Bundle? = null
@@ -82,6 +99,7 @@ abstract class NativeSettingsActivity : Activity() {
         restoredPageState = savedInstanceState?.getBundle("native.page")
         renderingConfig = repository.uiConfigFlow.value
         renderingSkin = LumenEngine.requestedMaterial(this)
+        renderingBackground = LiquidBackgroundStore.read(this).config
         window.setDecorFitsSystemWindows(false)
         @Suppress("DEPRECATION")
         window.statusBarColor = Color.TRANSPARENT
@@ -93,7 +111,7 @@ abstract class NativeSettingsActivity : Activity() {
         pageUi = NativePageUi(this, restoredPageState)
         val page = buildPage()
         if (pageRoute == Route.Main) {
-            setContentView(page)
+            meguviz.install(page)
             page.requestApplyInsets()
             lumen.bindRoot(page) { if (!isFinishing && !isDestroyed) recreate() }
         } else {
@@ -101,12 +119,12 @@ abstract class NativeSettingsActivity : Activity() {
             val host = ContainerMorphHost(this, lumen.palette.surface, lumen.palette.background,
                 lumen.palette.textPrimary, toolbarTitle?.text?.toString().orEmpty())
             morphHost = host
-            host.setMotionSurfaceBackground(lumen.motionSurfaceBackground(lumen.palette.surface, 16f))
-            setContentView(host)
+            host.setMotionSurfaceBackground(meguviz.own(lumen.motionSurfaceBackground(lumen.palette.surface, 16f)))
             host.replacePage(page, checkNotNull(toolbarTitle))
             // The page's chrome owns status-bar insets; padding the host would leave a material seam.
             host.requestApplyInsets()
             pageUi.backButton?.let(host::registerNavigationBack)
+            meguviz.install(host)
             lumen.bindRoot(host.liquidBackdropRoot()) { if (!isFinishing && !isDestroyed) recreate() }
             morph = ContainerMorphController(this, host, lumen, javaClass,
                 ContainerMorphOrigin.from(intent), savedInstanceState == null, { toolbarTitle },
@@ -133,7 +151,7 @@ abstract class NativeSettingsActivity : Activity() {
         }
         val chrome = FrameLayout(this).apply {
             id = R.id.native_chrome
-            background = lumen.surface(lumen.palette.surface, 0f, SurfaceRole.TOP_BAR)
+            background = meguviz.own(lumen.surface(lumen.palette.surface, 0f, SurfaceRole.TOP_BAR))
             elevation = dp(4).toFloat()
             addView(toolbar, FrameLayout.LayoutParams(-1, dp(68)))
         }
@@ -147,12 +165,17 @@ abstract class NativeSettingsActivity : Activity() {
             setPadding(dp(10), 0, 0, 0)
         }
         toolbar.addView(toolbarTitle, LinearLayout.LayoutParams(0, -2, 1f))
-        if (pageRoute == Route.Main) toolbar.addView(pageUi.actionButton("↻", getString(R.string.restart_title)) {
-            pageUi.showRestartDialog()
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        if (pageRoute == Route.Main) {
+            toolbar.addView(pageUi.actionButton("⌕", getString(R.string.settings_search)) {
+                showSettingsSearch()
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
+            toolbar.addView(pageUi.actionButton("↻", getString(R.string.restart_title)) {
+                pageUi.showRestartDialog()
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
         page.addView(chrome, LinearLayout.LayoutParams(-1, dp(68)))
         val body = when (pageRoute) {
-            Route.Main -> pageUi.buildMainPage()
+            Route.Main -> buildHomeBody()
             Route.Basic -> pageUi.buildBasicPage()
             Route.Scope -> pageUi.buildScopePage()
             Route.Icon -> pageUi.buildIconPage()
@@ -220,6 +243,117 @@ abstract class NativeSettingsActivity : Activity() {
         }
     }
 
+    private enum class HomeTab(val titleResource: Int, val labelResource: Int, val iconResource: Int) {
+        Overview(R.string.app_name, R.string.home_tab_overview, R.drawable.ic_app),
+        Icon(R.string.icon_settings, R.string.icon_settings, R.drawable.ic_picture),
+        Background(R.string.background_settings, R.string.background_settings, R.drawable.ic_color),
+        Display(R.string.display_settings, R.string.display_settings, R.drawable.ic_monitor),
+        Basic(R.string.basic_settings, R.string.home_tab_basic, R.drawable.ic_setting),
+    }
+
+    private fun buildHomeBody(): View {
+        val pager = LumenPagePager(this)
+        val dock = MeguvizNavigationBar(
+            this,
+            HomeTab.entries.map { getString(it.labelResource) },
+            HomeTab.entries.map { it.iconResource },
+            lumen.palette.textSecondary,
+            lumen.palette.surface,
+            LayerDrawable(arrayOf(
+                meguviz.rounded(ColorUtils.setAlphaComponent(lumen.palette.surface, 168), 30f),
+                meguviz.own(lumen.surface(lumen.palette.surface, 30f, SurfaceRole.FLOATING)),
+            )),
+            LayerDrawable(arrayOf(
+                meguviz.rounded(ColorUtils.setAlphaComponent(lumen.palette.primary, 40), 26f),
+                meguviz.own(lumen.surface(lumen.palette.primary, 26f, SurfaceRole.SELECTED_ITEM)),
+            )),
+            onSelect = { pager.selectPage(it) },
+        )
+        homePager = pager
+        homeDock = dock
+        HomeTab.entries.forEach {
+            homePageHosts += FrameLayout(this).also { host -> pager.addView(host, FrameLayout.LayoutParams(-1, -1)) }
+        }
+        pager.onPositionChanged = {
+            ensureHomePage(pager.pagePosition.toInt().coerceIn(0, HomeTab.entries.lastIndex))
+            ensureHomePage(kotlin.math.ceil(pager.pagePosition.toDouble()).toInt().coerceIn(0, HomeTab.entries.lastIndex))
+            dock.setPageProgress(pager.pagePosition)
+        }
+        pager.onPageSelected = { index ->
+            ensureHomePage(index)
+            dock.setSelectedPage(index)
+            updatePageTitle(getString(HomeTab.entries[index].titleResource))
+        }
+        val restored = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, HomeTab.entries.lastIndex) ?: 0
+        ensureHomePage(restored)
+        pager.selectPage(restored, false)
+        dock.setSelectedPage(restored)
+        dock.setPageProgress(pager.pagePosition)
+        return FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(pager, FrameLayout.LayoutParams(-1, -1))
+            addView(dock, FrameLayout.LayoutParams(-1, dp(68), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                leftMargin = dp(12); rightMargin = dp(12); bottomMargin = dp(10)
+            })
+        }
+    }
+
+    private fun ensureHomePage(index: Int) {
+        val host = homePageHosts[index]
+        if (host.childCount > 0) return
+        val tab = HomeTab.entries[index]
+        pageUi.stateNamespace = "home.${tab.name}."
+        val content = when (tab) {
+            HomeTab.Overview -> pageUi.buildMainPage("scroll")
+            HomeTab.Icon -> pageUi.buildIconPage()
+            HomeTab.Background -> pageUi.buildBackgroundPage()
+            HomeTab.Display -> pageUi.buildDisplayPage()
+            HomeTab.Basic -> pageUi.buildBasicPage()
+        }
+        content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, dp(84))
+        host.addView(content, FrameLayout.LayoutParams(-1, -1))
+        meguviz.adopt(content, "home/${tab.name}")
+    }
+
+    private fun showSettingsSearch() {
+        val destinations = ModulePreferenceRes.entries.map { getString(it.stringRes) to checkNotNull(it.navigateTo) }
+        pageUi.dialog(getString(R.string.settings_search)) { dialog, container ->
+            val results = pageUi.column().apply { id = R.id.native_settings_search_results }
+            val input = EditText(this).apply {
+                id = R.id.native_settings_search
+                hint = getString(R.string.settings_search_hint)
+                setTextColor(lumen.palette.textPrimary)
+                setHintTextColor(lumen.palette.textSecondary)
+                isSingleLine = true
+            }
+            fun render(query: String) {
+                results.removeAllViews()
+                val normalized = query.trim()
+                if (normalized.isEmpty()) {
+                    results.addView(pageUi.text(getString(R.string.settings_search_hint), 14f, secondary = true))
+                    return
+                }
+                val matches = destinations.filter { it.first.contains(normalized, ignoreCase = true) }
+                if (matches.isEmpty()) {
+                    results.addView(pageUi.text(getString(R.string.settings_search_empty), 14f, secondary = true))
+                    return
+                }
+                matches.forEach { (title, route) ->
+                    results.addView(pageUi.action(title, moduleRequired = false) { source ->
+                        modals.dismiss(dialog, container) { navigate(route, source, source.titleView) }
+                    })
+                }
+            }
+            input.doAfterTextChanged { render(it?.toString().orEmpty()) }
+            container.addView(input, LinearLayout.LayoutParams(-1, dp(52)))
+            container.addView(ScrollView(this).apply { addView(results) }, LinearLayout.LayoutParams(-1,
+                minOf(dp(320), resources.displayMetrics.heightPixels / 2)))
+            render("")
+            input.requestFocus()
+        }
+    }
+
     fun navigate(route: Route, source: View, title: TextView) {
         if (morph?.isExpanded == false) return
         val destination = activityForRoute(route)
@@ -231,6 +365,11 @@ abstract class NativeSettingsActivity : Activity() {
 
     fun requestBack() {
         if (pageUi.confirmDiscard { closePage() }) return
+        val pager = homePager
+        if (pageRoute == Route.Main && pager != null && pager.selectedPage != 0) {
+            pager.selectPage(0)
+            return
+        }
         closePage()
     }
 
@@ -253,12 +392,28 @@ abstract class NativeSettingsActivity : Activity() {
         addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
     }, 402) }
 
+    fun launchBackgroundPicker() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+        }, 404)
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
         if (requestCode == 401) BackupUtils.handleCreateDocument(this, data?.data)
         if (requestCode == 402) BackupUtils.handleReadDocument(this, data?.data)
+        if (requestCode == 404) {
+            val uri = data?.data ?: return
+            uiScope.launch {
+                when (withContext(Dispatchers.IO) { LiquidBackgroundStore.importFromUri(applicationContext, uri) }) {
+                    is LiquidBackgroundImportResult.Success -> if (!isFinishing && !isDestroyed) recreate()
+                    is LiquidBackgroundImportResult.Failure -> toast(R.string.background_import_failed)
+                }
+            }
+        }
     }
 
     fun requestScanPermission() {
@@ -290,12 +445,15 @@ abstract class NativeSettingsActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        meguviz.onStart()
         lumen.onStart()
     }
 
     override fun onResume() {
         super.onResume()
-        if (renderingConfig != repository.uiConfigFlow.value || renderingSkin != LumenEngine.requestedMaterial(this)) {
+        meguviz.onResume()
+        if (renderingConfig != repository.uiConfigFlow.value || renderingSkin != LumenEngine.requestedMaterial(this) ||
+            renderingBackground != LiquidBackgroundStore.read(this).config) {
             recreate()
             return
         }
@@ -316,13 +474,15 @@ abstract class NativeSettingsActivity : Activity() {
         return elastic.dispatch(event) { super.dispatchTouchEvent(it) }
     }
 
-    override fun onPause() { startedJob?.cancel(); startedJob = null; elastic.clear(); super.onPause() }
-    override fun onStop() { startedJob?.cancel(); startedJob = null; elastic.clear(); lumen.onStop(); super.onStop() }
+    override fun onPause() { startedJob?.cancel(); startedJob = null; elastic.clear(); meguviz.onPause(); super.onPause() }
+    override fun onStop() { startedJob?.cancel(); startedJob = null; elastic.clear(); meguviz.onStop(); lumen.onStop(); super.onStop() }
     override fun onTrimMemory(level: Int) { lumen.onTrimMemory(level); super.onTrimMemory(level) }
     @Deprecated("Deprecated in Java")
     override fun onLowMemory() { lumen.onLowMemory(); super.onLowMemory() }
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putBundle("native.page", pageUi.saveState())
+        outState.putBundle("native.page", pageUi.saveState().apply {
+            homePager?.let { putInt("native.home.tab", it.selectedPage) }
+        })
         super.onSaveInstanceState(outState)
     }
 
@@ -334,6 +494,7 @@ abstract class NativeSettingsActivity : Activity() {
         modals.onDestroy()
         elastic.dispose()
         lumen.onDestroy()
+        meguviz.close()
         super.onDestroy()
     }
 }

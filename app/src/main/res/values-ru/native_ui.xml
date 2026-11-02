@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_back">Назад</string>
+    <string name="settings_search">Поиск настроек</string>
+    <string name="settings_search_hint">Введите название настройки</string>
+    <string name="settings_search_empty">Совпадающих настроек нет</string>
+    <string name="home_tab_overview">Главная</string>
+    <string name="home_tab_basic">Основные</string>
 </resources>

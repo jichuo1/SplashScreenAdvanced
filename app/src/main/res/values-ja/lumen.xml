@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">高度なガラス</string>
     <string name="lumen_capture">背景のリアルタイム取得</string>
     <string name="lumen_capture_summary">ガラス面の背後にあるこのアプリのウィンドウ内容を取得</string>
+    <string name="module_background">背景画像</string>
+    <string name="module_background_summary">モジュールの画像を選択し、正規化してアプリのプライベート領域に保存</string>
+    <string name="module_background_automatic">自動</string>
+    <string name="module_background_custom">カスタム画像</string>
+    <string name="module_background_restore">自動背景に戻す</string>
+    <string name="background_import_failed">この画像を読み込めません</string>
 </resources>

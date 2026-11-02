@@ -188,7 +188,7 @@ private fun NativePageUi.colorEditor(config: AppColorConfig): View {
 
 private fun NativePageUi.channel(title: Int, maximum: Int, current: () -> Int, changed: (Int) -> Unit): View = column().apply {
     setPadding(dp(16), dp(12), dp(16), dp(12))
-    background = lumen.cardBackground(palette.surface, 16f)
+    background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
     val label = text(string(title))
     addView(label)
     val seek = SeekBar(activity).apply {

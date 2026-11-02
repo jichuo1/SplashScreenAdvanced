@@ -13,7 +13,12 @@ import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeChoice
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.lumen.coacervation.engine.LumenEngine
+import com.lumen.coacervation.engine.background.LiquidBackgroundMode
+import com.lumen.coacervation.engine.background.LiquidBackgroundStore
 import com.lumen.coacervation.engine.model.SkinId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 fun NativePageUi.buildBasicPage(): View {
     if (repo.get(Preferences.Log.ENABLE_LOG) &&
@@ -53,6 +58,23 @@ fun NativePageUi.buildBasicPage(): View {
         addSetting(switch(R.string.lumen_capture, Preferences.Module.MODULE_APP_BLUR, R.string.lumen_capture_summary,
             enabled = { LumenEngine.requestedMaterial(activity) == SkinId.LIQUID }) {
             if (LumenEngine.setRealtimeCaptureEnabled(activity, it)) activity.recreate() else activity.toast(R.string.save_failed)
+        })
+        val background = action(string(R.string.module_background), string(R.string.module_background_summary), moduleRequired = false) {
+            activity.launchBackgroundPicker()
+        }
+        bind {
+            val state = LiquidBackgroundStore.read(activity)
+            background.valueView.text = when (state.config.mode) {
+                LiquidBackgroundMode.AUTOMATIC -> string(R.string.module_background_automatic)
+                LiquidBackgroundMode.CUSTOM -> state.config.displayName ?: string(R.string.module_background_custom)
+            }
+        }
+        addSetting(background)
+        addSetting(action(string(R.string.module_background_restore), moduleRequired = false) {
+            activity.uiScope.launch {
+                val restored = withContext(Dispatchers.IO) { LiquidBackgroundStore.restoreAutomatic(activity) }
+                if (restored) activity.recreate() else activity.toast(R.string.save_failed)
+            }
         })
         addSetting(switch(R.string.split_view, Preferences.Module.SPLIT_VIEW, R.string.split_view_tips) { activity.recreate() })
         addSetting(action(string(R.string.backup)) { activity.launchBackup() })

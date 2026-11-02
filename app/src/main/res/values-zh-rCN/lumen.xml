@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">高级材质</string>
     <string name="lumen_capture">实时背景取样</string>
     <string name="lumen_capture_summary">让高级材质跟随本应用窗口下方的内容变化</string>
+    <string name="module_background">背景图片</string>
+    <string name="module_background_summary">为模块选择图片，规范化后仅保存在应用私有目录</string>
+    <string name="module_background_automatic">自动背景</string>
+    <string name="module_background_custom">自定义图片</string>
+    <string name="module_background_restore">恢复自动背景</string>
+    <string name="background_import_failed">无法导入此图片</string>
 </resources>

@@ -10,4 +10,10 @@
     <string name="lumen_material_liquid">Verre avancé</string>
     <string name="lumen_capture">Arrière-plan en direct</string>
     <string name="lumen_capture_summary">Échantillonner le contenu de cette fenêtre derrière le verre</string>
+    <string name="module_background">Image d’arrière-plan</string>
+    <string name="module_background_summary">Choisissez une image pour le module ; elle est normalisée et stockée en privé</string>
+    <string name="module_background_automatic">Automatique</string>
+    <string name="module_background_custom">Image personnalisée</string>
+    <string name="module_background_restore">Restaurer l’arrière-plan automatique</string>
+    <string name="background_import_failed">Impossible d’importer cette image</string>
 </resources>

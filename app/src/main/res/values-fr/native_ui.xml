@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_back">Retour</string>
+    <string name="settings_search">Rechercher les paramètres</string>
+    <string name="settings_search_hint">Saisissez le nom d’un paramètre</string>
+    <string name="settings_search_empty">Aucun paramètre correspondant</string>
+    <string name="home_tab_overview">Accueil</string>
+    <string name="home_tab_basic">Base</string>
 </resources>

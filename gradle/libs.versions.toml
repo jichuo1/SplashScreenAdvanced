@@ -5,6 +5,9 @@ kotlin = "2.4.21"
 libxposed-api = "102.0.0"
 libxposed-service = "102.0.0"
 meguviz-ref = "1.0.0"
+meguviz-ui = "1.0.0"
+meguviz-android = "1.1.0"
+meguviz-drawable = "1.0.0"
 koin = "4.2.2"
 palette = "1.0.0"
 kotlinx-coroutines = "1.11.0"
@@ -24,6 +27,11 @@ uiautomator = "2.4.0"
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed-api" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposed-service" }
 meguviz-ref-core = { module = "io.github.jichuo1.meguviz:meguviz-ref-core", version.ref = "meguviz-ref" }
+meguviz-ui-core = { module = "io.github.jichuo1.meguviz:meguviz-ui-core", version.ref = "meguviz-ui" }
+meguviz-android-runtime = { module = "io.github.jichuo1.meguviz:meguviz-android-runtime", version.ref = "meguviz-android" }
+meguviz-android-window = { module = "io.github.jichuo1.meguviz:meguviz-android-window", version.ref = "meguviz-android" }
+meguviz-drawable-core = { module = "io.github.jichuo1.meguviz:meguviz-drawable-core", version.ref = "meguviz-drawable" }
+meguviz-drawable-android = { module = "io.github.jichuo1.meguviz:meguviz-drawable-android", version.ref = "meguviz-drawable" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "palette" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

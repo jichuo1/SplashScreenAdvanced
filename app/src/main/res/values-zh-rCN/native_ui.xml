@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_back">返回</string>
+    <string name="settings_search">搜索设置</string>
+    <string name="settings_search_hint">输入设置名称</string>
+    <string name="settings_search_empty">没有匹配的设置</string>
+    <string name="home_tab_overview">首页</string>
+    <string name="home_tab_basic">基础</string>
 </resources>
