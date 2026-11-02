@@ -113,8 +113,50 @@ class MemberLookupTest {
     fun classLoadingHelpers() {
         assertEquals(String::class.java, "java.lang.String".toClass())
         assertNull("no.such.Clazz".toClassOrNull())
-        // 与此前 KavaRef 的 classOf 一致: reified 基本类型取包装类
-        assertEquals(Int::class.javaObjectType, classOf<Int>())
         assertEquals(String::class.java, classOf<String>())
     }
+
+    // 与 KavaRef 的 classOf 一致：基本类型默认取原始类型，对象类型不受影响
+    @Test
+    fun classOfDefaultsToPrimitiveTypes() {
+        assertEquals(Int::class.javaPrimitiveType, classOf<Int>())
+        assertEquals(Boolean::class.javaPrimitiveType, classOf<Boolean>())
+        assertEquals(Long::class.javaPrimitiveType, classOf<Long>())
+        assertEquals(Float::class.javaPrimitiveType, classOf<Float>())
+        assertEquals(String::class.java, classOf<String>())
+        assertEquals(LookupTarget::class.java, classOf<LookupTarget>())
+    }
+
+    @Test
+    fun classOfCanAskForTheWrapperExplicitly() {
+        assertEquals(Int::class.javaObjectType, classOf<Int>(primitive = false))
+        assertEquals(Boolean::class.javaObjectType, classOf<Boolean>(primitive = false))
+    }
+
+    /**
+     * 回归：1.0.8 的 classOf 返回包装类，`getDeclaredMethod` 找不到 `(boolean)` / `(int)` 参数的方法，
+     * 去小米图标描边（IconCustomizer.setIsIconStroke）与 AppIconsManager.loadAppIcon 随之静默失效。
+     */
+    @Test
+    fun classOfFindsPrimitiveSignaturesThroughGetDeclaredMethod() {
+        // setIsIconStroke(boolean)：NoStrokeAdaptiveIconDrawable 的查找方式
+        assertNotNull(StrokeLike::class.java.getDeclaredMethod("setIsIconStroke", classOf<Boolean>()))
+        // loadAppIcon(String, int, ApplicationInfo, PackageManager)：XiaomiIconsHelper 的查找方式
+        assertNotNull(
+            StrokeLike::class.java.getDeclaredMethod(
+                "loadAppIcon", classOf<String>(), classOf<Int>(), classOf<Any>(), classOf<Any>()
+            )
+        )
+        // 包装类查不到原始类型签名，这正是 1.0.8 的故障形态
+        assertThrows(NoSuchMethodException::class.java) {
+            StrokeLike::class.java.getDeclaredMethod("setIsIconStroke", classOf<Boolean>(primitive = false))
+        }
+    }
+}
+
+/** 与 miui IconCustomizer / AppIconsManager 的原始类型签名同形的桩 */
+@Suppress("unused", "UNUSED_PARAMETER")
+class StrokeLike {
+    fun setIsIconStroke(stroke: Boolean) = Unit
+    fun loadAppIcon(pkg: String, userId: Int, info: Any, pm: Any): Any = pkg
 }

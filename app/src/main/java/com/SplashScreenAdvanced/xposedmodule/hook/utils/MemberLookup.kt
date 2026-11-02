@@ -121,10 +121,16 @@ internal fun String.toClassOrNull(loader: ClassLoader? = null): Class<*>? =
     }
 
 /**
- * `T::class.java`；reified 基本类型得到包装类（`classOf<Int>()` 是 `Integer`），沿用此前的取值语义。
- * 需要基本类型时用 `Int::class.javaPrimitiveType`。
+ * `T::class.java`；基本类型默认取原始类型（`classOf<Int>()` 是 `int`、`classOf<Boolean>()` 是 `boolean`）。
+ *
+ * 这是 KavaRef `classOf(primitiveType = true)` 的默认语义，不能改：`getDeclaredMethod` 按签名精确匹配，
+ * 传入 `Integer` / `Boolean` 去找 `(int)` / `(boolean)` 参数的方法会 NoSuchMethodException，而调用点都包在
+ * `runCatching` 里，表现为功能静默失效（1.0.8 曾因此无法去除小米图标描边，也丢了 AppIconsManager 一层）。
+ * 确实需要包装类时传 `primitive = false`。
  */
-internal inline fun <reified T : Any> classOf(): Class<T> = T::class.java
+@Suppress("UNCHECKED_CAST")
+internal inline fun <reified T : Any> classOf(primitive: Boolean = true): Class<T> =
+    ((if (primitive) T::class.javaPrimitiveType else null) ?: T::class.java) as Class<T>
 
 /** 放宽访问检查；平台拒绝时静默保留原状，由随后的访问自行失败 */
 internal fun <T : AccessibleObject> T.makeAccessible(): T = apply {
