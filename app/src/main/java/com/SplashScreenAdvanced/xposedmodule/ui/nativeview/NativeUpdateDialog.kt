@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.text.TextUtils
+import android.view.View
 import android.view.WindowInsets
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -85,6 +86,20 @@ private class UpdateNotesScroll(
     private val card: LinearLayout,
     private val edgeMargin: Int
 ) : ScrollView(context) {
+    /**
+     * The direct child of [card] that holds this scroll. The engine wraps scrolling content of a modal in its own stretch
+     * viewport, so this is the wrapper rather than the scroll itself; measuring that wrapper from [onMeasure] would measure
+     * this scroll again, without end.
+     */
+    private fun holderInCard(): View {
+        var view: View = this
+        while (true) {
+            val up = view.parent as? View ?: return view
+            if (up === card) return view
+            view = up
+        }
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val activity = context as NativeSettingsActivity
         val metrics = activity.windowManager.currentWindowMetrics
@@ -92,9 +107,10 @@ private class UpdateNotesScroll(
         val available = metrics.bounds.height() - safe.top - safe.bottom - edgeMargin * 2
         // Measure fixed siblings before reserving a viewport, including wrapped labels at large font scales.
         var fixed = card.paddingTop + card.paddingBottom
+        val holder = holderInCard()
         for (index in 0 until card.childCount) {
             val child = card.getChildAt(index)
-            if (child === this || child.isGone) continue
+            if (child === holder || child.isGone) continue
             child.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
             val params = child.layoutParams as LinearLayout.LayoutParams
             fixed += child.measuredHeight + params.topMargin + params.bottomMargin
