@@ -36,23 +36,30 @@ class MeguvizFamilyMigrationTest {
                 assertNotNull(it.findViewById(R.id.native_bottom_navigation))
             }
             val iconTitle = instrumentation.targetContext.getString(R.string.icon_settings)
-            device.findObject(UiSelector().description(iconTitle)).click()
-            scenario.onActivity {
-                assertEquals(iconTitle, it.findViewById<TextView>(R.id.native_title).text.toString())
-            }
+            // The first frames lay out the capsule and the dock; wait until the window settles before tapping.
+            device.waitForIdle()
+            SystemClock.sleep(1200)
+            val item = device.findObject(UiSelector().description(iconTitle))
+            assertTrue("Dock item missing", item.waitForExists(5000))
+            item.click()
+            // The engine dock selects on release and animates the page change.
+            awaitTitle(scenario, iconTitle)
             scenario.recreate()
-            scenario.onActivity {
-                assertTrue(it.meguviz.isActive)
-                assertEquals(iconTitle, it.findViewById<TextView>(R.id.native_title).text.toString())
-            }
+            scenario.onActivity { assertTrue(it.meguviz.isActive) }
+            awaitTitle(scenario, iconTitle)
             device.pressBack()
-            scenario.onActivity {
-                assertEquals(
-                    instrumentation.targetContext.getString(R.string.app_name),
-                    it.findViewById<TextView>(R.id.native_title).text.toString(),
-                )
-            }
+            awaitTitle(scenario, instrumentation.targetContext.getString(R.string.app_name))
         }
+    }
+
+    private fun awaitTitle(scenario: ActivityScenario<MainActivity>, expected: String) {
+        val deadline = SystemClock.uptimeMillis() + 5000
+        var actual = ""
+        while (actual != expected && SystemClock.uptimeMillis() < deadline) {
+            scenario.onActivity { actual = it.findViewById<TextView>(R.id.native_title).text.toString() }
+            if (actual != expected) SystemClock.sleep(50)
+        }
+        assertEquals(expected, actual)
     }
 
     @Test fun customBackgroundImportsPrivatelyAndRestores() {

@@ -1,6 +1,5 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.component
 
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -22,6 +21,8 @@ import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeAppDraftSnapsho
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeContentViewport
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeRow
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineCheckBox
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineEditText
 import com.SplashScreenAdvanced.xposedmodule.utils.HanziToPinyin
 import com.SplashScreenAdvanced.xposedmodule.utils.toMap
 import com.SplashScreenAdvanced.xposedmodule.utils.toSet
@@ -56,11 +57,12 @@ fun NativePageUi.appList(checkedKey: PreferenceKey<Set<String>>? = null, duratio
     var query = restored?.getString("query").orEmpty()
     var filterJob: Job? = null
     val root = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
-    val search = EditText(activity).apply {
+    val search = engineEditText(EditText(activity).apply {
         id = R.id.native_search; hint = string(R.string.search_hint); isSingleLine = true
         setTextColor(palette.textPrimary); setHintTextColor(palette.textSecondary)
         setText(query)
-    }
+        setPadding(dp(14), dp(12), dp(14), dp(12))
+    })
     root.addView(search, LinearLayout.LayoutParams(-1, -2))
     val tools = LinearLayout(activity)
     if (!colorBrowsing) tools.addView(button("⋯") {
@@ -193,7 +195,7 @@ fun NativePageUi.appList(checkedKey: PreferenceKey<Set<String>>? = null, duratio
 
 private class NativeAppRow(ui: NativePageUi, colorBrowsing: Boolean) : NativeRow(ui.activity, "", "") {
     val icon = ImageView(ui.activity)
-    val toggle = CheckBox(ui.activity).apply { buttonTintList = ColorStateList.valueOf(ui.palette.primary) }
+    val toggle = ui.engineCheckBox(CheckBox(ui.activity))
     init {
         background = ui.activity.meguviz.own(ui.lumen.cardBackground(ui.palette.surface, 16f))
         addView(icon, 0, LayoutParams(ui.dp(40), ui.dp(40)).apply { marginEnd = ui.dp(12) })

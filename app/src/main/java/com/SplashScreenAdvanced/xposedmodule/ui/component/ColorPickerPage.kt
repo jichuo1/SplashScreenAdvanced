@@ -15,12 +15,14 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Magnifier
-import android.widget.SeekBar
 import androidx.palette.graphics.Palette
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeChoice
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineEditText
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineSlider
+import com.lumen.coacervation.engine.motion.pager.LumenPageScrollView
 import com.SplashScreenAdvanced.xposedmodule.utils.toMap
 import com.SplashScreenAdvanced.xposedmodule.utils.toSet
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
@@ -51,7 +53,11 @@ private fun NativePageUi.colorEditor(config: AppColorConfig): View {
     val hsv = restored?.getFloatArray("colorHsv")?.takeIf { it.size == 3 }?.clone() ?: FloatArray(3).also { Color.colorToHSV(color, it) }
     val root = column()
     val content = column().apply { setPadding(dp(16), dp(12), dp(16), dp(12)) }
-    val scroll = android.widget.ScrollView(activity).apply { addView(content); clipToPadding = false }
+    val scroll = LumenPageScrollView(activity, onUserScroll = { activity.cancelReveal() }, onContentTouch = {}).apply {
+        addView(content)
+        clipToPadding = false
+        onScrollPositionChanged = { view -> lumen.notifyScrollPositionChanged(view) }
+    }
     root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
     stageChanges({ color != config.getDefaultBGColor(dark) }, { color = config.getDefaultBGColor(dark); Color.colorToHSV(color, hsv); refresh() })
     addStateWriter { it.putBoolean("colorDark", dark); it.putInt("color", color); it.putFloatArray("colorHsv", hsv.clone()); it.putInt("scrollY", scroll.scrollY) }
@@ -110,11 +116,12 @@ private fun NativePageUi.colorEditor(config: AppColorConfig): View {
         })
         val manual = action(string(R.string.manual_input), moduleRequired = false) { anchor ->
             dialog(string(R.string.manual_input), string(R.string.manual_input_hint), anchor) { dialog, body ->
-                val input = EditText(activity).apply {
+                val input = engineEditText(EditText(activity).apply {
                     inputType = InputType.TYPE_CLASS_TEXT
                     setText("%06X".format(Locale.ROOT, color and 0xFFFFFF)); setSelectAllOnFocus(true)
                     setTextColor(palette.textPrimary)
-                }
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                })
                 body.addView(input)
                 body.addView(button(string(android.R.string.ok)) {
                     val value = runCatching { Color.parseColor("#" + input.text.toString().trim().removePrefix("#")) }.getOrNull()
@@ -191,18 +198,12 @@ private fun NativePageUi.channel(title: Int, maximum: Int, current: () -> Int, c
     background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
     val label = text(string(title))
     addView(label)
-    val seek = SeekBar(activity).apply {
-        max = maximum
-        progressTintList = ColorStateList.valueOf(palette.primary)
-        thumbTintList = ColorStateList.valueOf(palette.primary)
-        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) { if (fromUser) changed(progress) }
-            override fun onStartTrackingTouch(bar: SeekBar) = Unit
-            override fun onStopTrackingTouch(bar: SeekBar) = Unit
-        })
+    // The engine's slider: it follows the active material and handles magnet, stretch and haptics itself.
+    val seek = engineSlider(0f, maximum.toFloat(), 1f, 0f, string(title)).apply {
+        setOnValueChangeListener { _, value, fromUser -> if (fromUser) changed(value.toInt()) }
     }
     addView(seek)
-    bind { seek.progress = current().coerceIn(0, maximum); label.text = string(title) + "  " + current() + " / " + maximum }
+    bind { seek.setValue(current().coerceIn(0, maximum).toFloat(), animate = false); label.text = string(title) + "  " + current() + " / " + maximum }
 }
 
 private class SaturationValueView(ui: NativePageUi, private val changed: (Float, Float) -> Unit) : View(ui.activity) {

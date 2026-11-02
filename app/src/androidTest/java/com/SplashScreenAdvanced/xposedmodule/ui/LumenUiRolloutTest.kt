@@ -14,13 +14,16 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
+import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
 import com.SplashScreenAdvanced.xposedmodule.fairmemory.FairMemorySessionStore
+import com.SplashScreenAdvanced.xposedmodule.repository.GlobalPreferencesRepository
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.*
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import org.koin.java.KoinJavaComponent
 
 @RunWith(AndroidJUnit4::class)
 class LumenUiRolloutTest {
@@ -59,6 +62,34 @@ class LumenUiRolloutTest {
             assertTrue(NativeTestSupport.resumedActivity().lumen.isPrepared)
             device.pressBack()
             NativeTestSupport.awaitRoute(Route.Main)
+        }
+    }
+
+    @Test fun dependentRowsExpandAndCollapseWithTheEngineAccordion() {
+        val context = instrumentation.targetContext
+        val repo: GlobalPreferencesRepository = KoinJavaComponent.get(GlobalPreferencesRepository::class.java)
+        fun setForceShow(on: Boolean) = instrumentation.runOnMainSync { repo.update(Preferences.Display.FORCE_SHOW_SPLASH_SCREEN, on) }
+        setForceShow(false)
+        ActivityScenario.launch(DisplayActivity::class.java).use { scenario ->
+            SystemClock.sleep(900)
+            fun listRowShown(): Boolean {
+                var shown = false
+                scenario.onActivity { activity ->
+                    shown = descendants(activity.window.decorView).filterIsInstance<NativeRow>().any {
+                        it.titleView.text.toString() == context.getString(R.string.force_show_splash_screen_list) && it.isShown && it.height > 0
+                    }
+                }
+                return shown
+            }
+            assertFalse("Dependent row visible while its switch is off", listRowShown())
+            setForceShow(true)
+            val deadline = SystemClock.uptimeMillis() + 4000
+            while (!listRowShown() && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(50)
+            assertTrue("Dependent row did not expand", listRowShown())
+            setForceShow(false)
+            val collapseDeadline = SystemClock.uptimeMillis() + 4000
+            while (listRowShown() && SystemClock.uptimeMillis() < collapseDeadline) SystemClock.sleep(50)
+            assertFalse("Dependent row did not collapse", listRowShown())
         }
     }
 

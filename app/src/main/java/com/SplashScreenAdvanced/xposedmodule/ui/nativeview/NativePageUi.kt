@@ -10,12 +10,13 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.text.InputType
+import androidx.annotation.DrawableRes
+import androidx.core.widget.NestedScrollView
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
 import com.SplashScreenAdvanced.xposedmodule.data.preference.PreferenceKey
@@ -25,8 +26,11 @@ import com.SplashScreenAdvanced.xposedmodule.utils.execShell
 import io.github.jichuo1.meguviz.android.extensions.textColor
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.lumen.coacervation.engine.interaction.ElasticInteractionController
-import com.lumen.coacervation.engine.model.SurfaceRole
+import com.lumen.coacervation.engine.motion.expansion.SectionExpansionController
+import com.lumen.coacervation.engine.motion.pager.LumenPageScrollView
 import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
+import com.lumen.coacervation.engine.widget.LumenMaxHeightScrollView
+import com.lumen.coacervation.engine.widget.NavigationBarSelectionMask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,24 +69,54 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         clipToPadding = false
     }
 
-    fun conditional(condition: () -> Boolean, build: LinearLayout.() -> Unit): View = column().apply {
-        build()
-        bind { visibility = if (condition()) View.VISIBLE else View.GONE }
+    /**
+     * Rows that only apply while their parent switch or choice is on. They expand and collapse with the engine's accordion
+     * (standard §13.7): one spring drives the reveal, the rows' cascade and the siblings sliding below, so the host never
+     * animates heights itself. The group has no header, hence the stand-in chevron the controller asks for.
+     */
+    fun conditional(condition: () -> Boolean, build: LinearLayout.() -> Unit): View {
+        val content = column().apply { build(); visibility = View.GONE }
+        val chevron = View(activity)
+        val card = AccordionCard(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            addView(content, LinearLayout.LayoutParams(-1, -2))
+            addView(chevron, LinearLayout.LayoutParams(0, 0))
+        }
+        val controller = SectionExpansionController(card, content, chevron, activity.resources.displayMetrics.density,
+            notifyPositionChanged = { lumen.notifyPositionChanged() })
+        var expanded = false
+        var settled = false
+        bind {
+            val wanted = condition()
+            // The first evaluation sets the initial state; later changes animate.
+            if (!settled || wanted != expanded) { controller.setExpanded(wanted, animate = settled); expanded = wanted; settled = true }
+        }
+        return card
     }
 
-    fun scrollContent(stateKey: String = "scrollY", build: LinearLayout.() -> Unit = {}): ScrollView = ScrollView(activity).apply {
-        id = if (stateKey == "masterScroll") R.id.native_master_scroll else R.id.native_scroll
-        val namespacedKey = stateNamespace + stateKey
-        isFillViewport = true
-        clipToPadding = false
-        clipChildren = false
-        addView(column().apply { setPadding(dp(16), dp(12), dp(16), dp(24)); build() })
-        addStateWriter { it.putInt(namespacedKey, scrollY) }
-        post { scrollTo(0, restored?.getInt(namespacedKey) ?: 0) }
-    }
+    private val pageScrolls = mutableListOf<LumenPageScrollView>()
+
+    /** Page scroller of the engine (standard §13.6): reports user scrolls, keyboard paging and a11y scrolls as navigation. */
+    fun scrollContent(stateKey: String = "scrollY", build: LinearLayout.() -> Unit = {}): NestedScrollView =
+        LumenPageScrollView(activity, onUserScroll = { activity.cancelReveal() }, onContentTouch = {}).apply {
+            id = if (stateKey == "masterScroll") R.id.native_master_scroll else R.id.native_scroll
+            val namespacedKey = stateNamespace + stateKey
+            isFillViewport = true
+            clipToPadding = false
+            clipChildren = false
+            addView(column().apply { setPadding(dp(16), dp(12), dp(16), dp(24)); build() })
+            // Every real scroll moves the content beneath the floating bars; the engine re-samples it (standard §4).
+            onScrollPositionChanged = { view -> if (!released) lumen.notifyScrollPositionChanged(view) }
+            pageScrolls += this
+            addStateWriter { it.putInt(namespacedKey, scrollY) }
+            post { scrollTo(0, restored?.getInt(namespacedKey) ?: 0) }
+        }
 
     fun LinearLayout.addSetting(view: View) {
-        addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        // An accordion group carries no margin of its own: its rows keep theirs, so a collapsed group leaves no gap.
+        addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = if (view is AccordionCard) 0 else dp(10) })
     }
 
     /** A row that settings search can reveal; [sequence] is the order rows were registered in. */
@@ -130,7 +164,12 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         dirty = hasChanges; discard = discardChanges; reloadDraft = onReload
     }
     fun onPreferencesReloaded() { if (!hasUnsavedChanges) reloadDraft(); refresh() }
-    fun dispose() { released = true; bindings.clear(); stateWriters.clear(); visibleWork.clear() }
+    fun dispose() {
+        released = true
+        pageScrolls.forEach { it.onScrollPositionChanged = null }
+        pageScrolls.clear()
+        bindings.clear(); stateWriters.clear(); visibleWork.clear()
+    }
     fun whileVisible(work: suspend () -> Unit) { visibleWork += work }
     suspend fun observeUpdates() = coroutineScope {
         launch { observeNativeUpdates() }
@@ -171,11 +210,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
                moduleRequired: Boolean = true, enabled: () -> Boolean = { true }, after: (Boolean) -> Unit = {}): View {
         val row = row(string(titleResource), summaryResource?.let(::string))
         row.tag = ElasticInteractionController.EXCLUDED_TAG
-        val toggle = Switch(activity).apply {
+        val toggle = engineSwitch(Switch(activity).apply {
             contentDescription = string(titleResource)
             isSaveEnabled = false
-            thumbTintList = ColorStateList.valueOf(palette.primary)
-        }
+        })
         row.addView(toggle, LinearLayout.LayoutParams(-2, -2))
         var rebinding = false
         toggle.setOnCheckedChangeListener { _, checked ->
@@ -198,20 +236,26 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
                          selected: (T) -> Unit): View {
         val row = action(string(titleResource), summaryResource?.let(::string), moduleRequired) { source ->
             dialog(string(titleResource), summaryResource?.let(::string), source) { dialog, container ->
-                val options = column()
+                // Room for the selected item's outline, which draws at the very edge of its bounds.
+                val options = column().apply { setPadding(0, dp(3), 0, dp(3)) }
                 entries().forEach { entry ->
-                    val option = RadioButton(activity).apply {
+                    val option = TextView(activity).apply {
                         text = entry.title + (entry.summary?.let { "\n$it" } ?: "")
+                        textSize = 16f
                         setTextColor(palette.textPrimary)
-                        buttonTintList = ColorStateList.valueOf(palette.primary)
-                        isChecked = entry.value == current()
-                        setPadding(dp(8), dp(10), dp(8), dp(10))
+                        minHeight = dp(52)
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(16), dp(10), dp(16), dp(10))
+                        isClickable = true
                         setOnClickListener { activity.modals.dismiss(dialog, container) { selected(entry.value); refresh() } }
+                        // The engine's selectable item: the current choice sits on the selected surface, the rest on cards.
+                        lumen.styleSelectionControl(this, 14f, entry.value == current())
                     }
-                    options.addView(option, LinearLayout.LayoutParams(-1, -2))
+                    options.addView(option, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
                 }
-                container.addView(ScrollView(activity).apply { addView(options) },
-                    LinearLayout.LayoutParams(-1, -2).apply { height = minOf(dp(420), dp(58) * entries().size) })
+                // The engine's capped scroller: the list grows with its entries up to 420dp, then scrolls.
+                container.addView(LumenMaxHeightScrollView(activity, dp(420)).apply { addView(options) },
+                    LinearLayout.LayoutParams(-1, -2))
             }
         }
         bind { row.valueView.text = entries().firstOrNull { it.value == current() }?.title.orEmpty() }
@@ -234,29 +278,38 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         return false
     }
 
-    fun actionButton(label: String, description: String, clicked: () -> Unit) = text(label, 26f).apply {
-        gravity = Gravity.CENTER
-        contentDescription = description
+    /**
+     * Round glass button for the floating top capsule: a 48dp circle on the engine's chrome overlay surface,
+     * same construction as BIL's toolbar buttons. It is a companion of the capsule for legibility compensation.
+     */
+    fun iconButton(@DrawableRes icon: Int, description: String, clicked: () -> Unit): ImageView = ImageView(activity).apply {
+        setImageResource(icon)
+        imageTintList = ColorStateList.valueOf(palette.textSecondary)
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+        // A light contrast mask keeps the circle readable on SSA's near-white surface.
+        background = activity.meguviz.own(lumen.chromeOverlayBackground(NavigationBarSelectionMask.color(palette, .07f), 24f))
         foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(24).toFloat()))
+        contentDescription = description
+        isClickable = true
         setOnClickListener { clicked() }
     }
 
+    /** Text button on the engine's own action-button recipe: glass as the background, the ripple in the foreground. */
     fun button(label: String, clicked: () -> Unit): Button = Button(activity).apply {
         text = label
-        setTextColor(palette.primary)
-        background = activity.meguviz.own(lumen.surface(palette.surface, 12f, SurfaceRole.TEXT_BUTTON))
-        foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(12).toFloat()))
         setOnClickListener { clicked() }
+        lumen.styleActionButton(this, filled = false)
     }
 
     fun numberDialog(title: String, message: String?, current: Int?, min: Int = 0, max: Int = Int.MAX_VALUE,
                      anchor: NativeRow? = null, chosen: (Int?) -> Unit) = dialog(title, message, anchor) { dialog, container ->
-        val input = EditText(activity).apply {
+        val input = engineEditText(EditText(activity).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText(current?.toString().orEmpty())
             setTextColor(palette.textPrimary)
             setSelectAllOnFocus(true)
-        }
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        })
         container.addView(input, LinearLayout.LayoutParams(-1, -2))
         container.addView(button(string(android.R.string.ok)) {
             val raw = input.text.toString()
@@ -297,6 +350,9 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         container.addView(button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, container) })
     }
 }
+
+/** Wrapper of a collapsible group of dependent rows; see [NativePageUi.conditional]. */
+internal class AccordionCard(context: android.content.Context) : LinearLayout(context)
 
 open class NativeRow(activity: NativeSettingsActivity, title: String, summary: String?) : LinearLayout(activity) {
     val titleView = TextView(activity).apply {

@@ -7,9 +7,9 @@ import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ScrollView
-import android.widget.SeekBar
 import android.widget.TextView
+import androidx.core.widget.NestedScrollView
+import com.lumen.coacervation.engine.widget.LumenSlider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -44,16 +44,16 @@ class NativeEditorTest {
                 if (!ready) SystemClock.sleep(30)
             }
             assertTrue("Color editor did not load", ready)
-            lateinit var hue: SeekBar
+            lateinit var hue: LumenSlider
             val location = IntArray(2)
             scenario.onActivity { activity ->
                 descendants(activity.window.decorView).filterIsInstance<Button>()
                     .first { it.text.toString() == activity.getString(R.string.hsv_color_space) }.performClick()
-                descendants(activity.window.decorView).filterIsInstance<ScrollView>().first().fullScroll(View.FOCUS_DOWN)
+                descendants(activity.window.decorView).filterIsInstance<NestedScrollView>().first().fullScroll(View.FOCUS_DOWN)
             }
             SystemClock.sleep(200)
             scenario.onActivity { activity ->
-                hue = descendants(activity.window.decorView).filterIsInstance<SeekBar>().first { bar ->
+                hue = descendants(activity.window.decorView).filterIsInstance<LumenSlider>().first { bar ->
                     descendants(bar.parent as View).filterIsInstance<TextView>().any {
                         it.text.toString().startsWith(activity.getString(R.string.hue))
                     }
@@ -92,8 +92,8 @@ class NativeEditorTest {
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
             SystemClock.sleep(1400)
             scenario.onActivity {
-                val master = it.findViewById<ScrollView>(R.id.native_master_scroll)
-                val detail = it.findViewById<ScrollView>(R.id.native_scroll)
+                val master = it.findViewById<NestedScrollView>(R.id.native_master_scroll)
+                val detail = it.findViewById<NestedScrollView>(R.id.native_scroll)
                 assertNotNull(master); assertNotNull(detail); assertNotSame(master, detail)
             }
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }

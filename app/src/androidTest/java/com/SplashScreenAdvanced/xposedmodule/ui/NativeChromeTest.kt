@@ -11,8 +11,8 @@ import android.widget.BaseAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ListView
-import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.widget.NestedScrollView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -45,7 +45,7 @@ class NativeChromeTest {
                 title.getLocationOnScreen(titlePosition)
                 x = activity.resources.displayMetrics.widthPixels - activity.dp(32)
                 y = titlePosition[1] + title.height / 2
-                val scroll = activity.findViewById<ScrollView>(R.id.native_scroll)
+                val scroll = activity.findViewById<NestedScrollView>(R.id.native_scroll)
                 val content = scroll.getChildAt(0) as LinearLayout
                 content.removeAllViews()
                 repeat(3) {
@@ -56,7 +56,7 @@ class NativeChromeTest {
             }
             instrumentation.waitForIdleSync()
             SystemClock.sleep(150)
-            scenario.onActivity { it.findViewById<ScrollView>(R.id.native_scroll).scrollTo(0, it.dp(240)) }
+            scenario.onActivity { it.findViewById<NestedScrollView>(R.id.native_scroll).scrollTo(0, it.dp(240)) }
             instrumentation.waitForIdleSync()
             SystemClock.sleep(200)
             val image = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
@@ -73,19 +73,21 @@ class NativeChromeTest {
         }
     }
 
-    @Test fun titleMaterialCoversTheStatusBarWithoutMovingItsControlsUnderIcons() {
+    @Test fun floatingCapsuleSitsBelowTheStatusBarWithItsTitleInside() {
         ActivityScenario.launch(BasicActivity::class.java).use { scenario ->
             SystemClock.sleep(650)
             scenario.onActivity { activity ->
+                val capsule = activity.findViewById<View>(R.id.native_chrome)
                 val title = activity.findViewById<TextView>(R.id.native_title)
-                val row = title.parent as ViewGroup
-                val material = if (row.background != null) row else row.parent as ViewGroup
-                val position = IntArray(2); material.getLocationOnScreen(position)
-                assertEquals("Material stops below status bar", 0, position[1])
-                val titleLocation = IntArray(2); title.getLocationOnScreen(titleLocation)
                 val statusTop = activity.window.decorView.rootWindowInsets
                     .getInsets(android.view.WindowInsets.Type.statusBars()).top
-                assertTrue("Title overlaps system status icons", titleLocation[1] >= statusTop)
+                val capsuleLocation = IntArray(2); capsule.getLocationOnScreen(capsuleLocation)
+                assertTrue("Capsule overlaps system status icons", capsuleLocation[1] >= statusTop)
+                assertTrue("Capsule is not floating (touches the screen edge)", capsuleLocation[0] > 0)
+                assertTrue("Capsule is not a capsule", capsule.height > 0 && capsule.width > capsule.height * 3)
+                val titleLocation = IntArray(2); title.getLocationOnScreen(titleLocation)
+                assertTrue("Title is outside the capsule", titleLocation[1] >= capsuleLocation[1] &&
+                    titleLocation[1] + title.height <= capsuleLocation[1] + capsule.height)
             }
         }
     }
@@ -97,17 +99,21 @@ class NativeChromeTest {
         ActivityScenario.launch(BasicActivity::class.java).use { scenario ->
             SystemClock.sleep(1000)
             val before = IntArray(2)
-            scenario.onActivity { it.findViewById<TextView>(R.id.native_title).getLocationOnScreen(before) }
+            val capsuleBefore = IntArray(2)
+            scenario.onActivity {
+                it.findViewById<TextView>(R.id.native_title).getLocationOnScreen(before)
+                it.findViewById<View>(R.id.native_chrome).getLocationOnScreen(capsuleBefore)
+            }
             capture("chrome-initial.png")
-            scenario.onActivity { it.findViewById<ScrollView>(R.id.native_scroll).smoothScrollTo(0, it.dp(450)) }
+            scenario.onActivity { it.findViewById<NestedScrollView>(R.id.native_scroll).smoothScrollTo(0, it.dp(450)) }
             SystemClock.sleep(550)
             scenario.onActivity {
                 val after = IntArray(2)
                 it.findViewById<TextView>(R.id.native_title).getLocationOnScreen(after)
                 assertArrayEquals(before, after)
-                val material = it.findViewById<View>(R.id.native_chrome)
-                material.getLocationOnScreen(after)
-                assertEquals(0, after[1])
+                val capsule = it.findViewById<View>(R.id.native_chrome)
+                val capsuleAfter = IntArray(2); capsule.getLocationOnScreen(capsuleAfter)
+                assertEquals("Capsule moved with page scrolling", capsuleBefore[1], capsuleAfter[1])
             }
             capture("chrome-scrolled.png")
         }

@@ -189,7 +189,7 @@ class NativeUpdateDialogTest {
             var surfaceColor = 0
             scenario.onActivity { activity ->
                 surfaceColor = activity.lumen.palette.surface
-                val scroll = activity.findViewById<ScrollView>(R.id.native_scroll)
+                val scroll = activity.findViewById<androidx.core.widget.NestedScrollView>(R.id.native_scroll)
                 scroll.removeAllViews()
                 scroll.addView(View(activity).apply { setBackgroundColor(android.graphics.Color.MAGENTA) },
                     android.widget.FrameLayout.LayoutParams(-1, activity.dp(2000)))

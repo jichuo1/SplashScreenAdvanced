@@ -8,12 +8,6 @@ import io.github.jichuo1.meguviz.android.window.InsetsSlot
 import io.github.jichuo1.meguviz.android.window.InsetsValue
 import io.github.jichuo1.meguviz.android.window.WindowSession
 import io.github.jichuo1.meguviz.drawable.android.OwnedDrawableWrapper
-import io.github.jichuo1.meguviz.drawable.android.RecipeDrawable
-import io.github.jichuo1.meguviz.drawable.model.DrawingRecipe
-import io.github.jichuo1.meguviz.drawable.model.FillSpec
-import io.github.jichuo1.meguviz.drawable.model.LayoutMetrics
-import io.github.jichuo1.meguviz.drawable.model.Length
-import io.github.jichuo1.meguviz.drawable.model.ShapeSpec
 import io.github.jichuo1.meguviz.ui.ComponentType
 import io.github.jichuo1.meguviz.ui.CreationEnvironment
 import io.github.jichuo1.meguviz.ui.SessionState
@@ -84,16 +78,6 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
     }
 
     fun own(drawable: Drawable): Drawable = OwnedDrawableWrapper(drawable).also(ownedDrawables::add)
-
-    fun rounded(color: Int, radiusDp: Float): Drawable = RecipeDrawable(
-        DrawingRecipe(
-            ShapeSpec.roundRect(Length.dp(radiusDp)),
-            FillSpec.solid(color),
-            null,
-            LayoutMetrics.unspecified(),
-        ),
-        activity.resources.displayMetrics.density,
-    )
 
     fun onStart() {
         if (closed) return

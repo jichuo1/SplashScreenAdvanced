@@ -13,7 +13,6 @@
     <item name="native_update_action" type="id" />
     <item name="native_update_cancel" type="id" />
     <item name="native_bottom_navigation" type="id" />
-    <item name="native_bottom_selection" type="id" />
     <item name="native_settings_search" type="id" />
     <item name="native_settings_search_results" type="id" />
     <string name="native_back">Back</string>

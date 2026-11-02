@@ -1,13 +1,11 @@
 package com.SplashScreenAdvanced.xposedmodule.ui.nativeview
 
-import android.animation.ObjectAnimator
 import android.app.Activity
 import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
@@ -19,7 +17,7 @@ import android.window.OnBackInvokedDispatcher
 import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.EditText
-import android.widget.ScrollView
+import android.widget.ImageView
 import android.widget.TextView
 import com.SplashScreenAdvanced.xposedmodule.R
 import com.SplashScreenAdvanced.xposedmodule.data.Route
@@ -39,24 +37,36 @@ import com.SplashScreenAdvanced.xposedmodule.ui.settings.SettingsTab
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.BackupUtils
 import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizFamilyBridge
-import com.SplashScreenAdvanced.xposedmodule.ui.meguviz.MeguvizNavigationBar
 import com.lumen.coacervation.engine.background.LiquidBackgroundConfig
 import com.lumen.coacervation.engine.background.LiquidBackgroundImportResult
 import com.lumen.coacervation.engine.background.LiquidBackgroundStore
 import com.lumen.coacervation.engine.host.LumenActivityDelegate
 import com.lumen.coacervation.engine.interaction.LumenElasticInteraction
 import com.lumen.coacervation.engine.model.LumenPalette
-import com.lumen.coacervation.engine.model.SurfaceRole
 import com.lumen.coacervation.engine.motion.modal.LumenModalPresenter
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphController
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphHost
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphLauncher
 import com.lumen.coacervation.engine.motion.morph.ContainerMorphOrigin
 import com.lumen.coacervation.engine.motion.pager.LumenPagePager
-import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
-import androidx.core.graphics.ColorUtils
+import com.lumen.coacervation.engine.motion.pager.PageTextChain
+import com.lumen.coacervation.engine.motion.reveal.LumenReveal
+import android.graphics.drawable.Drawable
+import com.lumen.coacervation.engine.glow.GlowBackdropTarget
+import com.lumen.coacervation.engine.glow.GlowFloatingChrome
+import com.lumen.coacervation.engine.glow.GlowLegibilityPolicy
+import com.lumen.coacervation.engine.glow.GlowScrollEdge
+import com.lumen.coacervation.engine.glow.GlowScrollEdgePolicy
+import com.lumen.coacervation.engine.host.LumenControlShadow
+import com.lumen.coacervation.engine.host.LumenControlShadowOptions
+import com.lumen.coacervation.engine.interaction.ElasticInteractionController
+import com.lumen.coacervation.engine.widget.LumenMaxHeightScrollView
+import com.lumen.coacervation.engine.widget.LumenNavigationBar
+import com.lumen.coacervation.engine.widget.NavigationBarColors
+import com.lumen.coacervation.engine.widget.NavigationBarSelectionMask
+import com.lumen.coacervation.engine.widget.NavigationBarSurface
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.doOnLayout
+import androidx.core.widget.NestedScrollView
 import androidx.core.widget.doAfterTextChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +79,22 @@ import io.github.jichuo1.meguviz.android.extensions.isUiInNightMode
 import org.koin.java.KoinJavaComponent
 
 private val SYSTEM_INSETS = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+
+// Geometry follows BIL's floating chrome: a 58dp capsule (48dp buttons + 5dp rings, 29dp ends) 4dp below the status bar,
+// and a dock inset 32dp from the sides and 16dp from the bottom, at most 480dp wide.
+private const val CAPSULE_HEIGHT_DP = 58
+private const val CAPSULE_RADIUS_DP = 29f
+private const val CAPSULE_SIDE_MARGIN_DP = 10
+private const val CAPSULE_TOP_MARGIN_DP = 4
+/** Content starts below the capsule (4dp + 58dp) plus an 8dp gap and passes beneath it. */
+private const val CONTENT_CLEARANCE_DP = CAPSULE_TOP_MARGIN_DP + CAPSULE_HEIGHT_DP + 8
+private const val DOCK_SIDE_MARGIN_DP = 32
+private const val DOCK_BOTTOM_MARGIN_DP = 16
+private const val DOCK_MAX_WIDTH_DP = 480
+/** Strength of the contrast mask behind the selected dock item (engine standard §12.4; sample default). */
+private const val DOCK_SELECTION_MASK = 0.2f
+/** Until the dock is measured: its default height, so the first frame already leaves room. */
+private const val DOCK_FALLBACK_HEIGHT_DP = 68
 
 /** Each settings page is a native Activity; the engine owns the title and container transition. */
 abstract class NativeSettingsActivity : Activity() {
@@ -88,7 +114,27 @@ abstract class NativeSettingsActivity : Activity() {
     private lateinit var renderingSkin: SkinId
     private lateinit var renderingBackground: LiquidBackgroundConfig
     private var homePager: LumenPagePager? = null
-    private var homeDock: MeguvizNavigationBar? = null
+    private val headings = ArrayList<View>(SettingsTab.entries.size)
+    private var textChain: PageTextChain? = null
+    private var homeDock: LumenNavigationBar? = null
+    private var contentTarget: GlowBackdropTarget? = null
+    private var topCapsule: LinearLayout? = null
+    private val stretches = arrayOfNulls<View>(SettingsTab.entries.size)
+    private var detailStretch: View? = null
+    private var previousPage = 0
+    private var chromeReady = false
+    private var chrome: GlowFloatingChrome? = null
+    /** The scrolling page of a detail route, when it has one; list pages keep fixed controls below the capsule. */
+    private var detailScroll: NestedScrollView? = null
+    private val contentScrolls = mutableListOf<NestedScrollView>()
+    private var insetLeft = 0
+    private var insetRight = 0
+    private var insetTop = 0
+    private var insetBottom = 0
+    private var topInsetPx = 0f
+    private var bottomInsetPx = 0f
+    private var dockHeightPx = 0
+    private var topButtons: List<View> = emptyList()
     private val homePageHosts = mutableListOf<FrameLayout>()
     lateinit var pageUi: NativePageUi
         private set
@@ -121,6 +167,7 @@ abstract class NativeSettingsActivity : Activity() {
             meguviz.install(page)
             page.requestApplyInsets()
             lumen.bindRoot(page) { if (!isFinishing && !isDestroyed) recreate() }
+            setupChrome()
         } else {
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
             val host = ContainerMorphHost(this, lumen.palette.surface, lumen.palette.background,
@@ -133,6 +180,7 @@ abstract class NativeSettingsActivity : Activity() {
             pageUi.backButton?.let(host::registerNavigationBack)
             meguviz.install(host)
             lumen.bindRoot(host.liquidBackdropRoot()) { if (!isFinishing && !isDestroyed) recreate() }
+            setupChrome()
             morph = ContainerMorphController(this, host, lumen, javaClass,
                 ContainerMorphOrigin.from(intent), savedInstanceState == null, { toolbarTitle },
                 collapsedCornerRadiusDp = 16f, isBusinessBlocked = { pageUi.hasUnsavedChanges })
@@ -146,41 +194,17 @@ abstract class NativeSettingsActivity : Activity() {
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
     }
 
+    /**
+     * Engine layout (integration standard §6.0): content sits in a [GlowBackdropTarget]; the top capsule and the
+     * dock are its siblings so the glass samples what scrolls beneath them.
+     */
     private fun buildPage(): View {
-        val page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val page = FrameLayout(this).apply {
             clipChildren = false
             clipToPadding = false
         }
-        val toolbar = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-        }
-        val chrome = FrameLayout(this).apply {
-            id = R.id.native_chrome
-            background = meguviz.own(lumen.surface(lumen.palette.surface, 0f, SurfaceRole.TOP_BAR))
-            elevation = dp(4).toFloat()
-            addView(toolbar, FrameLayout.LayoutParams(-1, dp(68)))
-        }
-        if (pageRoute != Route.Main) {
-            val back = pageUi.actionButton("‹", getString(R.string.native_back)) { requestBack() }
-            pageUi.backButton = back
-            toolbar.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
-        }
-        toolbarTitle = pageUi.text(intent.getStringExtra("native.title") ?: getString(pageTitleResource(pageRoute)), 22f, bold = true).apply {
-            id = R.id.native_title
-            setPadding(dp(10), 0, 0, 0)
-        }
-        toolbar.addView(toolbarTitle, LinearLayout.LayoutParams(0, -2, 1f))
-        if (pageRoute == Route.Main) {
-            toolbar.addView(pageUi.actionButton("⌕", getString(R.string.settings_search)) {
-                showSettingsSearch()
-            }, LinearLayout.LayoutParams(dp(48), dp(48)))
-            toolbar.addView(pageUi.actionButton("↻", getString(R.string.restart_title)) {
-                pageUi.showRestartDialog()
-            }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        }
-        page.addView(chrome, LinearLayout.LayoutParams(-1, dp(68)))
+        val target = GlowBackdropTarget(this)
+        contentTarget = target
         val body = when (pageRoute) {
             Route.Main -> buildHomeBody()
             Route.Basic -> pageUi.buildBasicPage()
@@ -202,22 +226,59 @@ abstract class NativeSettingsActivity : Activity() {
             is Route.ColorPicker -> pageUi.buildColorPickerPage((pageRoute as Route.ColorPicker).pkgName)
             Route.Empty -> pageUi.scrollContent { addView(pageUi.text(getString(R.string.app_name))) }
         }
+        detailScroll = if (pageRoute == Route.Main) null else body as? NestedScrollView
+        detailScroll?.let { contentScrolls += it }
         val viewport = NativeContentViewport(this).apply {
             id = R.id.native_content_viewport
             addView(body, FrameLayout.LayoutParams(-1, -1))
         }
-        page.addView(viewport, LinearLayout.LayoutParams(-1, 0, 1f))
+        target.addView(viewport, FrameLayout.LayoutParams(-1, -1))
+        page.addView(target, FrameLayout.LayoutParams(-1, -1))
+        val capsule = buildTopCapsule()
+        topCapsule = capsule
+        page.addView(capsule, FrameLayout.LayoutParams(-1, dp(CAPSULE_HEIGHT_DP), Gravity.TOP).apply {
+            setMargins(dp(CAPSULE_SIDE_MARGIN_DP), dp(CAPSULE_TOP_MARGIN_DP), dp(CAPSULE_SIDE_MARGIN_DP), 0)
+        })
+        homeDock?.let {
+            page.addView(it, FrameLayout.LayoutParams(dp(DOCK_MAX_WIDTH_DP), -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                setMargins(0, 0, 0, dp(DOCK_BOTTOM_MARGIN_DP))
+            })
+            it.addOnLayoutChangeListener { dock, _, top, _, bottom, _, oldTop, _, oldBottom ->
+                if (bottom - top != oldBottom - oldTop) {
+                    dockHeightPx = dock.height
+                    onDockResized()
+                }
+            }
+        }
         val split = splitLayout
+        page.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ -> updateDockWidth(view.width) }
         meguviz.claimInsets(page, SYSTEM_INSETS) { safe ->
             val left = if (!split || pageRoute == Route.Main) safe.left else 0
             val right = if (!split || pageRoute != Route.Main) safe.right else 0
-            val chromeParams = chrome.layoutParams as LinearLayout.LayoutParams
-            val height = dp(68) + safe.top
-            if (chromeParams.height != height) { chromeParams.height = height; chrome.layoutParams = chromeParams }
-            val toolbarParams = toolbar.layoutParams as FrameLayout.LayoutParams
-            if (toolbarParams.topMargin != safe.top) { toolbarParams.topMargin = safe.top; toolbar.layoutParams = toolbarParams }
-            toolbar.setPaddingRelative(dp(12) + left, dp(6), dp(12) + right, dp(6))
-            viewport.setPadding(left, 0, right, safe.bottom)
+            insetLeft = left; insetRight = right; insetTop = safe.top; insetBottom = safe.bottom
+            (capsule.layoutParams as FrameLayout.LayoutParams).let {
+                if (it.leftMargin != dp(CAPSULE_SIDE_MARGIN_DP) + left || it.rightMargin != dp(CAPSULE_SIDE_MARGIN_DP) + right ||
+                    it.topMargin != safe.top + dp(CAPSULE_TOP_MARGIN_DP)) {
+                    it.setMargins(dp(CAPSULE_SIDE_MARGIN_DP) + left, safe.top + dp(CAPSULE_TOP_MARGIN_DP),
+                        dp(CAPSULE_SIDE_MARGIN_DP) + right, 0)
+                    capsule.layoutParams = it
+                }
+            }
+            homeDock?.let { dock ->
+                (dock.layoutParams as FrameLayout.LayoutParams).let {
+                    if (it.bottomMargin != safe.bottom + dp(DOCK_BOTTOM_MARGIN_DP)) {
+                        it.bottomMargin = safe.bottom + dp(DOCK_BOTTOM_MARGIN_DP); dock.layoutParams = it
+                    }
+                }
+            }
+            // Scrolling pages carry their own padding so rows pass beneath the bars; fixed-layout pages stay below the capsule.
+            val underBars = pageRoute == Route.Main || detailScroll != null
+            viewport.setPadding(left, if (underBars) 0 else safe.top + dp(CONTENT_CLEARANCE_DP), right,
+                if (underBars) 0 else safe.bottom)
+            topInsetPx = (safe.top + dp(CONTENT_CLEARANCE_DP)).toFloat()
+            onDockResized()
+            updateDockWidth(page.width)
+            chrome?.onContentMoved()
         }
         if (!split) return page
         return LinearLayout(this).apply {
@@ -250,51 +311,203 @@ abstract class NativeSettingsActivity : Activity() {
                     configuration.screenWidthDp >= 840 && configuration.screenHeightDp >= 480)
         }
 
+    /** The dock pages. The dock itself is a sibling of the content container, added by [buildPage]. */
     private fun buildHomeBody(): View {
         val pager = LumenPagePager(this)
-        val dock = MeguvizNavigationBar(
-            this,
-            SettingsTab.entries.map { getString(it.labelRes) },
-            SettingsTab.entries.map { it.iconRes },
-            lumen.palette.textSecondary,
-            lumen.palette.surface,
-            LayerDrawable(arrayOf(
-                meguviz.rounded(ColorUtils.setAlphaComponent(lumen.palette.surface, 168), 30f),
-                meguviz.own(lumen.surface(lumen.palette.surface, 30f, SurfaceRole.FLOATING)),
-            )),
-            LayerDrawable(arrayOf(
-                meguviz.rounded(ColorUtils.setAlphaComponent(lumen.palette.primary, 40), 26f),
-                meguviz.own(lumen.surface(lumen.palette.primary, 26f, SurfaceRole.SELECTED_ITEM)),
-            )),
+        val palette = lumen.palette
+        val dock = LumenNavigationBar(
+            context = this,
+            titles = SettingsTab.entries.map { getString(it.labelRes) },
+            icons = SettingsTab.entries.map { it.iconRes }.toIntArray(),
+            colors = NavigationBarColors(text = palette.textSecondary, selectedText = palette.primary, highlight = palette.primary),
+            backgroundFactory = { surface, radius ->
+                meguviz.own(when (surface) {
+                    NavigationBarSurface.BAR -> withBarShadow(lumen.floatingBackground(palette.surface, radius), radius)
+                    NavigationBarSurface.SELECTION -> lumen.chromeOverlayBackground(
+                        NavigationBarSelectionMask.color(palette, DOCK_SELECTION_MASK), radius, selected = true)
+                })
+            },
             onSelect = { pager.selectPage(it) },
-        )
+            onUserInteraction = {},
+            onVisualMovement = { lumen.notifyPositionChanged() },
+        ).apply {
+            id = R.id.native_bottom_navigation
+            // The dock handles its own press, drag and glow; it stays out of the global long-press elasticity.
+            tag = ElasticInteractionController.EXCLUDED_TAG
+        }
         homePager = pager
         homeDock = dock
+        // Texts follow the finger or the dock tap in a wave; the page headings lag behind (standard §13.6).
+        textChain = PageTextChain(pager, headings)
         SettingsTab.entries.forEach {
             homePageHosts += FrameLayout(this).also { host -> pager.addView(host, FrameLayout.LayoutParams(-1, -1)) }
         }
         pager.onPositionChanged = {
             ensureHomePage(pager.pagePosition.toInt().coerceIn(0, SettingsTab.entries.lastIndex))
             ensureHomePage(kotlin.math.ceil(pager.pagePosition.toDouble()).toInt().coerceIn(0, SettingsTab.entries.lastIndex))
-            dock.setPageProgress(pager.pagePosition)
+            dock.setPageProgress(pager.pagePosition, notifyPositionChanged = false)
+            lumen.notifyPositionChanged()
+            chrome?.onContentMoved()
+            textChain?.onPositionChanged()
         }
         pager.onPageSelected = { index ->
             ensureHomePage(index)
+            stretches.getOrNull(previousPage)?.let(lumen::finishStretch)
+            previousPage = index
             dock.setSelectedPage(index)
             updatePageTitle(getString(SettingsTab.entries[index].titleRes))
         }
+        pager.onMotionStarted = { stretches.forEach(lumen::finishStretch) }
         val restored = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, SettingsTab.entries.lastIndex) ?: 0
         ensureHomePage(restored)
         pager.selectPage(restored, false)
+        previousPage = restored
         dock.setSelectedPage(restored)
-        dock.setPageProgress(pager.pagePosition)
-        return FrameLayout(this).apply {
+        dock.setPageProgress(pager.pagePosition, notifyPositionChanged = false)
+        return pager
+    }
+
+    /**
+     * Floating capsule on top, built like BIL's: the capsule carries the engine's floating surface, and each button is
+     * its own round glass surface so long-press elasticity deforms them one by one.
+     */
+    /**
+     * Soft shadow of the engine for the floating bars (standard §5.6): on a light theme a light bar over white content has
+     * neither a colour mask nor a white outline to separate it, so the bars get the engine's own ambient + contact shadow.
+     * It is drawn outside the bar bounds; the parent (page root) keeps `clipChildren = false`.
+     */
+    private val barShadow = LumenControlShadowOptions(enabled = true)
+
+    private fun withBarShadow(content: Drawable, radiusDp: Float): Drawable =
+        LumenControlShadow.wrap(content, radiusDp, resources.displayMetrics.density, barShadow, isDark())
+
+    private fun buildTopCapsule(): LinearLayout {
+        val isMain = pageRoute == Route.Main
+        val buttons = mutableListOf<View>()
+        val capsule = LinearLayout(this).apply {
+            id = R.id.native_chrome
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = meguviz.own(withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP))
+            // The capsule itself is pressable so a long press off its buttons deforms the whole bar.
+            isClickable = true
             clipChildren = false
             clipToPadding = false
-            addView(pager, FrameLayout.LayoutParams(-1, -1))
-            addView(dock, FrameLayout.LayoutParams(-1, dp(68), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-                leftMargin = dp(12); rightMargin = dp(12); bottomMargin = dp(10)
-            })
+            fun button(view: ImageView, start: Int = 0, end: Int = 0) {
+                buttons += view
+                addView(view, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+                    marginStart = dp(start); marginEnd = dp(end)
+                })
+            }
+            if (!isMain) {
+                val back = pageUi.iconButton(R.drawable.ic_back, getString(R.string.native_back)) { requestBack() }
+                pageUi.backButton = back
+                button(back, start = 5)
+            }
+            // The home body restores its dock page before the capsule exists, so the title starts from the restored tab.
+            val restoredTab = restoredPageState?.getInt("native.home.tab")?.coerceIn(0, SettingsTab.entries.lastIndex) ?: 0
+            val initialTitle = intent.getStringExtra("native.title")
+                ?: getString(if (isMain) SettingsTab.entries[restoredTab].titleRes else pageTitleResource(pageRoute))
+            val title = pageUi.text(initialTitle, 20f, bold = true).apply {
+                id = R.id.native_title
+                setPadding(dp(if (isMain) 20 else 12), 0, dp(8), 0)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            toolbarTitle = title
+            addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+            if (isMain) {
+                button(pageUi.iconButton(R.drawable.ic_search, getString(R.string.settings_search)) { showSettingsSearch() })
+                button(pageUi.iconButton(R.drawable.ic_restart, getString(R.string.restart_title)) { pageUi.showRestartDialog() },
+                    start = 4, end = 5)
+            }
+        }
+        topButtons = buttons
+        return capsule
+    }
+
+    /** Room the dock takes at the bottom: its own height plus its 16dp margin and a 16dp gap (BIL's dock inset). */
+    private fun dockClearancePx(): Int =
+        (if (dockHeightPx > 0) dockHeightPx else dp(DOCK_FALLBACK_HEIGHT_DP)) + dp(DOCK_BOTTOM_MARGIN_DP * 2)
+
+    /** Scrolling content passes beneath the capsule and the dock: padding, not the viewport, keeps it clear when at rest. */
+    private fun applyScrollPadding(scroll: NestedScrollView) {
+        scroll.setPadding(0, insetTop + dp(CONTENT_CLEARANCE_DP), 0,
+            insetBottom + if (homeDock != null) dockClearancePx() else 0)
+    }
+
+    private fun onDockResized() {
+        bottomInsetPx = (insetBottom + dockClearancePx()).toFloat()
+        contentScrolls.forEach(::applyScrollPadding)
+        chrome?.onContentMoved()
+    }
+
+    private fun updateDockWidth(rootWidth: Int) {
+        val dock = homeDock ?: return
+        val params = dock.layoutParams as? FrameLayout.LayoutParams ?: return
+        val available = rootWidth - dp(DOCK_SIDE_MARGIN_DP * 2) - insetLeft - insetRight
+        val width = minOf(dp(DOCK_MAX_WIDTH_DP), available).coerceAtLeast(dp(72 * SettingsTab.entries.size))
+        if (rootWidth > 0 && params.width != width) { params.width = width; dock.layoutParams = params }
+    }
+
+    /** Engine rubber band for a dock page: only the current page, and only once the pager has settled (standard §5.4). */
+    private fun installPageStretch(index: Int) {
+        if (!chromeReady || stretches[index] != null) return
+        val scroll = homePageHosts[index].getChildAt(0) as? NestedScrollView ?: return
+        stretches[index] = lumen.installStretch(scroll) { homePager?.let { it.selectedPage == index && it.isSettled } == true }
+    }
+
+    /** Registers the capsule and the dock with the engine's floating-chrome coordinator (edge dissolve, legibility, glass). */
+    private fun setupChrome() {
+        val target = contentTarget ?: return
+        val capsule = topCapsule ?: return
+        val palette = lumen.palette
+        chromeReady = true
+        homePageHosts.indices.forEach(::installPageStretch)
+        detailScroll?.let { scroll -> detailStretch = lumen.installStretch(scroll) { morph?.isSettledExpanded == true } }
+        // The content layer under the floating surfaces; never an ancestor of them (standard §6.1).
+        lumen.bindContentSource(homePager ?: target)
+        chrome = GlowFloatingChrome(target, { lumen.engine }, ::edgeCoverage).apply {
+            // The title sits directly on the capsule glass, so the host is thickened too (BIL's capsule has no text).
+            attach(capsule, GlowScrollEdge.TOP, palette.textPrimary, companions = topButtons, onForeground = foregroundFor(capsule, palette))
+            homeDock?.let { dock ->
+                attach(dock, GlowScrollEdge.BOTTOM, palette.textPrimary) { boost -> dock.setLegibility(boost, palette.surface) }
+            }
+        }
+    }
+
+    private fun edgeCoverage(edge: GlowScrollEdge): Float {
+        val pager = homePager
+        if (pager != null) {
+            return GlowScrollEdgePolicy.pagerCoverage(pager.pagePosition, SettingsTab.entries.size) { index ->
+                scrollCoverage(homePageHosts[index].getChildAt(0) as? NestedScrollView, edge)
+            }
+        }
+        return scrollCoverage(detailScroll, edge)
+    }
+
+    private fun scrollCoverage(scroll: NestedScrollView?, edge: GlowScrollEdge): Float {
+        scroll ?: return 0f
+        return when (edge) {
+            GlowScrollEdge.TOP -> GlowScrollEdgePolicy.topCoverage(scroll.scrollY, topInsetPx)
+            GlowScrollEdge.BOTTOM -> {
+                val child = scroll.getChildAt(0)
+                val range = if (child == null) 0 else
+                    (child.height - (scroll.height - scroll.paddingTop - scroll.paddingBottom)).coerceAtLeast(0)
+                GlowScrollEdgePolicy.bottomCoverage(scroll.scrollY, range, bottomInsetPx)
+            }
+        }
+    }
+
+    /** Legibility compensation: 0 keeps the original colour, 1 is the strongest same-direction push. */
+    private fun foregroundFor(bar: ViewGroup, palette: LumenPalette): (Float) -> Unit = { boost ->
+        val text = GlowLegibilityPolicy.foreground(palette.textPrimary, boost)
+        val icon = ColorStateList.valueOf(GlowLegibilityPolicy.foreground(palette.textSecondary, boost))
+        for (i in 0 until bar.childCount) {
+            when (val child = bar.getChildAt(i)) {
+                is TextView -> child.setTextColor(text)
+                is ImageView -> child.imageTintList = icon
+            }
         }
     }
 
@@ -310,9 +523,21 @@ abstract class NativeSettingsActivity : Activity() {
             SettingsTab.Display -> pageUi.buildDisplayPage(withBranding = true)
             SettingsTab.Module -> pageUi.buildModulePage()
         }
-        content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, dp(84))
+        (content as? NestedScrollView)?.let { contentScrolls += it; applyScrollPadding(it) }
         host.addView(content, FrameLayout.LayoutParams(-1, -1))
         meguviz.adopt(content, "home/${tab.name}")
+        installPageStretch(index)
+        (content as? NestedScrollView)?.let(::pageHeading)?.let { headings += it }
+    }
+
+    /** The first text on a page (its header card title, or the status title on Home) is the heading of the text chain. */
+    private fun pageHeading(scroll: NestedScrollView): TextView? {
+        fun firstText(view: View?): TextView? = when (view) {
+            is TextView -> view
+            is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { firstText(view.getChildAt(it)) }
+            else -> null
+        }
+        return firstText((scroll.getChildAt(0) as? ViewGroup)?.getChildAt(0))
     }
 
     /** Searches every row on every dock page, so each page is built first: pages are lazy, rows register as they are built. */
@@ -325,13 +550,14 @@ abstract class NativeSettingsActivity : Activity() {
         }
         pageUi.dialog(getString(R.string.settings_search)) { dialog, container ->
             val results = pageUi.column().apply { id = R.id.native_settings_search_results }
-            val input = EditText(this).apply {
+            val input = pageUi.engineEditText(EditText(this).apply {
                 id = R.id.native_settings_search
                 hint = getString(R.string.settings_search_hint)
                 setTextColor(lumen.palette.textPrimary)
                 setHintTextColor(lumen.palette.textSecondary)
                 isSingleLine = true
-            }
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            })
             fun render(query: String) {
                 results.removeAllViews()
                 if (query.isBlank()) {
@@ -352,33 +578,29 @@ abstract class NativeSettingsActivity : Activity() {
             }
             input.doAfterTextChanged { render(it?.toString().orEmpty()) }
             container.addView(input, LinearLayout.LayoutParams(-1, dp(52)))
-            container.addView(ScrollView(this).apply { addView(results) }, LinearLayout.LayoutParams(-1,
-                minOf(dp(320), resources.displayMetrics.heightPixels / 2)))
+            container.addView(LumenMaxHeightScrollView(this, minOf(dp(320), resources.displayMetrics.heightPixels / 2))
+                .apply { addView(results) }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             render("")
             input.requestFocus()
         }
     }
 
-    /** Opens the row's dock page, scrolls the row into view and pulses it so the eye finds it. */
+    /** Locate-and-highlight of the engine (standard §13.8): scroll to a docking point below the capsule, then flash the row. */
+    private val reveal by lazy(LazyThreadSafetyMode.NONE) { LumenReveal(lumen.palette.primary) }
+
+    fun cancelReveal() = reveal.cancel()
+
+    /** Opens the row's dock page and lets the engine bring it into view and highlight it. */
     private fun revealSetting(target: NativePageUi.SettingsTarget) {
         val index = target.section.tab.ordinal
         val pager = homePager ?: return
         ensureHomePage(index)
         pager.selectPage(index)
-        val scroll = homePageHosts[index].getChildAt(0) as? ScrollView ?: return
-        val anchor = revealAnchor(target.view)
-        anchor.doOnLayout {
-            var top = 0
-            var node: View = it
-            while (node !== scroll) { top += node.top; node = node.parent as? View ?: break }
-            scroll.smoothScrollTo(0, (top - dp(96)).coerceAtLeast(0))
-            val base = it.alpha
-            ObjectAnimator.ofFloat(it, View.ALPHA, base, base * .35f, base, base * .35f, base)
-                .apply { duration = 900L; start() }
-        }
+        val scroll = homePageHosts[index].getChildAt(0) as? NestedScrollView ?: return
+        reveal.reveal(scroll, revealAnchor(target.view), topOffsetPx = insetTop + dp(CONTENT_CLEARANCE_DP))
     }
 
-    /** A dependent row collapsed under its switch cannot be shown; the nearest visible row before it stands in. */
+    /** A dependent row collapsed under its switch cannot be shown; the nearest visible row above the collapsed group stands in. */
     private fun revealAnchor(view: View): View {
         var collapsed: View? = null
         var node: View? = view
@@ -386,12 +608,14 @@ abstract class NativeSettingsActivity : Activity() {
             if (node.visibility == View.GONE) collapsed = node
             node = node.parent as? View
         }
-        val hidden = collapsed ?: return view
-        val parent = hidden.parent as? ViewGroup ?: return view
-        for (i in parent.indexOfChild(hidden) - 1 downTo 0) {
-            parent.getChildAt(i).takeIf { it.visibility == View.VISIBLE }?.let { return it }
+        var current: View = collapsed ?: return view
+        while (true) {
+            val parent = current.parent as? ViewGroup ?: return view
+            for (i in parent.indexOfChild(current) - 1 downTo 0) {
+                parent.getChildAt(i).takeIf { it.visibility == View.VISIBLE && it.height > 0 }?.let { return it }
+            }
+            current = parent
         }
-        return parent
     }
 
     fun navigate(route: Route, source: View, title: TextView) {
@@ -514,7 +738,7 @@ abstract class NativeSettingsActivity : Activity() {
         return elastic.dispatch(event) { super.dispatchTouchEvent(it) }
     }
 
-    override fun onPause() { startedJob?.cancel(); startedJob = null; elastic.clear(); meguviz.onPause(); super.onPause() }
+    override fun onPause() { startedJob?.cancel(); startedJob = null; reveal.cancel(); elastic.clear(); meguviz.onPause(); super.onPause() }
     override fun onStop() { startedJob?.cancel(); startedJob = null; elastic.clear(); meguviz.onStop(); lumen.onStop(); super.onStop() }
     override fun onTrimMemory(level: Int) { lumen.onTrimMemory(level); super.onTrimMemory(level) }
     @Deprecated("Deprecated in Java")
@@ -533,6 +757,12 @@ abstract class NativeSettingsActivity : Activity() {
         morph?.onDestroy()
         modals.onDestroy()
         elastic.dispose()
+        textChain?.dispose()
+        stretches.forEach(lumen::finishStretch)
+        lumen.finishStretch(detailStretch)
+        chrome?.dispose()
+        chrome = null
+        homeDock?.dispose()
         lumen.onDestroy()
         meguviz.close()
         super.onDestroy()
