@@ -86,9 +86,9 @@ MIUI / HyperOS and ColorOS are handled by dedicated branches; other systems use 
 
 ### Settings UI
 
-The UI uses native Android Views and integrates [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) `1.2.2` directly. Native Activities host the settings pages; engine surfaces style cards, bars, and dialogs. The engine's container morph controller drives secondary-page entry, closing, and predictive back. Switches, sliders, text fields, and color gestures use native widgets and Canvas.
+The UI uses native Android Views and integrates [LumenCoacervationEngine](https://github.com/Meguvizarchic/LumenCoacervationEngine) `1.6.1` together with the Meguviz family ([MeguvizRef](https://github.com/Meguvizarchic/MeguvizRef), [MeguvizUI](https://github.com/Meguvizarchic/MeguvizUI), [MeguvizAndroid](https://github.com/Meguvizarchic/MeguvizAndroid), [MeguvizDrawable](https://github.com/Meguvizarchic/MeguvizDrawable)). Native Activities host the settings pages; engine surfaces style cards, the floating top capsule, the dock and dialogs. The engine's container morph controller drives secondary-page entry, closing, and predictive back, and its pager, accordion and text chain drive page switching and the expansion of dependent rows. Switches, checkboxes and text fields wear the engine's surfaces and drawables, sliders are the engine's own slider, and color gestures use native widgets and Canvas; the Meguviz libraries own view identity, drawables, window insets and reflection.
 
-The settings are five horizontal dock pages: Home (module status and scope), Icon, Background, Display and Module. Each page groups its rows under titled sections, and the toolbar search jumps straight to a single setting, switching page and highlighting the row.
+The settings are five horizontal dock pages: Home (module status and scope), Icon, Background, Display and Module. Each page groups its rows under titled sections, and the search in the top capsule jumps straight to a single setting, switching page and highlighting the row.
 
 | Page | Sections |
 |:---|:---|
@@ -98,7 +98,7 @@ The settings are five horizontal dock pages: Home (module status and scope), Ico
 | Display | Timing & visibility · Branding image · Compatibility & disable |
 | Module | Appearance · Launcher & logs · Backup & restore · About · Updates · Open-source licenses |
 
-The Module page provides soft light or advanced glass, classic or wallpaper-derived colors, and optional live backdrop sampling of this app window. The engine automatically falls back when advanced rendering fails and stores its material health state in the module app’s private storage.
+The Module page's Appearance section provides soft light or advanced glass, classic or wallpaper-derived colors, a background image, and optional live backdrop sampling of this app window. The engine automatically falls back when advanced rendering fails and stores its material health state in the module app’s private storage.
 
 The app UI and page state no longer use Compose, Miuix, or Navigation 3. Existing preference keys, application selection and saving, backup formats, and FairMemory restoration tokens remain compatible. Native saved state restores application lists and editing drafts. The historical `hyperx-compose` module is retained in the repository but excluded from the app build.
 
@@ -191,7 +191,7 @@ Main changes compared to upstream:
 
 - Module package name and project identity changed to `com.SplashScreenAdvanced.xposedmodule`
 - Exception isolation in the hook layer, reflection caches, memory and thread-safety fixes
-- Reorganized settings UI and optimized icon loading
+- Settings UI reorganized into horizontal dock pages and rebuilt on the Lumen engine and the Meguviz family; icon loading, start-up and page switching optimized
 - Release pipeline moved to GitHub Actions with Environment Secrets signing
 
 The original author's personal branding assets, community links and donation information have been removed, as they point to the original author rather than to this project.
@@ -202,12 +202,16 @@ The original author's personal branding assets, community links and donation inf
 |:---|:---|
 | [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) | Upstream project |
 | [libxposed](https://github.com/libxposed) | Module API and services |
-| [MeguvizRef](https://github.com/jichuo1/MeguvizRef) | Runtime reflection |
+| [LumenCoacervationEngine](https://github.com/Meguvizarchic/LumenCoacervationEngine) | UI materials, floating bars, pager and controls |
+| [MeguvizRef](https://github.com/Meguvizarchic/MeguvizRef) | Runtime reflection and member resolution |
+| [MeguvizUI](https://github.com/Meguvizarchic/MeguvizUI) | Native View identity and lifecycle |
+| [MeguvizAndroid](https://github.com/Meguvizarchic/MeguvizAndroid) | Window sessions, insets and frame scheduling |
+| [MeguvizDrawable](https://github.com/Meguvizarchic/MeguvizDrawable) | Drawable ownership and release |
 | [DexKit](https://github.com/LuckyPray/DexKit) | Host class lookup |
 | [BetterAndroid](https://github.com/BetterAndroid/BetterAndroid) | Android system extensions |
-| [miuix](https://github.com/miuix-kotlin-multiplatform/miuix) | Settings UI components |
-| [hyperx-compose](https://github.com/HowieHChen/hyperx-compose) | HyperOS-style Compose shell |
 | [Koin](https://github.com/InsertKoinIO/koin) | Dependency injection |
+| [ncnn](https://github.com/Tencent/ncnn) | Super-resolution inference for the quality enhancement |
+| [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan) | Super-resolution model (from waifu2x) |
 | [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist) | App list retrieval approach |
 | [MiuiHome_R](https://github.com/qqlittleice/MiuiHome_R) | Backup & restore logic reference |
 | [MIUINativeNotifyIcon](https://github.com/fankes/MIUINativeNotifyIcon) | Open-source reference |

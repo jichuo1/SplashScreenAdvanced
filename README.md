@@ -33,7 +33,7 @@
 
 ## 功能
 
-设置界面是底部 5 页的横向分页：首页（模块状态与作用域）、图标、背景、显示、模块；每页再按功能分成带标题的小组，右上角的搜索可直接定位到具体开关。改完多数选项会立刻热重载，不必重启。
+设置界面是底栏 5 页的横向分页：首页（模块状态与作用域）、图标、背景、显示、模块；每页再按功能分成带标题的小组，顶部胶囊栏的搜索可直接定位到具体开关。改完多数选项会立刻热重载，不必重启。
 
 | 页面 | 分组 |
 |:---|:---|
@@ -92,7 +92,7 @@
 
 MIUI / HyperOS 与 ColorOS 走专门分支，其余系统走 AOSP 通用路径。
 
-设置界面的材质与页面过渡效果基于 [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) 实现。
+设置界面基于 [LumenCoacervationEngine](https://github.com/Meguvizarchic/LumenCoacervationEngine) 与 Meguviz 家族（[MeguvizRef](https://github.com/Meguvizarchic/MeguvizRef)、[MeguvizUI](https://github.com/Meguvizarchic/MeguvizUI)、[MeguvizAndroid](https://github.com/Meguvizarchic/MeguvizAndroid)、[MeguvizDrawable](https://github.com/Meguvizarchic/MeguvizDrawable)）构建：材质、浮动顶底栏、分页与控件由引擎提供；视图与 Drawable 的所有权、窗口 Insets 和反射由 Meguviz 家族提供。
 
 ---
 
@@ -183,7 +183,7 @@ cd SplashScreenAdvanced
 
 - 模块包名与项目身份改为 `com.SplashScreenAdvanced.xposedmodule`
 - Hook 层的异常隔离、反射缓存、内存与线程安全修复
-- 设置界面重组与图标加载优化
+- 设置界面重组为横向分页，改用 Lumen 引擎与 Meguviz 家族重写；图标加载、设置页启动与切页优化
 - 发布流水线改为 GitHub Actions + Environment Secrets 签名
 
 原作者的个人品牌素材、社区链接与捐赠信息已移除，它们指向的是原作者本人而非本项目。
@@ -194,13 +194,16 @@ cd SplashScreenAdvanced
 |:---|:---|
 | [GSWXXN/RestoreSplashScreen](https://github.com/GSWXXN/RestoreSplashScreen) | 上游项目 |
 | [libxposed](https://github.com/libxposed) | 模块 API 与服务 |
-| [MeguvizRef](https://github.com/jichuo1/MeguvizRef) | 运行期反射 |
-| [LumenCoacervationEngine](https://github.com/jichuo1/LumenCoacervationEngine) | 界面材质与页面过渡 |
+| [LumenCoacervationEngine](https://github.com/Meguvizarchic/LumenCoacervationEngine) | 界面材质、浮动顶底栏、分页与控件 |
+| [MeguvizRef](https://github.com/Meguvizarchic/MeguvizRef) | 运行期反射与成员解析 |
+| [MeguvizUI](https://github.com/Meguvizarchic/MeguvizUI) | 原生 View 的身份与生命周期 |
+| [MeguvizAndroid](https://github.com/Meguvizarchic/MeguvizAndroid) | 窗口会话、Insets 与帧调度 |
+| [MeguvizDrawable](https://github.com/Meguvizarchic/MeguvizDrawable) | Drawable 所有权与释放 |
 | [DexKit](https://github.com/LuckyPray/DexKit) | 宿主类查找 |
 | [BetterAndroid](https://github.com/BetterAndroid/BetterAndroid) | Android 系统扩展 |
-| [miuix](https://github.com/miuix-kotlin-multiplatform/miuix) | 设置界面组件 |
-| [hyperx-compose](https://github.com/HowieHChen/hyperx-compose) | HyperOS 风格 Compose 壳 |
 | [Koin](https://github.com/InsertKoinIO/koin) | 依赖注入 |
+| [ncnn](https://github.com/Tencent/ncnn) | 画质增强的超分推理 |
+| [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan) | 超分模型（源自 waifu2x） |
 | [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist) | 应用列表获取思路 |
 | [MiuiHome_R](https://github.com/qqlittleice/MiuiHome_R) | 备份恢复逻辑参考 |
 | [MIUINativeNotifyIcon](https://github.com/fankes/MIUINativeNotifyIcon) | 开源参考 |
