@@ -1,5 +1,6 @@
 package com.SplashScreenAdvanced.xposedmodule.utils
 
+import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences
@@ -15,10 +16,21 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 class RemotePreferenceStore(
+    context: Context,
     private val xposedManager: XposedServiceManager
 ) {
     private val remotePrefs: SharedPreferences?
         get() = xposedManager.currentService?.getRemotePreferences(Preferences.NAME)
+
+    /**
+     * Local copy of the keys only the module app reads (palette, split view, live backdrop, updates).
+     *
+     * The Xposed service binds asynchronously after the process starts, so the first settings window used to be built
+     * before remote preferences existed: every key read its default, and the Monet palette only appeared once a later
+     * window was created. The mirror answers those reads until the service is bound; remote stays the source of truth.
+     */
+    private val localMirror: SharedPreferences =
+        context.applicationContext.getSharedPreferences(MIRROR_NAME, Context.MODE_PRIVATE)
 
     private val snapshot = ConcurrentHashMap<String, Any>()
 
@@ -43,6 +55,7 @@ class RemotePreferenceStore(
                     flushPendingWrites()
                 }
                 snapshot.clear()
+                if (service != null) syncMirror()
                 if (service != null) {
                     _globalReloadEvent.emit(Unit)
                 }
@@ -55,11 +68,36 @@ class RemotePreferenceStore(
         snapshot[key.name]?.let { cached ->
             return cached as T
         }
-        val prefs = remotePrefs ?: return key.default
+        // Not cached: once the service binds, the snapshot must fill from remote rather than from the mirror.
+        val prefs = remotePrefs ?: return if (key.name in MIRRORED_KEYS) readRemote(localMirror, key) else key.default
         val fresh = readRemote(prefs, key)
         val stored: Any = if (fresh is Set<*>) HashSet(fresh) else fresh
         snapshot[key.name] = stored
         return stored as T
+    }
+
+    /** Copies the mirrored keys from remote after the service binds, so the next cold start reads the latest values. */
+    private fun syncMirror() {
+        val prefs = remotePrefs ?: return
+        val remote = try { prefs.all } catch (_: Throwable) { return }
+        localMirror.edit {
+            MIRRORED_KEYS.forEach { name ->
+                val value = remote[name]
+                if (value == null) remove(name) else putValue(name, value)
+            }
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun SharedPreferences.Editor.putValue(name: String, value: Any) {
+        when (value) {
+            is Boolean -> putBoolean(name, value)
+            is Int -> putInt(name, value)
+            is Long -> putLong(name, value)
+            is Float -> putFloat(name, value)
+            is String -> putString(name, value)
+            is Set<*> -> putStringSet(name, value as Set<String>)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -83,6 +121,7 @@ class RemotePreferenceStore(
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> put(key: PreferenceKey<T>, value: T) {
         snapshot[key.name] = if (value is Set<*>) HashSet(value as Set<*>) else value
+        if (key.name in MIRRORED_KEYS) localMirror.edit { putValue(key.name, value) }
         val prefs = remotePrefs
         if (prefs == null || !writeTo(prefs, key.name, value)) {
             pendingWrites[key.name] = value
@@ -147,6 +186,9 @@ class RemotePreferenceStore(
             // checkBackupFileValid 会因为 !has(versionKey) 永远返回 true, 整个校验形同虚设
             putInt(Preferences.Module.SP_VERSION.name, Preferences.VERSION)
         }
+        localMirror.edit {
+            MIRRORED_KEYS.forEach { name -> map[name]?.let { putValue(name, it) } ?: remove(name) }
+        }
     }
 
     /**
@@ -169,5 +211,19 @@ class RemotePreferenceStore(
         remotePrefs?.edit(true) {
             clear()
         }
+        localMirror.edit { clear() }
+    }
+
+    private companion object {
+        const val MIRROR_NAME = "ssa_app_preferences_mirror"
+
+        /** Keys that never leave the module app process; the hooked processes do not read them. */
+        val MIRRORED_KEYS = setOf(
+            Preferences.Module.UI_STYLE.name,
+            Preferences.Module.SPLIT_VIEW.name,
+            Preferences.Module.MODULE_APP_BLUR.name,
+            Preferences.Module.AUTO_UPDATE_CHECK.name,
+            Preferences.Module.UPDATE_CHANNEL.name,
+        )
     }
 }

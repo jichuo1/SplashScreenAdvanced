@@ -7,12 +7,14 @@ import android.widget.ImageView
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 
 fun NativePageUi.header(imageResource: Int, title: String): View = FrameLayout(activity).apply {
-    background = activity.meguviz.own(lumen.cardBackground(palette.surfaceVariant, 20f))
+    background = lumen.cardBackground(palette.surfaceVariant, 20f)
     addView(ImageView(activity).apply {
         setImageResource(imageResource); scaleType = ImageView.ScaleType.FIT_CENTER
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    }, FrameLayout.LayoutParams(dp(140), dp(120), Gravity.END or Gravity.CENTER_VERTICAL))
+    }, FrameLayout.LayoutParams(dp(128), dp(108), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(8) })
+    // 128dp: the banner introduces the page without pushing the first group below the fold.
     addView(text(title, 24f, bold = true).apply {
-        setPadding(dp(22), dp(30), dp(22), dp(30))
-    }, FrameLayout.LayoutParams(-1, dp(140)))
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(22), 0, dp(22), 0)
+    }, FrameLayout.LayoutParams(-1, dp(128)))
 }

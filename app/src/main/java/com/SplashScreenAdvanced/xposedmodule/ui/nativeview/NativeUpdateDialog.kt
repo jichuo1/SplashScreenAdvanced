@@ -58,7 +58,7 @@ internal fun NativePageUi.showUpdateDialog(
         closing = true
         activity.modals.dismiss(dialog, container) { onDismissed(); after() }
     }
-    footer.addView(button(string(R.string.update_view_release)) { close(onUpdate) }.apply {
+    footer.addView(button(string(R.string.update_view_release), filled = true) { close(onUpdate) }.apply {
         id = R.id.native_update_action
         isAllCaps = false
         minHeight = dp(48)
@@ -69,7 +69,7 @@ internal fun NativePageUi.showUpdateDialog(
         isAllCaps = false
         minHeight = dp(48)
         minimumHeight = dp(48)
-    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
     container.addView(footer, LinearLayout.LayoutParams(-1, -2))
     val metrics = activity.windowManager.currentWindowMetrics
     val safe = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())

@@ -21,6 +21,8 @@ import kotlinx.coroutines.withContext
 fun NativePageUi.buildHomePage(withRoutes: Boolean): View = scrollContent("scroll") {
     addSetting(statusCard())
     scopeSection(this)
+    // Version and updates belong with the status card that already shows the installed version.
+    updateSection(this)
     if (withRoutes) routeRows().forEach { addSetting(it) }
 }
 

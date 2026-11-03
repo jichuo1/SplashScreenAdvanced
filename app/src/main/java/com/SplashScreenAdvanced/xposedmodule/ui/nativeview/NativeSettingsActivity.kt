@@ -42,6 +42,9 @@ import com.lumen.coacervation.engine.background.LiquidBackgroundConfig
 import com.lumen.coacervation.engine.background.LiquidBackgroundImportResult
 import com.lumen.coacervation.engine.background.LiquidBackgroundStore
 import com.lumen.coacervation.engine.host.LumenActivityDelegate
+import com.lumen.coacervation.engine.host.LumenControlShadow
+import com.lumen.coacervation.engine.host.LumenControlShadowOptions
+import android.graphics.drawable.Drawable
 import com.lumen.coacervation.engine.interaction.LumenElasticInteraction
 import com.lumen.coacervation.engine.model.LumenPalette
 import com.lumen.coacervation.engine.motion.modal.LumenModalPresenter
@@ -52,19 +55,15 @@ import com.lumen.coacervation.engine.motion.morph.ContainerMorphOrigin
 import com.lumen.coacervation.engine.motion.pager.LumenPagePager
 import com.lumen.coacervation.engine.motion.pager.PageTextChain
 import com.lumen.coacervation.engine.motion.reveal.LumenReveal
-import android.graphics.drawable.Drawable
 import com.lumen.coacervation.engine.glow.GlowBackdropTarget
 import com.lumen.coacervation.engine.glow.GlowFloatingChrome
 import com.lumen.coacervation.engine.glow.GlowLegibilityPolicy
 import com.lumen.coacervation.engine.glow.GlowScrollEdge
 import com.lumen.coacervation.engine.glow.GlowScrollEdgePolicy
-import com.lumen.coacervation.engine.host.LumenControlShadow
-import com.lumen.coacervation.engine.host.LumenControlShadowOptions
 import com.lumen.coacervation.engine.interaction.ElasticInteractionController
 import com.lumen.coacervation.engine.widget.LumenMaxHeightScrollView
 import com.lumen.coacervation.engine.widget.LumenNavigationBar
 import com.lumen.coacervation.engine.widget.NavigationBarColors
-import com.lumen.coacervation.engine.widget.NavigationBarSelectionMask
 import com.lumen.coacervation.engine.widget.NavigationBarSurface
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
@@ -82,7 +81,7 @@ import org.koin.java.KoinJavaComponent
 private val SYSTEM_INSETS = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
 
 // Geometry follows BIL's floating chrome: a 58dp capsule (48dp buttons + 5dp rings, 29dp ends) 4dp below the status bar,
-// and a dock inset 32dp from the sides and 16dp from the bottom, at most 480dp wide.
+// and a dock 16dp above the bottom that hugs its items, keeping at least 32dp from each side (at most 480dp wide).
 private const val CAPSULE_HEIGHT_DP = 58
 private const val CAPSULE_RADIUS_DP = 29f
 private const val CAPSULE_SIDE_MARGIN_DP = 10
@@ -92,8 +91,15 @@ private const val CONTENT_CLEARANCE_DP = CAPSULE_TOP_MARGIN_DP + CAPSULE_HEIGHT_
 private const val DOCK_SIDE_MARGIN_DP = 32
 private const val DOCK_BOTTOM_MARGIN_DP = 16
 private const val DOCK_MAX_WIDTH_DP = 480
-/** Strength of the contrast mask behind the selected dock item (engine standard §12.4; sample default). */
-private const val DOCK_SELECTION_MASK = 0.2f
+/**
+ * The dock hugs its items instead of spanning the screen: each slot is as wide as its longest label plus breathing room,
+ * at least [DOCK_SLOT_MIN_DP] so the 26dp icons and the selection lens keep their proportions.
+ */
+private const val DOCK_SLOT_MIN_DP = 60
+private const val DOCK_LABEL_ROOM_DP = 16
+/** Label size of the engine's navigation bar items and its inner inset (NavigationBarMotion.INSET_DP). */
+private const val DOCK_LABEL_SP = 12f
+private const val DOCK_INSET_DP = 4
 /** Pause before the dock pages that are not on screen start building (after the enter motion and the first frames). */
 private const val PREWARM_DELAY_MS = 400L
 /** Until the dock is measured: its default height, so the first frame already leaves room. */
@@ -178,7 +184,8 @@ abstract class NativeSettingsActivity : Activity() {
             val host = ContainerMorphHost(this, lumen.palette.surface, lumen.palette.background,
                 lumen.palette.textPrimary, toolbarTitle?.text?.toString().orEmpty())
             morphHost = host
-            host.setMotionSurfaceBackground(meguviz.own(lumen.motionSurfaceBackground(lumen.palette.surface, 16f)))
+            // Engine surfaces go straight onto their View: they locate the host through `callback as? View` to sample.
+            host.setMotionSurfaceBackground(lumen.motionSurfaceBackground(lumen.palette.surface, 16f))
             host.replacePage(page, checkNotNull(toolbarTitle))
             // The page's chrome owns status-bar insets; padding the host would leave a material seam.
             host.requestApplyInsets()
@@ -245,7 +252,7 @@ abstract class NativeSettingsActivity : Activity() {
             setMargins(dp(CAPSULE_SIDE_MARGIN_DP), dp(CAPSULE_TOP_MARGIN_DP), dp(CAPSULE_SIDE_MARGIN_DP), 0)
         })
         homeDock?.let {
-            page.addView(it, FrameLayout.LayoutParams(dp(DOCK_MAX_WIDTH_DP), -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            page.addView(it, FrameLayout.LayoutParams(minOf(dp(DOCK_MAX_WIDTH_DP), dockNaturalWidth), -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 setMargins(0, 0, 0, dp(DOCK_BOTTOM_MARGIN_DP))
             })
             it.addOnLayoutChangeListener { dock, _, top, _, bottom, _, oldTop, _, oldBottom ->
@@ -324,13 +331,15 @@ abstract class NativeSettingsActivity : Activity() {
             context = this,
             titles = SettingsTab.entries.map { getString(it.labelRes) },
             icons = SettingsTab.entries.map { it.iconRes }.toIntArray(),
-            colors = NavigationBarColors(text = palette.textSecondary, selectedText = palette.primary, highlight = palette.primary),
+            colors = NavigationBarColors(text = palette.textPrimary, selectedText = palette.primary, highlight = palette.primary),
+            // BIL's recipe: the bar is a floating surface and the selection a chrome lens, both in the surface colour,
+            // plus the engine's soft shadow around the bar. Not wrapped otherwise: the drawables must see the dock View
+            // as their callback to sample the backdrop.
             backgroundFactory = { surface, radius ->
-                meguviz.own(when (surface) {
+                when (surface) {
                     NavigationBarSurface.BAR -> withBarShadow(lumen.floatingBackground(palette.surface, radius), radius)
-                    NavigationBarSurface.SELECTION -> lumen.chromeOverlayBackground(
-                        NavigationBarSelectionMask.color(palette, DOCK_SELECTION_MASK), radius, selected = true)
-                })
+                    NavigationBarSurface.SELECTION -> lumen.chromeOverlayBackground(palette.surface, radius, selected = true)
+                }
             },
             onSelect = { pager.selectPage(it) },
             onUserInteraction = {},
@@ -379,9 +388,10 @@ abstract class NativeSettingsActivity : Activity() {
      * its own round glass surface so long-press elasticity deforms them one by one.
      */
     /**
-     * Soft shadow of the engine for the floating bars (standard §5.6): on a light theme a light bar over white content has
-     * neither a colour mask nor a white outline to separate it, so the bars get the engine's own ambient + contact shadow.
-     * It is drawn outside the bar bounds; the parent (page root) keeps `clipChildren = false`.
+     * Soft shadow of the engine for the floating bars (standard §5.6): on a light theme a light bar over white content
+     * needs it to stand off the page. It is drawn outside the bar bounds; the parent (page root) keeps
+     * `clipChildren = false`. The shadow drawable hands its own View callback on to the engine background at draw time,
+     * so it is the only wrapper allowed around a sampling surface.
      */
     private val barShadow = LumenControlShadowOptions(enabled = true)
 
@@ -395,7 +405,7 @@ abstract class NativeSettingsActivity : Activity() {
             id = R.id.native_chrome
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = meguviz.own(withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP))
+            background = withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP)
             // The capsule itself is pressable so a long press off its buttons deforms the whole bar.
             isClickable = true
             clipChildren = false
@@ -452,9 +462,21 @@ abstract class NativeSettingsActivity : Activity() {
     private fun updateDockWidth(rootWidth: Int) {
         val dock = homeDock ?: return
         val params = dock.layoutParams as? FrameLayout.LayoutParams ?: return
-        val available = rootWidth - dp(DOCK_SIDE_MARGIN_DP * 2) - insetLeft - insetRight
-        val width = minOf(dp(DOCK_MAX_WIDTH_DP), available).coerceAtLeast(dp(72 * SettingsTab.entries.size))
+        // The side margins always win: the old 72dp-per-tab floor pushed a five-tab dock past them on a 393dp phone.
+        val available = (rootWidth - dp(DOCK_SIDE_MARGIN_DP * 2) - insetLeft - insetRight).coerceAtLeast(0)
+        val width = minOf(dp(DOCK_MAX_WIDTH_DP), available, dockNaturalWidth)
         if (rootWidth > 0 && params.width != width) { params.width = width; dock.layoutParams = params }
+    }
+
+    /** Width the dock needs for its labels: equal slots sized by the longest label, plus the bar's own inset. */
+    private val dockNaturalWidth: Int by lazy(LazyThreadSafetyMode.NONE) {
+        val paint = android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, DOCK_LABEL_SP,
+                resources.displayMetrics)
+        }
+        val widestLabel = SettingsTab.entries.maxOf { paint.measureText(getString(it.labelRes)) }
+        val slot = maxOf(dp(DOCK_SLOT_MIN_DP), kotlin.math.ceil(widestLabel).toInt() + dp(DOCK_LABEL_ROOM_DP))
+        slot * SettingsTab.entries.size + dp(DOCK_INSET_DP * 2)
     }
 
     /** Engine rubber band for a dock page: only the current page, and only once the pager has settled (standard §5.4). */
@@ -475,8 +497,11 @@ abstract class NativeSettingsActivity : Activity() {
         // The content layer under the floating surfaces; never an ancestor of them (standard §6.1).
         lumen.bindContentSource(homePager ?: target)
         chrome = GlowFloatingChrome(target, { lumen.engine }, ::edgeCoverage).apply {
-            // The title sits directly on the capsule glass, so the host is thickened too (BIL's capsule has no text).
-            attach(capsule, GlowScrollEdge.TOP, palette.textPrimary, companions = topButtons, onForeground = foregroundFor(capsule, palette))
+            // As BIL: only the round buttons thicken for legibility; the capsule body stays as clear as the dock.
+            // Thickening the body over bright content capped the boost and washed the whole capsule grey. The title on
+            // the body is kept readable by pushing its colour instead (onForeground).
+            attach(capsule, GlowScrollEdge.TOP, palette.textPrimary, companions = topButtons, thickenHost = false,
+                onForeground = foregroundFor(capsule, palette))
             homeDock?.let { dock ->
                 attach(dock, GlowScrollEdge.BOTTOM, palette.textPrimary) { boost -> dock.setLegibility(boost, palette.surface) }
             }
@@ -509,7 +534,7 @@ abstract class NativeSettingsActivity : Activity() {
     /** Legibility compensation: 0 keeps the original colour, 1 is the strongest same-direction push. */
     private fun foregroundFor(bar: ViewGroup, palette: LumenPalette): (Float) -> Unit = { boost ->
         val text = GlowLegibilityPolicy.foreground(palette.textPrimary, boost)
-        val icon = ColorStateList.valueOf(GlowLegibilityPolicy.foreground(palette.textSecondary, boost))
+        val icon = ColorStateList.valueOf(GlowLegibilityPolicy.foreground(palette.textPrimary, boost))
         for (i in 0 until bar.childCount) {
             when (val child = bar.getChildAt(i)) {
                 is TextView -> child.setTextColor(text)
@@ -595,7 +620,7 @@ abstract class NativeSettingsActivity : Activity() {
                     val place = getString(R.string.settings_search_location, match.tab, match.section)
                     results.addView(pageUi.action(match.title, place, moduleRequired = false) {
                         modals.dismiss(dialog, container) { targets[match.key]?.let(::revealSetting) }
-                    })
+                    }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(ROW_GAP_DP) })
                 }
             }
             input.doAfterTextChanged { render(it?.toString().orEmpty()) }
@@ -719,14 +744,18 @@ abstract class NativeSettingsActivity : Activity() {
     private fun resolvePalette(): LumenPalette {
         val dark = isDark()
         val dynamic = repository.get(com.SplashScreenAdvanced.xposedmodule.data.preference.Preferences.Module.UI_STYLE) == 1
-        val primary = if (dynamic) getColor(if (dark) android.R.color.system_accent1_200 else android.R.color.system_accent1_600)
+        // Accents follow the chosen style (Monet: the system's tonal palette, tone 40 light / 80 dark, as Material 3).
+        fun accent(light: Int, darkTone: Int) = getColor(if (dark) darkTone else light)
+        val primary = if (dynamic) accent(android.R.color.system_accent1_600, android.R.color.system_accent1_200)
             else if (dark) Color.rgb(156, 199, 255) else Color.rgb(36, 105, 206)
-        return LumenPalette(primary, if (dark) Color.BLACK else Color.WHITE,
-            primary, primary, if (dark) Color.rgb(29, 31, 36) else Color.rgb(249, 250, 253),
-            if (dark) Color.rgb(15, 18, 24) else Color.rgb(236, 242, 251),
-            if (dark) Color.rgb(43, 47, 55) else Color.rgb(225, 232, 243),
-            if (dark) Color.rgb(237, 240, 246) else Color.rgb(28, 31, 38),
-            if (dark) Color.rgb(167, 175, 189) else Color.rgb(97, 107, 123))
+        val onPrimary = if (dynamic) accent(android.R.color.system_accent1_0, android.R.color.system_accent1_800)
+            else if (dark) Color.rgb(0, 49, 94) else Color.WHITE
+        val secondary = if (dynamic) accent(android.R.color.system_accent2_600, android.R.color.system_accent2_200) else primary
+        val tertiary = if (dynamic) accent(android.R.color.system_accent3_600, android.R.color.system_accent3_200) else primary
+        // Large surfaces, window and text use the engine's neutral "modern" set, the values BIL's settings run on.
+        // The old blue-tinted surfaces (#ECF2FB window, #E1E8F3 variant) tinted the ambient backdrop and every glass
+        // surface over it, so the bars read bluish-grey instead of clear.
+        return LumenPalette.modern(primary, onPrimary, secondary, tertiary, dark)
     }
 
     override fun onStart() {
@@ -755,7 +784,12 @@ abstract class NativeSettingsActivity : Activity() {
         startedJob = uiScope.launch {
             launch { uiState.state.collect { pageUi.refresh() } }
             launch { repository.preferenceUpdates.collect { pageUi.refresh() } }
-            launch { repository.globalReloadEvent.collect { pageUi.onPreferencesReloaded() } }
+            // A reload (service bound, backup restored, settings reset) can change the palette or the layout the window
+            // was built with; the page's own refresh cannot repaint the engine palette, so the window is rebuilt instead.
+            launch { repository.globalReloadEvent.collect {
+                if (renderingConfig != repository.uiConfigFlow.value && !pageUi.hasUnsavedChanges) recreate()
+                else pageUi.onPreferencesReloaded()
+            } }
             launch { pageUi.observeUpdates() }
         }
     }

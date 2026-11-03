@@ -37,7 +37,11 @@ class LumenBridgePocTest {
                 val rows = descendants(activity.window.decorView).filterIsInstance<NativeRow>()
                 // Home page: module status plus the scope switch (the other dock pages are built later, when idle).
                 assertTrue(rows.size >= 2)
-                assertTrue(rows.all { it.background != null })
+                // A stand-alone row carries its own engine card; a row inside a section is a cell of the group's card.
+                assertTrue(rows.all { row ->
+                    row.background != null || generateSequence(row.parent as? android.view.View) { it.parent as? android.view.View }
+                        .any { it is com.SplashScreenAdvanced.xposedmodule.ui.nativeview.DividedColumn && it.background != null }
+                })
             }
         }
     }
