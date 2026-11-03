@@ -34,27 +34,35 @@ fun NativePageUi.moduleAppearanceSection(parent: LinearLayout) = parent.section(
         if (LumenEngine.selectMaterial(activity, it, it == SkinId.LIQUID && repo.get(Preferences.Module.MODULE_APP_BLUR))) activity.recreate()
         else activity.toast(R.string.save_failed)
     })
-    addSetting(switch(R.string.lumen_capture, Preferences.Module.MODULE_APP_BLUR, R.string.lumen_capture_summary,
-        enabled = { LumenEngine.requestedMaterial(activity) == SkinId.LIQUID }) {
-        if (LumenEngine.setRealtimeCaptureEnabled(activity, it)) activity.recreate() else activity.toast(R.string.save_failed)
+    // Live backdrop only means something on the advanced glass: it unfolds under the material instead of sitting greyed out.
+    addSetting(conditional({ LumenEngine.requestedMaterial(activity) == SkinId.LIQUID }) {
+        addSetting(switch(R.string.lumen_capture, Preferences.Module.MODULE_APP_BLUR, R.string.lumen_capture_summary,
+            moduleRequired = false, enabled = { LumenEngine.requestedMaterial(activity) == SkinId.LIQUID }) {
+            if (LumenEngine.setRealtimeCaptureEnabled(activity, it)) activity.recreate() else activity.toast(R.string.save_failed)
+        })
     })
     val background = action(string(R.string.module_background), string(R.string.module_background_summary), moduleRequired = false) {
         activity.launchBackgroundPicker()
     }.tracked(R.string.module_background)
+    var customBackground = false
     bind {
         val state = LiquidBackgroundStore.read(activity)
+        customBackground = state.config.mode == LiquidBackgroundMode.CUSTOM
         background.valueView.text = when (state.config.mode) {
             LiquidBackgroundMode.AUTOMATIC -> string(R.string.module_background_automatic)
             LiquidBackgroundMode.CUSTOM -> state.config.displayName ?: string(R.string.module_background_custom)
         }
     }
     addSetting(background)
-    addSetting(action(string(R.string.module_background_restore), moduleRequired = false) {
-        activity.uiScope.launch {
-            val restored = withContext(Dispatchers.IO) { LiquidBackgroundStore.restoreAutomatic(activity) }
-            if (restored) activity.recreate() else activity.toast(R.string.save_failed)
-        }
-    }.tracked(R.string.module_background_restore))
+    // Restoring is only possible once a custom picture is in use.
+    addSetting(conditional({ customBackground }) {
+        addSetting(action(string(R.string.module_background_restore), moduleRequired = false) {
+            activity.uiScope.launch {
+                val restored = withContext(Dispatchers.IO) { LiquidBackgroundStore.restoreAutomatic(activity) }
+                if (restored) activity.recreate() else activity.toast(R.string.save_failed)
+            }
+        }.tracked(R.string.module_background_restore))
+    })
     addSetting(switch(R.string.split_view, Preferences.Module.SPLIT_VIEW, R.string.split_view_tips) { activity.recreate() })
     val localeManager = activity.getSystemService(LocaleManager::class.java)
     val languageTags = listOf("", "zh-CN", "zh-TW", "en", "ja", "es", "ru", "fr")
@@ -102,11 +110,14 @@ fun NativePageUi.buildBasicPage(): View = scrollContent {
     moduleBackupSection(this)
 }
 
-/** Dock page: everything about the module itself, in one place — look, system, backup, then about and updates. */
+/**
+ * Dock page: the module itself — look, system, backup and about. Updates live on Home next to the status card, and the
+ * licenses fold behind one row, so this page no longer carries twice the rows of any other tab.
+ */
 fun NativePageUi.buildModulePage(): View = scrollContent {
     addSetting(header(R.drawable.demo_basic, "MODULE"))
     moduleAppearanceSection(this)
     moduleSystemSection(this)
     moduleBackupSection(this)
-    aboutSections(this)
+    aboutSection(this)
 }

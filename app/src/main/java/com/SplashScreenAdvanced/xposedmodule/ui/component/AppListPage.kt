@@ -21,6 +21,9 @@ import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeAppDraftSnapsho
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeContentViewport
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativePageUi
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.NativeRow
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.BUTTON_HEIGHT_DP
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.INPUT_HEIGHT_DP
+import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.ROW_GAP_DP
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineCheckBox
 import com.SplashScreenAdvanced.xposedmodule.ui.nativeview.engineEditText
 import com.SplashScreenAdvanced.xposedmodule.utils.HanziToPinyin
@@ -56,49 +59,68 @@ fun NativePageUi.appList(checkedKey: PreferenceKey<Set<String>>? = null, duratio
     var visible = emptyList<InstalledApp>()
     var query = restored?.getString("query").orEmpty()
     var filterJob: Job? = null
-    val root = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
+    // Fixed header (search, tools, options, hint) on an 8dp rhythm above the list; the list scrolls in its own viewport.
+    val root = column().apply { setPadding(dp(16), dp(8), dp(16), 0) }
+    fun LinearLayout.addBlock(view: View, height: Int = -2) =
+        addView(view, LinearLayout.LayoutParams(-1, height).apply { if (childCount > 0) topMargin = dp(8) })
     val search = engineEditText(EditText(activity).apply {
         id = R.id.native_search; hint = string(R.string.search_hint); isSingleLine = true
+        textSize = 15f
         setTextColor(palette.textPrimary); setHintTextColor(palette.textSecondary)
         setText(query)
-        setPadding(dp(14), dp(12), dp(14), dp(12))
+        setPadding(dp(16), 0, dp(16), 0)
     })
-    root.addView(search, LinearLayout.LayoutParams(-1, -2))
-    val tools = LinearLayout(activity)
-    if (!colorBrowsing) tools.addView(button("⋯") {
-        dialog(string(R.string.select_system_apps)) { dialog, container ->
-            container.addView(button(string(R.string.select_system_apps)) {
-                activity.modals.dismiss(dialog, container) {
-                    if (requireModule()) { draft.checked.addAll(apps.filter { it.isSystemApp }.map { it.packageName }); search.setText(query) }
-                }
-            })
-            container.addView(button(string(R.string.clear_selected_apps)) {
-                activity.modals.dismiss(dialog, container) {
-                    if (requireModule()) { draft.checked.clear(); search.setText(query) }
-                }
-            })
-        }
-    }, LinearLayout.LayoutParams(dp(56), dp(48)))
-    if (!colorBrowsing) tools.addView(button(string(R.string.save)) {
-        val saved = checkedKey == null || write(checkedKey, draft.checked.toSet())
-        val configSaved = configKey == null || write(configKey, draft.config.toMutableMap().toSet())
-        if (saved && configSaved) { draft.markSaved(); activity.toast(R.string.save_successful) }
-    }.apply { id = R.id.native_save }, LinearLayout.LayoutParams(0, dp(48), 1f))
-    root.addView(tools)
-    if (extra != null) root.addView(extra())
-    if (durationEditing) root.addView(action(string(R.string.set_default_min_duration), moduleRequired = false) { row ->
+    if (!colorBrowsing) {
+        // Search and the selection menu share one line; Save gets a full-width row of its own below.
+        val top = LinearLayout(activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL; clipChildren = false; clipToPadding = false }
+        top.addView(search, LinearLayout.LayoutParams(0, dp(INPUT_HEIGHT_DP), 1f))
+        top.addView(button("⋯") {
+            dialog(string(R.string.select_system_apps)) { dialog, container ->
+                dialogActions(container,
+                    button(string(R.string.select_system_apps)) {
+                        activity.modals.dismiss(dialog, container) {
+                            if (requireModule()) { draft.checked.addAll(apps.filter { it.isSystemApp }.map { it.packageName }); search.setText(query) }
+                        }
+                    },
+                    button(string(R.string.clear_selected_apps)) {
+                        activity.modals.dismiss(dialog, container) {
+                            if (requireModule()) { draft.checked.clear(); search.setText(query) }
+                        }
+                    }, stacked = true)
+            }
+        }.apply { contentDescription = string(R.string.select_system_apps); setPadding(0, 0, 0, 0) },
+            LinearLayout.LayoutParams(dp(INPUT_HEIGHT_DP), dp(INPUT_HEIGHT_DP)).apply { marginStart = dp(8) })
+        root.addBlock(top)
+        root.addBlock(button(string(R.string.save), filled = true) {
+            val saved = checkedKey == null || write(checkedKey, draft.checked.toSet())
+            val configSaved = configKey == null || write(configKey, draft.config.toMutableMap().toSet())
+            if (saved && configSaved) { draft.markSaved(); activity.toast(R.string.save_successful) }
+        }.apply { id = R.id.native_save }, dp(BUTTON_HEIGHT_DP))
+    } else root.addBlock(search, dp(INPUT_HEIGHT_DP))
+    if (extra != null) root.addBlock(extra())
+    if (durationEditing) root.addBlock(action(string(R.string.set_default_min_duration), moduleRequired = false) { row ->
         numberDialog(row.titleView.text.toString(), string(R.string.set_min_duration_unit),
             repo.get(Preferences.Display.MIN_DURATION), anchor = row) { value ->
             if (value != null) { write(Preferences.Display.MIN_DURATION, value); refresh() }
         }
     })
-    root.addView(text(string(if (durationEditing) R.string.min_duration_sub_setting_hint
-        else if (colorBrowsing) R.string.custom_bg_color_sub_setting_hint else R.string.save_hint), 13f, secondary = true))
-    val loading = text(string(R.string.loading), 14f, secondary = true)
+    root.addBlock(text(string(if (durationEditing) R.string.min_duration_sub_setting_hint
+        else if (colorBrowsing) R.string.custom_bg_color_sub_setting_hint else R.string.save_hint), 13f, secondary = true).apply {
+        setPaddingRelative(dp(8), 0, dp(8), 0)
+        setLineSpacing(dp(2).toFloat(), 1f)
+    })
+    val loading = text(string(R.string.loading), 14f, secondary = true).apply { setPaddingRelative(dp(8), dp(8), dp(8), 0) }
     root.addView(loading)
     val list = ListView(activity).apply {
-        id = R.id.native_list; divider = null; dividerHeight = dp(8)
-        clipToPadding = false; setPadding(0, dp(8), 0, dp(8))
+        id = R.id.native_list; divider = null; dividerHeight = dp(ROW_GAP_DP)
+        clipToPadding = false; setPadding(0, dp(12), 0, dp(24))
+        // The engine re-places glass rows while they scroll, as it does for page scrollers.
+        setOnScrollListener(object : android.widget.AbsListView.OnScrollListener {
+            override fun onScrollStateChanged(view: android.widget.AbsListView, state: Int) = Unit
+            override fun onScroll(view: android.widget.AbsListView, first: Int, visibleCount: Int, total: Int) {
+                lumen.notifyScrollPositionChanged(view)
+            }
+        })
     }
     lateinit var adapter: BaseAdapter
     fun filter() {
@@ -197,10 +219,17 @@ private class NativeAppRow(ui: NativePageUi, colorBrowsing: Boolean) : NativeRow
     val icon = ImageView(ui.activity)
     val toggle = ui.engineCheckBox(CheckBox(ui.activity))
     init {
-        background = ui.activity.meguviz.own(ui.lumen.cardBackground(ui.palette.surface, 16f))
-        addView(icon, 0, LayoutParams(ui.dp(40), ui.dp(40)).apply { marginEnd = ui.dp(12) })
+        background = ui.lumen.cardBackground(ui.palette.surface, 16f)
+        // Denser than a settings row: the icon carries the row, so 12dp vertical padding is enough.
+        setPaddingRelative(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
+        minimumHeight = ui.dp(68)
+        titleView.textSize = 15f
+        titleView.maxLines = 1; titleView.ellipsize = android.text.TextUtils.TruncateAt.END
+        summaryView.textSize = 12f
+        summaryView.maxLines = 1; summaryView.ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        addView(icon, 0, LayoutParams(ui.dp(42), ui.dp(42)).apply { marginEnd = ui.dp(14) })
         if (colorBrowsing) toggle.visibility = View.GONE
         else tag = ElasticInteractionController.EXCLUDED_TAG
-        addView(toggle, LayoutParams(-2, -2))
+        addView(toggle, LayoutParams(-2, -2).apply { marginStart = ui.dp(4) })
     }
 }

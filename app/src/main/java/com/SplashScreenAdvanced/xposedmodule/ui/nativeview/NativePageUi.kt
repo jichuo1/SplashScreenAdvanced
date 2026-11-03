@@ -120,7 +120,40 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
 
     fun LinearLayout.addSetting(view: View) {
         // An accordion group carries no margin of its own: its rows keep theirs, so a collapsed group leaves no gap.
-        addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = if (view is AccordionCard) 0 else dp(10) })
+        addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = if (view is AccordionCard) 0 else dp(ROW_GAP_DP) })
+    }
+
+    /**
+     * A row that folds a long list of secondary rows (licenses, rarely used entries) behind a chevron, on the same engine
+     * accordion as [conditional]. It starts collapsed so the page stays short; the state survives recreation.
+     */
+    fun expandable(title: String, summary: String? = null, value: String? = null, stateKey: String,
+                   build: LinearLayout.() -> Unit): View {
+        val key = stateNamespace + "expanded." + stateKey
+        val header = row(title, summary)
+        header.valueView.text = value
+        val chevron = ImageView(activity).apply {
+            setImageResource(R.drawable.ic_expand)
+            imageTintList = ColorStateList.valueOf(palette.textSecondary)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        header.addView(chevron, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(12) })
+        val content = column().apply { build(); visibility = View.GONE }
+        val card = AccordionCard(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            addView(header, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(ROW_GAP_DP) })
+            addView(content, LinearLayout.LayoutParams(-1, -2))
+        }
+        val controller = SectionExpansionController(card, content, chevron, activity.resources.displayMetrics.density,
+            notifyPositionChanged = { lumen.notifyPositionChanged() })
+        var expanded = restored?.getBoolean(key) ?: false
+        controller.setExpanded(expanded, animate = false)
+        header.isClickable = true
+        header.setOnClickListener { expanded = !expanded; controller.setExpanded(expanded) }
+        addStateWriter { it.putBoolean(key, expanded) }
+        return card
     }
 
     /** A row that settings search can reveal; [sequence] is the order rows were registered in. */
@@ -147,16 +180,18 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         activeSection = section
         try { body.build() } finally { activeSection = outer }
         if (body.childCount == 0) return
+        // Groups are told apart by air above the caption, not by the gap between rows (BIL: 20dp above, 6dp below).
         addView(sectionTitle(string(section.titleRes)), LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(10); bottomMargin = dp(8)
+            topMargin = dp(if (childCount == 0) 4 else 14); bottomMargin = dp(8)
         })
-        addView(body, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+        addView(body, LinearLayout.LayoutParams(-1, -2))
     }
 
     private fun sectionTitle(value: String): TextView = text(value, 13f, bold = true).apply {
         textColor = palette.primary
         alpha = .9f
-        setPaddingRelative(dp(6), 0, dp(6), 0)
+        letterSpacing = .02f
+        setPaddingRelative(dp(8), 0, dp(8), 0)
         isAccessibilityHeading = true
     }
 
@@ -185,16 +220,17 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     fun confirmDiscard(onDiscarded: () -> Unit): Boolean {
         if (!hasUnsavedChanges) return false
         dialog(string(R.string.not_saved_title), string(R.string.not_saved_hint)) { dialog, container ->
-            container.addView(button(string(R.string.button_abandonment)) {
-                activity.modals.dismiss(dialog, container) { discard(); onDiscarded() }
-            })
-            container.addView(button(string(R.string.button_reedit)) { activity.modals.dismiss(dialog, container) })
+            dialogActions(container,
+                button(string(R.string.button_abandonment)) {
+                    activity.modals.dismiss(dialog, container) { discard(); onDiscarded() }
+                },
+                button(string(R.string.button_reedit), filled = true) { activity.modals.dismiss(dialog, container) })
         }
         return true
     }
 
     fun row(title: String, summary: String? = null): NativeRow = NativeRow(activity, title, summary).apply {
-        background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
+        background = lumen.cardBackground(palette.surface, 16f)
         foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(16).toFloat()))
         clipChildren = false
         clipToPadding = false
@@ -246,22 +282,31 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
                 val options = column().apply { setPadding(0, dp(3), 0, dp(3)) }
                 entries().forEach { entry ->
                     val option = TextView(activity).apply {
-                        text = entry.title + (entry.summary?.let { "\n$it" } ?: "")
+                        // The summary reads as a caption under the title, not as a second line of the same weight.
+                        text = android.text.SpannableStringBuilder(entry.title).apply {
+                            val summary = entry.summary ?: return@apply
+                            append('\n')
+                            val start = length
+                            append(summary)
+                            setSpan(android.text.style.AbsoluteSizeSpan(13, true), start, length, 0)
+                            setSpan(android.text.style.ForegroundColorSpan(palette.textSecondary), start, length, 0)
+                        }
                         textSize = 16f
                         setTextColor(palette.textPrimary)
+                        setLineSpacing(dp(2).toFloat(), 1f)
                         minHeight = dp(52)
                         gravity = Gravity.CENTER_VERTICAL
-                        setPadding(dp(16), dp(10), dp(16), dp(10))
+                        setPadding(dp(16), dp(12), dp(16), dp(12))
                         isClickable = true
                         setOnClickListener { activity.modals.dismiss(dialog, container) { selected(entry.value); refresh() } }
                         // The engine's selectable item: the current choice sits on the selected surface, the rest on cards.
                         lumen.styleSelectionControl(this, 14f, entry.value == current())
                     }
-                    options.addView(option, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+                    options.addView(option, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
                 }
                 // The engine's capped scroller: the list grows with its entries up to 420dp, then scrolls.
                 container.addView(LumenMaxHeightScrollView(activity, dp(420)).apply { addView(options) },
-                    LinearLayout.LayoutParams(-1, -2))
+                    LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
             }
         }
         bind { row.valueView.text = entries().firstOrNull { it.value == current() }?.title.orEmpty() }
@@ -293,18 +338,53 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         imageTintList = ColorStateList.valueOf(palette.textSecondary)
         setPadding(dp(12), dp(12), dp(12), dp(12))
         // A light contrast mask keeps the circle readable on SSA's near-white surface.
-        background = activity.meguviz.own(lumen.chromeOverlayBackground(NavigationBarSelectionMask.color(palette, .07f), 24f))
+        background = lumen.chromeOverlayBackground(NavigationBarSelectionMask.color(palette, .07f), 24f)
         foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(24).toFloat()))
         contentDescription = description
         isClickable = true
         setOnClickListener { clicked() }
     }
 
-    /** Text button on the engine's own action-button recipe: glass as the background, the ripple in the foreground. */
-    fun button(label: String, clicked: () -> Unit): Button = Button(activity).apply {
+    /**
+     * Text button on the engine's own action-button recipe: glass as the background, the ripple in the foreground.
+     * The framework Button's elevation animator is dropped: the system shadow of an opaque box shows as a grey ring
+     * through translucent glass. Caps and the oversized default insets go too.
+     */
+    fun button(label: String, filled: Boolean = false, clicked: () -> Unit): Button = Button(activity).apply {
         text = label
+        isAllCaps = false
+        textSize = 15f
+        stateListAnimator = null
+        minHeight = dp(BUTTON_HEIGHT_DP); minimumHeight = dp(BUTTON_HEIGHT_DP)
+        minWidth = 0; minimumWidth = 0
+        setPadding(dp(16), 0, dp(16), 0)
+        maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
         setOnClickListener { clicked() }
-        lumen.styleActionButton(this, filled = false)
+        lumen.styleActionButton(this, filled = filled)
+        if (filled) setTextColor(palette.primary)
+    }
+
+    /**
+     * Buttons at the foot of a dialog or a page: side by side with an 8dp gutter (the confirming one last), or stacked
+     * when there are more than two or their labels are long.
+     */
+    fun buttonRow(vararg buttons: Button, stacked: Boolean = buttons.size > 2): LinearLayout =
+        LinearLayout(activity).apply {
+            orientation = if (stacked) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
+            buttons.forEachIndexed { index, button ->
+                addView(button, if (stacked) LinearLayout.LayoutParams(-1, dp(BUTTON_HEIGHT_DP)).apply {
+                    if (index > 0) topMargin = dp(8)
+                } else LinearLayout.LayoutParams(0, dp(BUTTON_HEIGHT_DP), 1f).apply {
+                    if (index > 0) marginStart = dp(8)
+                })
+            }
+        }
+
+    fun dialogActions(container: LinearLayout, vararg buttons: Button, stacked: Boolean = buttons.size > 2) {
+        container.addView(buttonRow(*buttons, stacked = stacked), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
     }
 
     fun numberDialog(title: String, message: String?, current: Int?, min: Int = 0, max: Int = Int.MAX_VALUE,
@@ -316,14 +396,15 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             setSelectAllOnFocus(true)
             setPadding(dp(14), dp(12), dp(14), dp(12))
         })
-        container.addView(input, LinearLayout.LayoutParams(-1, -2))
-        container.addView(button(string(android.R.string.ok)) {
-            val raw = input.text.toString()
-            val value = raw.toIntOrNull()
-            if (raw.isNotBlank() && (value == null || value !in min..max)) input.error = "$min..$max"
-            else activity.modals.dismiss(dialog, container) { chosen(value) }
-        })
-        container.addView(button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, container) })
+        container.addView(input, LinearLayout.LayoutParams(-1, dp(INPUT_HEIGHT_DP)).apply { topMargin = dp(16) })
+        dialogActions(container,
+            button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, container) },
+            button(string(android.R.string.ok), filled = true) {
+                val raw = input.text.toString()
+                val value = raw.toIntOrNull()
+                if (raw.isNotBlank() && (value == null || value !in min..max)) input.error = "$min..$max"
+                else activity.modals.dismiss(dialog, container) { chosen(value) }
+            })
     }
 
     fun dialog(title: String, message: String? = null, anchor: NativeRow? = null, onDismissed: () -> Unit = {},
@@ -331,10 +412,14 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         val dialog = Dialog(activity)
         val container = activity.modals.createContainer()
         val sourceTitle = anchor?.titleView?.text?.toString()
+        // Heading block (title, source subtitle, message) sits tight; every body block below opens with a 16dp gap.
         container.addView(text(sourceTitle ?: title, 20f, bold = true))
-        if (sourceTitle != null && sourceTitle != title) container.addView(text(title, 14f, secondary = true))
+        if (sourceTitle != null && sourceTitle != title) container.addView(text(title, 14f, secondary = true).apply {
+            setPadding(0, dp(4), 0, 0)
+        })
         if (!message.isNullOrBlank()) container.addView(text(message, 14f, secondary = true).apply {
-            setPadding(0, dp(12), 0, dp(16))
+            setPadding(0, dp(8), 0, 0)
+            setLineSpacing(dp(2).toFloat(), 1f)
         })
         build(dialog, container)
         activity.modals.present(dialog, container, anchor = anchor, onBackDismiss = onDismissed)
@@ -349,36 +434,48 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         fun execute(command: String) { activity.modals.dismiss(dialog, container) {
             activity.uiScope.launch { withContext(Dispatchers.IO) { execShell(command) }; delay(300); activity.toast(R.string.no_root) }
         } }
-        container.addView(button(string(R.string.reboot)) { execute("reboot") })
-        container.addView(button(string(R.string.restart_system_ui)) {
-            execute("pkill -f com.android.systemui && pkill -f com.SplashScreenAdvanced.xposedmodule")
-        })
-        container.addView(button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, container) })
+        dialogActions(container,
+            button(string(R.string.restart_system_ui), filled = true) {
+                execute("pkill -f com.android.systemui && pkill -f com.SplashScreenAdvanced.xposedmodule")
+            },
+            button(string(R.string.reboot)) { execute("reboot") },
+            button(string(R.string.button_cancel)) { activity.modals.dismiss(dialog, container) })
     }
 }
 
 /** Wrapper of a collapsible group of dependent rows; see [NativePageUi.conditional]. */
 internal class AccordionCard(context: android.content.Context) : LinearLayout(context)
 
+/** Gap between two cards in a group. */
+internal const val ROW_GAP_DP = 8
+/** Height of every action button and of single-line inputs. */
+internal const val BUTTON_HEIGHT_DP = 48
+internal const val INPUT_HEIGHT_DP = 52
+/** Row card: 64dp tall with a one-line title, so a page of switches reads as a list rather than a stack of slabs. */
+private const val ROW_MIN_HEIGHT_DP = 64
+
 open class NativeRow(activity: NativeSettingsActivity, title: String, summary: String?) : LinearLayout(activity) {
     val titleView = TextView(activity).apply {
-        text = title; textSize = 17f; setTextColor(activity.lumen.palette.textPrimary)
-        setTypeface(typeface, Typeface.BOLD)
+        text = title; textSize = 16f; setTextColor(activity.lumen.palette.textPrimary)
+        typeface = Typeface.create(Typeface.DEFAULT, 600, false)
     }
     val summaryView = TextView(activity).apply {
         text = summary; textSize = 13f; setTextColor(activity.lumen.palette.textSecondary)
         visibility = if (summary.isNullOrBlank()) View.GONE else View.VISIBLE
-        setPadding(0, activity.dp(4), 0, 0)
+        setPadding(0, activity.dp(3), 0, 0)
+        setLineSpacing(activity.dp(2).toFloat(), 1f)
     }
     val valueView = TextView(activity).apply {
         textSize = 13f; setTextColor(activity.lumen.palette.textSecondary)
-        maxWidth = activity.dp(140); gravity = Gravity.END
+        maxWidth = activity.dp(128); gravity = Gravity.END
+        maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
         setPadding(activity.dp(12), 0, 0, 0)
     }
     init {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPaddingRelative(activity.dp(18), activity.dp(16), activity.dp(18), activity.dp(16))
+        minimumHeight = activity.dp(ROW_MIN_HEIGHT_DP)
+        setPaddingRelative(activity.dp(18), activity.dp(14), activity.dp(16), activity.dp(14))
         addView(LinearLayout(activity).apply { orientation = VERTICAL; addView(titleView); addView(summaryView) },
             LayoutParams(0, -2, 1f))
         addView(valueView, LayoutParams(-2, -2))

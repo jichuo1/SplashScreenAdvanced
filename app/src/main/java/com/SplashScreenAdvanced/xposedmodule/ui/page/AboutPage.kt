@@ -14,15 +14,13 @@ import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.SplashScreenAdvanced.xposedmodule.utils.update.GitHubReleaseChecker
 import com.SplashScreenAdvanced.xposedmodule.utils.update.UpdateCheckManager
 
-fun NativePageUi.aboutSections(parent: LinearLayout) {
-    aboutSection(parent)
-    updateSection(parent)
-    licensesSection(parent)
+/** Standalone About route (two-pane layout): the dock splits these between Home (updates) and Module (about). */
+fun NativePageUi.buildAboutPage(): View = scrollContent {
+    aboutSection(this)
+    updateSection(this)
 }
 
-fun NativePageUi.buildAboutPage(): View = scrollContent { aboutSections(this) }
-
-private fun NativePageUi.aboutSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleAbout) {
+fun NativePageUi.aboutSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleAbout) {
     var taps = 0
     var lastTap = 0L
     val brand = header(R.drawable.ic_launcher_foreground, string(R.string.app_name) + System.lineSeparator() +
@@ -41,9 +39,18 @@ private fun NativePageUi.aboutSection(parent: LinearLayout) = parent.section(Set
     addSetting(action(string(R.string.upstream_project), string(R.string.upstream_project_summary)) {
         openUrl("https://github.com/GSWXXN/RestoreSplashScreen")
     }.tracked(R.string.upstream_project))
+    // Seven reference rows used to make up a third of the Module page; they now fold behind one row.
+    addSetting(expandable(string(R.string.open_source_license), value = OpenSourceReference.entries.size.toString(),
+        stateKey = "licenses") {
+        OpenSourceReference.entries.forEach { project ->
+            addSetting(action(project.author + "/" + project.name, project.license) {
+                activity.toast(string(R.string.thanks_to, project.author)); openUrl(project.link)
+            })
+        }
+    })
 }
 
-private fun NativePageUi.updateSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleUpdate) {
+fun NativePageUi.updateSection(parent: LinearLayout) = parent.section(SettingsSection.HomeUpdate) {
     addSetting(switch(R.string.update_auto_check, Preferences.Module.AUTO_UPDATE_CHECK,
         R.string.update_auto_check_tips, moduleRequired = false))
     addSetting(choice(R.string.update_channel, {
@@ -61,14 +68,6 @@ private fun NativePageUi.updateSection(parent: LinearLayout) = parent.section(Se
         if (UpdateCheckManager.isChecking()) string(R.string.update_checking)
         else string(R.string.update_check_now_tips, BuildConfig.VERSION_NAME) }
     addSetting(update)
-}
-
-private fun NativePageUi.licensesSection(parent: LinearLayout) = parent.section(SettingsSection.ModuleLicenses) {
-    OpenSourceReference.entries.forEach { project ->
-        addSetting(action(project.author + "/" + project.name, project.license) {
-            activity.toast(string(R.string.thanks_to, project.author)); openUrl(project.link)
-        })
-    }
 }
 
 enum class OpenSourceReference(val author: String, val license: String, val link: String) {

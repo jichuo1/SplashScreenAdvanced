@@ -82,7 +82,7 @@ import org.koin.java.KoinJavaComponent
 private val SYSTEM_INSETS = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
 
 // Geometry follows BIL's floating chrome: a 58dp capsule (48dp buttons + 5dp rings, 29dp ends) 4dp below the status bar,
-// and a dock inset 32dp from the sides and 16dp from the bottom, at most 480dp wide.
+// and a dock 16dp above the bottom that hugs its items, keeping at least 32dp from each side (at most 480dp wide).
 private const val CAPSULE_HEIGHT_DP = 58
 private const val CAPSULE_RADIUS_DP = 29f
 private const val CAPSULE_SIDE_MARGIN_DP = 10
@@ -92,6 +92,15 @@ private const val CONTENT_CLEARANCE_DP = CAPSULE_TOP_MARGIN_DP + CAPSULE_HEIGHT_
 private const val DOCK_SIDE_MARGIN_DP = 32
 private const val DOCK_BOTTOM_MARGIN_DP = 16
 private const val DOCK_MAX_WIDTH_DP = 480
+/**
+ * The dock hugs its items instead of spanning the screen: each slot is as wide as its longest label plus breathing room,
+ * at least [DOCK_SLOT_MIN_DP] so the 26dp icons and the selection lens keep their proportions.
+ */
+private const val DOCK_SLOT_MIN_DP = 60
+private const val DOCK_LABEL_ROOM_DP = 16
+/** Label size of the engine's navigation bar items and its inner inset (NavigationBarMotion.INSET_DP). */
+private const val DOCK_LABEL_SP = 12f
+private const val DOCK_INSET_DP = 4
 /** Strength of the contrast mask behind the selected dock item (engine standard §12.4; sample default). */
 private const val DOCK_SELECTION_MASK = 0.2f
 /** Pause before the dock pages that are not on screen start building (after the enter motion and the first frames). */
@@ -178,7 +187,8 @@ abstract class NativeSettingsActivity : Activity() {
             val host = ContainerMorphHost(this, lumen.palette.surface, lumen.palette.background,
                 lumen.palette.textPrimary, toolbarTitle?.text?.toString().orEmpty())
             morphHost = host
-            host.setMotionSurfaceBackground(meguviz.own(lumen.motionSurfaceBackground(lumen.palette.surface, 16f)))
+            // Engine surfaces go straight onto their View: they locate the host through `callback as? View` to sample.
+            host.setMotionSurfaceBackground(lumen.motionSurfaceBackground(lumen.palette.surface, 16f))
             host.replacePage(page, checkNotNull(toolbarTitle))
             // The page's chrome owns status-bar insets; padding the host would leave a material seam.
             host.requestApplyInsets()
@@ -245,7 +255,7 @@ abstract class NativeSettingsActivity : Activity() {
             setMargins(dp(CAPSULE_SIDE_MARGIN_DP), dp(CAPSULE_TOP_MARGIN_DP), dp(CAPSULE_SIDE_MARGIN_DP), 0)
         })
         homeDock?.let {
-            page.addView(it, FrameLayout.LayoutParams(dp(DOCK_MAX_WIDTH_DP), -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            page.addView(it, FrameLayout.LayoutParams(minOf(dp(DOCK_MAX_WIDTH_DP), dockNaturalWidth), -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
                 setMargins(0, 0, 0, dp(DOCK_BOTTOM_MARGIN_DP))
             })
             it.addOnLayoutChangeListener { dock, _, top, _, bottom, _, oldTop, _, oldBottom ->
@@ -325,12 +335,14 @@ abstract class NativeSettingsActivity : Activity() {
             titles = SettingsTab.entries.map { getString(it.labelRes) },
             icons = SettingsTab.entries.map { it.iconRes }.toIntArray(),
             colors = NavigationBarColors(text = palette.textSecondary, selectedText = palette.primary, highlight = palette.primary),
+            // Unwrapped: the bar and the selection lens must see the dock View as their callback, or the glass cannot
+            // register with the backdrop and stays a flat layer over the scrolling pages.
             backgroundFactory = { surface, radius ->
-                meguviz.own(when (surface) {
+                when (surface) {
                     NavigationBarSurface.BAR -> withBarShadow(lumen.floatingBackground(palette.surface, radius), radius)
                     NavigationBarSurface.SELECTION -> lumen.chromeOverlayBackground(
                         NavigationBarSelectionMask.color(palette, DOCK_SELECTION_MASK), radius, selected = true)
-                })
+                }
             },
             onSelect = { pager.selectPage(it) },
             onUserInteraction = {},
@@ -382,6 +394,8 @@ abstract class NativeSettingsActivity : Activity() {
      * Soft shadow of the engine for the floating bars (standard §5.6): on a light theme a light bar over white content has
      * neither a colour mask nor a white outline to separate it, so the bars get the engine's own ambient + contact shadow.
      * It is drawn outside the bar bounds; the parent (page root) keeps `clipChildren = false`.
+     * The shadow drawable hands its own View callback on to the engine background at draw time, so it is the only wrapper
+     * allowed around a sampling surface.
      */
     private val barShadow = LumenControlShadowOptions(enabled = true)
 
@@ -395,7 +409,7 @@ abstract class NativeSettingsActivity : Activity() {
             id = R.id.native_chrome
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = meguviz.own(withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP))
+            background = withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP)
             // The capsule itself is pressable so a long press off its buttons deforms the whole bar.
             isClickable = true
             clipChildren = false
@@ -452,9 +466,21 @@ abstract class NativeSettingsActivity : Activity() {
     private fun updateDockWidth(rootWidth: Int) {
         val dock = homeDock ?: return
         val params = dock.layoutParams as? FrameLayout.LayoutParams ?: return
-        val available = rootWidth - dp(DOCK_SIDE_MARGIN_DP * 2) - insetLeft - insetRight
-        val width = minOf(dp(DOCK_MAX_WIDTH_DP), available).coerceAtLeast(dp(72 * SettingsTab.entries.size))
+        // The side margins always win: the old 72dp-per-tab floor pushed a five-tab dock past them on a 393dp phone.
+        val available = (rootWidth - dp(DOCK_SIDE_MARGIN_DP * 2) - insetLeft - insetRight).coerceAtLeast(0)
+        val width = minOf(dp(DOCK_MAX_WIDTH_DP), available, dockNaturalWidth)
         if (rootWidth > 0 && params.width != width) { params.width = width; dock.layoutParams = params }
+    }
+
+    /** Width the dock needs for its labels: equal slots sized by the longest label, plus the bar's own inset. */
+    private val dockNaturalWidth: Int by lazy(LazyThreadSafetyMode.NONE) {
+        val paint = android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, DOCK_LABEL_SP,
+                resources.displayMetrics)
+        }
+        val widestLabel = SettingsTab.entries.maxOf { paint.measureText(getString(it.labelRes)) }
+        val slot = maxOf(dp(DOCK_SLOT_MIN_DP), kotlin.math.ceil(widestLabel).toInt() + dp(DOCK_LABEL_ROOM_DP))
+        slot * SettingsTab.entries.size + dp(DOCK_INSET_DP * 2)
     }
 
     /** Engine rubber band for a dock page: only the current page, and only once the pager has settled (standard §5.4). */

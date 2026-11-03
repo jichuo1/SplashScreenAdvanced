@@ -31,6 +31,8 @@ enum class SettingsTab(
  */
 enum class SettingsSection(val tab: SettingsTab, @get:StringRes val titleRes: Int) {
     Scope(SettingsTab.Home, R.string.custom_scope_settings),
+    // Checked from the overview next to the module status, so the Module page keeps only how the module looks and behaves.
+    HomeUpdate(SettingsTab.Home, R.string.update_settings),
 
     IconShape(SettingsTab.Icon, R.string.section_icon_shape),
     IconSource(SettingsTab.Icon, R.string.section_icon_source),
@@ -48,9 +50,8 @@ enum class SettingsSection(val tab: SettingsTab, @get:StringRes val titleRes: In
     ModuleAppearance(SettingsTab.Module, R.string.section_module_appearance),
     ModuleSystem(SettingsTab.Module, R.string.section_module_system),
     ModuleBackup(SettingsTab.Module, R.string.section_module_backup),
-    ModuleAbout(SettingsTab.Module, R.string.about),
-    ModuleUpdate(SettingsTab.Module, R.string.update_settings),
-    ModuleLicenses(SettingsTab.Module, R.string.open_source_license);
+    /** Brand, links and the open-source licenses, which fold into one expandable row. */
+    ModuleAbout(SettingsTab.Module, R.string.about);
 
     companion object {
         fun of(tab: SettingsTab): List<SettingsSection> = entries.filter { it.tab == tab }
