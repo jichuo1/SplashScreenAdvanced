@@ -42,6 +42,9 @@ import com.lumen.coacervation.engine.background.LiquidBackgroundConfig
 import com.lumen.coacervation.engine.background.LiquidBackgroundImportResult
 import com.lumen.coacervation.engine.background.LiquidBackgroundStore
 import com.lumen.coacervation.engine.host.LumenActivityDelegate
+import com.lumen.coacervation.engine.host.LumenControlShadow
+import com.lumen.coacervation.engine.host.LumenControlShadowOptions
+import android.graphics.drawable.Drawable
 import com.lumen.coacervation.engine.interaction.LumenElasticInteraction
 import com.lumen.coacervation.engine.model.LumenPalette
 import com.lumen.coacervation.engine.motion.modal.LumenModalPresenter
@@ -329,12 +332,12 @@ abstract class NativeSettingsActivity : Activity() {
             titles = SettingsTab.entries.map { getString(it.labelRes) },
             icons = SettingsTab.entries.map { it.iconRes }.toIntArray(),
             colors = NavigationBarColors(text = palette.textPrimary, selectedText = palette.primary, highlight = palette.primary),
-            // BIL's recipe: the bar is a floating surface and the selection a chrome lens, both in the surface colour.
-            // A dark contrast mask under the selection and a soft shadow around the bar muddied the glass, so both are
-            // gone. Unwrapped: the drawables must see the dock View as their callback to sample the backdrop.
+            // BIL's recipe: the bar is a floating surface and the selection a chrome lens, both in the surface colour,
+            // plus the engine's soft shadow around the bar. Not wrapped otherwise: the drawables must see the dock View
+            // as their callback to sample the backdrop.
             backgroundFactory = { surface, radius ->
                 when (surface) {
-                    NavigationBarSurface.BAR -> lumen.floatingBackground(palette.surface, radius)
+                    NavigationBarSurface.BAR -> withBarShadow(lumen.floatingBackground(palette.surface, radius), radius)
                     NavigationBarSurface.SELECTION -> lumen.chromeOverlayBackground(palette.surface, radius, selected = true)
                 }
             },
@@ -385,9 +388,16 @@ abstract class NativeSettingsActivity : Activity() {
      * its own round glass surface so long-press elasticity deforms them one by one.
      */
     /**
-     * The capsule is a plain engine floating surface, like BIL's settings header: no extra shadow, whose dark halo read
-     * as a grey ring around clear glass. The floating surface's own edge highlight separates it from light content.
+     * Soft shadow of the engine for the floating bars (standard §5.6): on a light theme a light bar over white content
+     * needs it to stand off the page. It is drawn outside the bar bounds; the parent (page root) keeps
+     * `clipChildren = false`. The shadow drawable hands its own View callback on to the engine background at draw time,
+     * so it is the only wrapper allowed around a sampling surface.
      */
+    private val barShadow = LumenControlShadowOptions(enabled = true)
+
+    private fun withBarShadow(content: Drawable, radiusDp: Float): Drawable =
+        LumenControlShadow.wrap(content, radiusDp, resources.displayMetrics.density, barShadow, isDark())
+
     private fun buildTopCapsule(): LinearLayout {
         val isMain = pageRoute == Route.Main
         val buttons = mutableListOf<View>()
@@ -395,7 +405,7 @@ abstract class NativeSettingsActivity : Activity() {
             id = R.id.native_chrome
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP)
+            background = withBarShadow(lumen.floatingBackground(lumen.palette.surface, CAPSULE_RADIUS_DP), CAPSULE_RADIUS_DP)
             // The capsule itself is pressable so a long press off its buttons deforms the whole bar.
             isClickable = true
             clipChildren = false
