@@ -79,7 +79,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
      * animates heights itself. The group has no header, hence the stand-in chevron the controller asks for.
      */
     fun conditional(condition: () -> Boolean, build: LinearLayout.() -> Unit): View {
-        val content = column().apply { build(); visibility = View.GONE }
+        val content = DividedColumn(activity).apply { build(); visibility = View.GONE }
         val chevron = View(activity)
         val card = AccordionCard(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -138,7 +138,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         header.addView(chevron, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(12) })
-        val content = column().apply { build(); visibility = View.GONE }
+        val content = DividedColumn(activity).apply { build(); visibility = View.GONE }
         val card = AccordionCard(activity).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
@@ -175,16 +175,49 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
      * platform) adds nothing, so no heading is ever left dangling.
      */
     fun LinearLayout.section(section: SettingsSection, build: LinearLayout.() -> Unit) {
-        val body = column()
+        val body = DividedColumn(activity)
         val outer = activeSection
         activeSection = section
         try { body.build() } finally { activeSection = outer }
         if (body.childCount == 0) return
-        // Groups are told apart by air above the caption, not by the gap between rows (BIL: 20dp above, 6dp below).
+        // One card per group with hairlines between its rows (BIL's settings cards), instead of a stack of separate
+        // slabs: a single glass surface per group also samples once instead of once per row.
+        adoptIntoGroup(body)
+        body.background = lumen.cardBackground(palette.surface, GROUP_RADIUS_DP)
+        // Ripples and the accordion's folding rows stay inside the rounded card. The shape is explicit: not every
+        // material's drawable reports an outline, and an empty one would not clip at all.
+        val radius = dp(GROUP_RADIUS_DP.toInt()).toFloat()
+        body.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) =
+                outline.setRoundRect(0, 0, view.width, view.height, radius)
+        }
+        body.clipToOutline = true
+        // Groups are told apart by air above the caption (BIL: 20dp above, 6dp below).
         addView(sectionTitle(string(section.titleRes)), LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(if (childCount == 0) 4 else 14); bottomMargin = dp(8)
+            topMargin = dp(if (childCount == 0) 4 else 18); bottomMargin = dp(8)
         })
-        addView(body, LinearLayout.LayoutParams(-1, -2))
+        addView(body, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+    }
+
+    /**
+     * Turns the rows built for a section into cells of its card: they lose their own card and the gaps between them,
+     * and every column on the way (the group, accordions and their contents) draws the inset hairlines.
+     */
+    private fun adoptIntoGroup(column: DividedColumn) {
+        column.drawsDividers = true
+        column.dividerColor = androidx.core.graphics.ColorUtils.setAlphaComponent(palette.textSecondary, DIVIDER_ALPHA)
+        // Lines start where the row text starts and stop short of the trailing control, like a grouped list.
+        column.dividerInsetStart = dp(18)
+        column.dividerInsetEnd = dp(16)
+        for (index in 0 until column.childCount) {
+            val child = column.getChildAt(index)
+            (child.layoutParams as? LinearLayout.LayoutParams)?.let {
+                if (it.topMargin != 0 || it.bottomMargin != 0) { it.topMargin = 0; it.bottomMargin = 0; child.layoutParams = it }
+            }
+            if (child is DividedColumn) { adoptIntoGroup(child); continue }
+            child.background = null
+            if (child is NativeRow) child.foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, 0f))
+        }
     }
 
     private fun sectionTitle(value: String): TextView = text(value, 13f, bold = true).apply {
@@ -443,11 +476,56 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     }
 }
 
-/** Wrapper of a collapsible group of dependent rows; see [NativePageUi.conditional]. */
-internal class AccordionCard(context: android.content.Context) : LinearLayout(context)
+/**
+ * Vertical column that, once a [NativePageUi.section] adopts it into a group card, draws a hairline above every
+ * visible child but the first. Lines follow each child's translation, so they ride along with the accordion's folding
+ * rows and sliding siblings instead of jumping when the layout settles. A collapsed (zero-height) child gets no line.
+ */
+internal open class DividedColumn(context: android.content.Context) : LinearLayout(context) {
+    var drawsDividers = false
+        set(value) { if (field != value) { field = value; invalidate() } }
+    var dividerInsetStart = 0
+    var dividerInsetEnd = 0
+    var dividerColor = 0
+    private val paint = android.graphics.Paint()
+    /** A hairline: about 0.6dp, never thinner than one pixel. */
+    private val thickness = maxOf(1f, kotlin.math.round(resources.displayMetrics.density * DIVIDER_DP))
 
-/** Gap between two cards in a group. */
+    init {
+        orientation = VERTICAL
+        clipChildren = false
+        clipToPadding = false
+    }
+
+    override fun dispatchDraw(canvas: android.graphics.Canvas) {
+        super.dispatchDraw(canvas)
+        if (!drawsDividers) return
+        val rtl = layoutDirection == LAYOUT_DIRECTION_RTL
+        val left = (if (rtl) dividerInsetEnd else dividerInsetStart).toFloat()
+        val right = width - (if (rtl) dividerInsetStart else dividerInsetEnd).toFloat()
+        paint.color = dividerColor
+        var first = true
+        for (index in 0 until childCount) {
+            val child = getChildAt(index)
+            if (child.visibility != VISIBLE || child.height == 0) continue
+            if (first) { first = false; continue }
+            val y = child.top + child.translationY
+            canvas.drawRect(left, y - thickness / 2f, right, y + thickness / 2f, paint)
+        }
+    }
+
+    private companion object { const val DIVIDER_DP = .6f }
+}
+
+/** Wrapper of a collapsible group of dependent rows; see [NativePageUi.conditional]. */
+internal class AccordionCard(context: android.content.Context) : DividedColumn(context)
+
+/** Gap between two stand-alone cards (status, routes, list rows). Rows inside a group card have no gap. */
 internal const val ROW_GAP_DP = 8
+/** Corner of a group card; a little rounder than a single row (16dp) because it is taller. */
+private const val GROUP_RADIUS_DP = 20f
+/** Hairline between rows of a group: ~16% of the secondary text colour, visible but never louder than the text. */
+private const val DIVIDER_ALPHA = 0x29
 /** Height of every action button and of single-line inputs. */
 internal const val BUTTON_HEIGHT_DP = 48
 internal const val INPUT_HEIGHT_DP = 52
