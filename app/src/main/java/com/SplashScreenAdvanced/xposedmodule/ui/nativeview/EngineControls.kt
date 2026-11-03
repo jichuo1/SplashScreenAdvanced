@@ -56,9 +56,9 @@ internal fun NativePageUi.engineEditText(view: EditText): EditText = view.apply 
     val top = paddingTop
     val right = paddingRight
     val bottom = paddingBottom
-    background = activity.meguviz.own(lumen.surface(palette.surfaceVariant, 14f, SurfaceRole.SELECTED_ITEM))
+    background = lumen.surface(palette.surfaceVariant, 14f, SurfaceRole.SELECTED_ITEM)
     setPadding(left, top, right, bottom)
-    foreground = activity.meguviz.own(lumen.controlOutline(14f))
+    foreground = lumen.controlOutline(14f)
 }
 
 /** The engine's slider with the skin appearance: it follows the active material and handles stretch, magnet and haptics. */

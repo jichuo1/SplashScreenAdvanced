@@ -109,6 +109,13 @@ class MeguvizFamilyBridge(private val activity: Activity) : AutoCloseable {
         ui.borrow(view, ViewKey(key), ComponentType(view.javaClass.name, view.javaClass))
     }
 
+    /**
+     * Wraps a plain drawable (ripples, shapes) so its scheduled callbacks are released with the session.
+     *
+     * Never pass an engine surface (card, floating, chrome overlay, modal, motion, control outline): Lumen's surface
+     * drawables find their host with `callback as? View` to register for sampling and to place the backdrop. The wrapper
+     * becomes their callback instead, so the glass draws at screen origin and never follows the content scrolling under it.
+     */
     fun own(drawable: Drawable): Drawable = OwnedDrawableWrapper(drawable).also(ownedDrawables::add)
 
     fun onStart() {

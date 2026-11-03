@@ -14,7 +14,7 @@ fun NativePageUi.buildDevPage(): View = scrollContent {
     })
     val card = column().apply {
         setPadding(dp(16), dp(16), dp(16), dp(16))
-        background = activity.meguviz.own(lumen.cardBackground(palette.surface, 16f))
+        background = lumen.cardBackground(palette.surface, 16f)
         // The slider's press growth and end stretch draw outside its bounds (standard §12.3).
         clipChildren = false
         clipToPadding = false
