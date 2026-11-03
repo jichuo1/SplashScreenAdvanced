@@ -621,7 +621,7 @@ abstract class NativeSettingsActivity : Activity() {
                     val place = getString(R.string.settings_search_location, match.tab, match.section)
                     results.addView(pageUi.action(match.title, place, moduleRequired = false) {
                         modals.dismiss(dialog, container) { targets[match.key]?.let(::revealSetting) }
-                    })
+                    }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(ROW_GAP_DP) })
                 }
             }
             input.doAfterTextChanged { render(it?.toString().orEmpty()) }
@@ -781,7 +781,12 @@ abstract class NativeSettingsActivity : Activity() {
         startedJob = uiScope.launch {
             launch { uiState.state.collect { pageUi.refresh() } }
             launch { repository.preferenceUpdates.collect { pageUi.refresh() } }
-            launch { repository.globalReloadEvent.collect { pageUi.onPreferencesReloaded() } }
+            // A reload (service bound, backup restored, settings reset) can change the palette or the layout the window
+            // was built with; the page's own refresh cannot repaint the engine palette, so the window is rebuilt instead.
+            launch { repository.globalReloadEvent.collect {
+                if (renderingConfig != repository.uiConfigFlow.value && !pageUi.hasUnsavedChanges) recreate()
+                else pageUi.onPreferencesReloaded()
+            } }
             launch { pageUi.observeUpdates() }
         }
     }
