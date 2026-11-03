@@ -219,7 +219,7 @@ private class NativeAppRow(ui: NativePageUi, colorBrowsing: Boolean) : NativeRow
     val icon = ImageView(ui.activity)
     val toggle = ui.engineCheckBox(CheckBox(ui.activity))
     init {
-        background = ui.lumen.cardBackground(ui.palette.surface, 16f)
+        background = ui.lumen.cardBackground(ui.palette.surfaceVariant, 16f)
         // Denser than a settings row: the icon carries the row, so 12dp vertical padding is enough.
         setPaddingRelative(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
         minimumHeight = ui.dp(68)

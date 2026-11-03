@@ -235,7 +235,7 @@ private fun NativePageUi.colorEditor(config: AppColorConfig): View {
 
 private fun NativePageUi.channel(title: Int, maximum: Int, current: () -> Int, changed: (Int) -> Unit): View = column().apply {
     setPadding(dp(18), dp(14), dp(18), dp(10))
-    background = lumen.cardBackground(palette.surface, 16f)
+    background = lumen.cardBackground(palette.surfaceVariant, 16f)
     // Channel name on the left, its value on the right in fixed-width digits so the line does not jitter while dragging.
     val heading = LinearLayout(activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
     heading.addView(text(string(title), 15f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))

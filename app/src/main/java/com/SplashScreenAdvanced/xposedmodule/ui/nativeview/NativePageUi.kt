@@ -31,7 +31,6 @@ import com.lumen.coacervation.engine.motion.expansion.SectionExpansionController
 import com.lumen.coacervation.engine.motion.pager.LumenPageScrollView
 import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
 import com.lumen.coacervation.engine.widget.LumenMaxHeightScrollView
-import com.lumen.coacervation.engine.widget.NavigationBarSelectionMask
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -183,7 +182,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         // One card per group with hairlines between its rows (BIL's settings cards), instead of a stack of separate
         // slabs: a single glass surface per group also samples once instead of once per row.
         adoptIntoGroup(body)
-        body.background = lumen.cardBackground(palette.surface, GROUP_RADIUS_DP)
+        body.background = lumen.cardBackground(palette.surfaceVariant, GROUP_RADIUS_DP)
         // Ripples and the accordion's folding rows stay inside the rounded card. The shape is explicit: not every
         // material's drawable reports an outline, and an empty one would not clip at all.
         val radius = dp(GROUP_RADIUS_DP.toInt()).toFloat()
@@ -202,6 +201,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     /**
      * Turns the rows built for a section into cells of its card: they lose their own card and the gaps between them,
      * and every column on the way (the group, accordions and their contents) draws the inset hairlines.
+     *
+     * Dropping the row backgrounds also moves the long-press elasticity to the whole group: the engine promotes a
+     * pressed view to the nearest ancestor that owns a surface and unifies several children
+     * (`ElasticMotionGroupPolicy.promotionDepth`), which is now the group card rather than the row clipped inside it.
      */
     private fun adoptIntoGroup(column: DividedColumn) {
         column.drawsDividers = true
@@ -263,7 +266,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
     }
 
     fun row(title: String, summary: String? = null): NativeRow = NativeRow(activity, title, summary).apply {
-        background = lumen.cardBackground(palette.surface, 16f)
+        background = lumen.cardBackground(palette.surfaceVariant, 16f)
         foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(16).toFloat()))
         clipChildren = false
         clipToPadding = false
@@ -368,10 +371,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
      */
     fun iconButton(@DrawableRes icon: Int, description: String, clicked: () -> Unit): ImageView = ImageView(activity).apply {
         setImageResource(icon)
-        imageTintList = ColorStateList.valueOf(palette.textSecondary)
-        setPadding(dp(12), dp(12), dp(12), dp(12))
-        // A light contrast mask keeps the circle readable on SSA's near-white surface.
-        background = lumen.chromeOverlayBackground(NavigationBarSelectionMask.color(palette, .07f), 24f)
+        // BIL's toolbar button: surface-coloured chrome lens, 10dp padding (a 28dp glyph), primary-text tint.
+        imageTintList = ColorStateList.valueOf(palette.textPrimary)
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        background = lumen.chromeOverlayBackground(palette.surface, 24f)
         foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, dp(24).toFloat()))
         contentDescription = description
         isClickable = true
