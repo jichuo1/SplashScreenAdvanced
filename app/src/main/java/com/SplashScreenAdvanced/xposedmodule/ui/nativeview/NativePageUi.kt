@@ -109,7 +109,11 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             isFillViewport = true
             clipToPadding = false
             clipChildren = false
-            addView(column().apply { setPadding(dp(16), dp(12), dp(16), dp(24)); build() })
+            // Explicitly wrap_content: the default would be match_parent, and the engine accordion stops looking for the
+            // scroll view at the first ancestor that cannot shrink, so a collapse would not scroll along and the page
+            // would jump once the animation lays out. isFillViewport still stretches a short page.
+            addView(column().apply { setPadding(dp(16), dp(12), dp(16), dp(24)); build() },
+                android.widget.FrameLayout.LayoutParams(-1, -2))
             // Every real scroll moves the content beneath the floating bars; the engine re-samples it (standard §4).
             onScrollPositionChanged = { view -> if (!released) lumen.notifyScrollPositionChanged(view) }
             pageScrolls += this
@@ -493,6 +497,39 @@ internal open class DividedColumn(context: android.content.Context) : LinearLayo
     private val paint = android.graphics.Paint()
     /** A hairline: about 0.6dp, never thinner than one pixel. */
     private val thickness = maxOf(1f, kotlin.math.round(resources.displayMetrics.density * DIVIDER_DP))
+    private var drawnLayout = 0
+
+    /**
+     * The hairlines live in this column's display list, but the accordion and the long-press elasticity move rows with
+     * translationY, which only touches the row's own render node and never redraws this column: the lines would stay
+     * where the rows were mid-animation. Before each frame, redraw when a row moved, faded or changed visibility.
+     */
+    private val redrawOnRowMove = android.view.ViewTreeObserver.OnPreDrawListener {
+        if (drawsDividers && rowLayout() != drawnLayout) invalidate()
+        true
+    }
+
+    private fun rowLayout(): Int {
+        var hash = childCount
+        for (index in 0 until childCount) {
+            val child = getChildAt(index)
+            hash = 31 * hash + child.top
+            hash = 31 * hash + child.translationY.toBits()
+            hash = 31 * hash + child.alpha.toBits()
+            hash = 31 * hash + child.visibility
+        }
+        return hash
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewTreeObserver.addOnPreDrawListener(redrawOnRowMove)
+    }
+
+    override fun onDetachedFromWindow() {
+        viewTreeObserver.removeOnPreDrawListener(redrawOnRowMove)
+        super.onDetachedFromWindow()
+    }
 
     init {
         orientation = VERTICAL
@@ -503,6 +540,7 @@ internal open class DividedColumn(context: android.content.Context) : LinearLayo
     override fun dispatchDraw(canvas: android.graphics.Canvas) {
         super.dispatchDraw(canvas)
         if (!drawsDividers) return
+        drawnLayout = rowLayout()
         val rtl = layoutDirection == LAYOUT_DIRECTION_RTL
         val left = (if (rtl) dividerInsetEnd else dividerInsetStart).toFloat()
         val right = width - (if (rtl) dividerInsetStart else dividerInsetEnd).toFloat()
@@ -513,6 +551,8 @@ internal open class DividedColumn(context: android.content.Context) : LinearLayo
             if (child.visibility != VISIBLE || child.height == 0) continue
             if (first) { first = false; continue }
             val y = child.top + child.translationY
+            // A row fading in with the accordion brings its line with it.
+            paint.alpha = (android.graphics.Color.alpha(dividerColor) * child.alpha.coerceIn(0f, 1f)).toInt()
             canvas.drawRect(left, y - thickness / 2f, right, y + thickness / 2f, paint)
         }
     }

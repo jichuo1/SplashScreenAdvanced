@@ -39,11 +39,11 @@ fun NativePageUi.aboutSection(parent: LinearLayout) = parent.section(SettingsSec
     addSetting(action(string(R.string.upstream_project), string(R.string.upstream_project_summary)) {
         openUrl("https://github.com/GSWXXN/RestoreSplashScreen")
     }.tracked(R.string.upstream_project))
-    // Seven reference rows used to make up a third of the Module page; they now fold behind one row.
+    // The reference rows would make up a third of the Module page; they fold behind one row.
     addSetting(expandable(string(R.string.open_source_license), value = OpenSourceReference.entries.size.toString(),
         stateKey = "licenses") {
         OpenSourceReference.entries.forEach { project ->
-            addSetting(action(project.author + "/" + project.name, project.license) {
+            addSetting(action(project.author + "/" + project.project, project.license) {
                 activity.toast(string(R.string.thanks_to, project.author)); openUrl(project.link)
             })
         }
@@ -70,12 +70,21 @@ fun NativePageUi.updateSection(parent: LinearLayout) = parent.section(SettingsSe
     addSetting(update)
 }
 
-enum class OpenSourceReference(val author: String, val license: String, val link: String) {
-    LumenCoacervationEngine("jichuo1", "Apache-2.0", "https://github.com/jichuo1/LumenCoacervationEngine"),
-    MIUINativeNotifyIcon("fankes", "AGPL-3.0", "https://github.com/fankes/MIUINativeNotifyIcon"),
-    `Hide-My-Applist`("Dr-TSNG", "AGPL-3.0", "https://github.com/Dr-TSNG/Hide-My-Applist"),
-    YukiHookAPI("fankes", "Apache-2.0", "https://github.com/fankes/YukiHookAPI"),
-    HyperCompose("HowieHChen", "Apache-2.0", "https://github.com/HowieHChen/hyperx-compose"),
-    Miuix("miuix-kotlin-multiplatform", "Apache-2.0", "https://github.com/miuix-kotlin-multiplatform/miuix"),
-    DexKit("LuckyPray", "LGPL-3.0", "https://github.com/LuckyPray/DexKit"),
+/** Libraries the app ships or builds on, and the projects it borrowed approaches from; the same list as the README credits. */
+enum class OpenSourceReference(val author: String, val project: String, val license: String, val link: String) {
+    LumenCoacervationEngine("Meguvizarchic", "LumenCoacervationEngine", "Apache-2.0", "https://github.com/Meguvizarchic/LumenCoacervationEngine"),
+    MeguvizRef("Meguvizarchic", "MeguvizRef", "Apache-2.0", "https://github.com/Meguvizarchic/MeguvizRef"),
+    MeguvizUI("Meguvizarchic", "MeguvizUI", "Apache-2.0", "https://github.com/Meguvizarchic/MeguvizUI"),
+    MeguvizAndroid("Meguvizarchic", "MeguvizAndroid", "Apache-2.0", "https://github.com/Meguvizarchic/MeguvizAndroid"),
+    MeguvizDrawable("Meguvizarchic", "MeguvizDrawable", "Apache-2.0", "https://github.com/Meguvizarchic/MeguvizDrawable"),
+    Libxposed("libxposed", "api · service", "Apache-2.0", "https://github.com/libxposed"),
+    DexKit("LuckyPray", "DexKit", "Apache-2.0", "https://github.com/LuckyPray/DexKit"),
+    BetterAndroid("BetterAndroid", "BetterAndroid", "Apache-2.0", "https://github.com/BetterAndroid/BetterAndroid"),
+    Koin("InsertKoinIO", "Koin", "Apache-2.0", "https://github.com/InsertKoinIO/koin"),
+    Ncnn("Tencent", "ncnn", "BSD-3-Clause", "https://github.com/Tencent/ncnn"),
+    Waifu2x("nihui", "waifu2x-ncnn-vulkan", "MIT", "https://github.com/nihui/waifu2x-ncnn-vulkan"),
+    HideMyApplist("Dr-TSNG", "Hide-My-Applist", "AGPL-3.0", "https://github.com/Dr-TSNG/Hide-My-Applist"),
+    MiuiHomeR("qqlittleice", "MiuiHome_R", "GPL-3.0", "https://github.com/qqlittleice/MiuiHome_R"),
+    MIUINativeNotifyIcon("fankes", "MIUINativeNotifyIcon", "AGPL-3.0", "https://github.com/fankes/MIUINativeNotifyIcon"),
+    YukiHookAPI("fankes", "YukiHookAPI", "Apache-2.0", "https://github.com/fankes/YukiHookAPI"),
 }

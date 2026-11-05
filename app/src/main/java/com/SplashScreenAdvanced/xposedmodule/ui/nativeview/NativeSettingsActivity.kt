@@ -157,6 +157,20 @@ abstract class NativeSettingsActivity : Activity() {
         override fun onBackCancelled() { morph?.cancelPredictiveBack() }
         override fun onBackInvoked() { requestBack() }
     }
+    private var backCallbackRegistered = false
+
+    /**
+     * Registers [backCallback] only while back has something to do inside the app. On the home page at its first tab
+     * back leaves the app, and any registered callback would hide the system's predictive back-to-home preview.
+     */
+    private fun syncBackCallback() {
+        if (isDestroyed) return
+        val needed = pageRoute != Route.Main || (homePager?.selectedPage ?: 0) != 0 || pageUi.hasUnsavedChanges
+        if (needed == backCallbackRegistered) return
+        if (needed) onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback)
+        else onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backCallback)
+        backCallbackRegistered = needed
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,7 +212,7 @@ abstract class NativeSettingsActivity : Activity() {
                 collapsedCornerRadiusDp = 16f, isBusinessBlocked = { pageUi.hasUnsavedChanges })
             morph?.start(isFreshLaunch = savedInstanceState == null)
         }
-        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback)
+        syncBackCallback()
         window.insetsController?.setSystemBarsAppearance(
             if (isDark()) 0 else android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
@@ -370,6 +384,7 @@ abstract class NativeSettingsActivity : Activity() {
             stretches.getOrNull(previousPage)?.let(lumen::finishStretch)
             previousPage = index
             dock.setSelectedPage(index)
+            syncBackCallback()
             updatePageTitle(getString(SettingsTab.entries[index].titleRes))
         }
         pager.onMotionStarted = { stretches.forEach(lumen::finishStretch) }
@@ -816,7 +831,8 @@ abstract class NativeSettingsActivity : Activity() {
     }
 
     override fun onDestroy() {
-        onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backCallback)
+        if (backCallbackRegistered) onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backCallback)
+        backCallbackRegistered = false
         uiScope.cancel()
         pageUi.dispose()
         morph?.onDestroy()

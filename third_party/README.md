@@ -1,11 +1,11 @@
 # Vendored third-party components
 
-## ncnn (Tencent) — Apache-2.0
+## ncnn (Tencent) — BSD-3-Clause
 
 - Source: https://github.com/Tencent/ncnn , release `20260526`, asset `ncnn-20260526-android-vulkan-shared.zip`
 - Used: `ncnn/arm64-v8a/libncnn.so` (Vulkan-enabled shared build) → copied to `app/src/main/jniLibs/arm64-v8a/`
 - Used: `ncnn/arm64-v8a/include/` (public headers, compile-time only)
-- License: Apache License 2.0 (see ncnn repo `LICENSE.txt`)
+- License: BSD 3-Clause License (see ncnn repo `LICENSE.txt`)
 
 ## SR model — waifu2x upconv_7 (anime_style_art_rgb, scale2.0x) — MIT
 
