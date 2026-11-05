@@ -453,9 +453,13 @@ abstract class NativeSettingsActivity : Activity() {
             toolbarTitle = title
             addView(title, LinearLayout.LayoutParams(0, -2, 1f))
             if (isMain) {
-                button(pageUi.iconButton(R.drawable.ic_search, getString(R.string.settings_search)) { showSettingsSearch() })
-                button(pageUi.iconButton(R.drawable.ic_restart, getString(R.string.restart_title)) { pageUi.showRestartDialog() },
-                    start = 4, end = 5)
+                // Both panels open as the engine's bubble out of their own button (standard §15.4).
+                lateinit var search: ImageView
+                search = pageUi.iconButton(R.drawable.ic_search, getString(R.string.settings_search)) { showSettingsSearch(search) }
+                button(search)
+                lateinit var restart: ImageView
+                restart = pageUi.iconButton(R.drawable.ic_restart, getString(R.string.restart_title)) { pageUi.showRestartDialog(restart) }
+                button(restart, start = 4, end = 5)
             }
         }
         topButtons = buttons
@@ -607,45 +611,57 @@ abstract class NativeSettingsActivity : Activity() {
     }
 
     /** Searches every row on every dock page, so each page is built first (usually done already by [prewarmHomePages]): rows register as they are built. */
-    private fun showSettingsSearch() {
+    private fun showSettingsSearch(source: ImageView? = null) {
         PerfTrace.section("search.buildAllPages") { SettingsTab.entries.indices.forEach(::ensureHomePage) }
         val targets = pageUi.searchTargets.associateBy { it.titleRes }
         val items = targets.values.map {
             SettingsSearchItem(it.titleRes, getString(it.titleRes), getString(it.section.titleRes),
                 getString(it.section.tab.labelRes), SettingsSearch.order(it.section, it.sequence))
         }
-        pageUi.dialog(getString(R.string.settings_search)) { dialog, container ->
-            val results = pageUi.column().apply { id = R.id.native_settings_search_results }
+        pageUi.dialog(getString(R.string.settings_search), anchor = source,
+            anchorStyle = com.lumen.coacervation.engine.motion.modal.ModalAnchorStyle.BUBBLE) { dialog, container ->
+            // Results share one grouped card (hairlines, no gaps), like the settings pages they point into.
+            val results = pageUi.groupCard(DividedColumn(this)).apply { id = R.id.native_settings_search_results }
+            val empty = pageUi.text(getString(R.string.settings_search_empty), 14f, secondary = true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(20), 0, dp(12))
+            }
             val input = pageUi.engineEditText(EditText(this).apply {
                 id = R.id.native_settings_search
                 hint = getString(R.string.settings_search_hint)
+                textSize = 15f
                 setTextColor(lumen.palette.textPrimary)
                 setHintTextColor(lumen.palette.textSecondary)
                 isSingleLine = true
-                setPadding(dp(14), dp(12), dp(14), dp(12))
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+                setPadding(dp(16), 0, dp(16), 0)
             })
+            val resultScroll = LumenMaxHeightScrollView(this, minOf(dp(320), resources.displayMetrics.heightPixels / 2))
             fun render(query: String) {
                 results.removeAllViews()
-                if (query.isBlank()) {
-                    results.addView(pageUi.text(getString(R.string.settings_search_hint), 14f, secondary = true))
-                    return
-                }
-                val matches = SettingsSearch.rank(query, items)
-                if (matches.isEmpty()) {
-                    results.addView(pageUi.text(getString(R.string.settings_search_empty), 14f, secondary = true))
-                    return
-                }
+                // The input's own hint already says what to type; an empty query shows nothing more.
+                val matches = if (query.isBlank()) emptyList() else SettingsSearch.rank(query, items)
+                // No results, no box: the bubble stays as short as the field until something matches.
+                resultScroll.visibility = if (matches.isEmpty()) View.GONE else View.VISIBLE
+                empty.visibility = if (query.isNotBlank() && matches.isEmpty()) View.VISIBLE else View.GONE
                 matches.forEach { match ->
                     val place = getString(R.string.settings_search_location, match.tab, match.section)
                     results.addView(pageUi.action(match.title, place, moduleRequired = false) {
                         modals.dismiss(dialog, container) { targets[match.key]?.let(::revealSetting) }
-                    }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(ROW_GAP_DP) })
+                    }.apply {
+                        titleView.textSize = 15f
+                        summaryView.textSize = 12f
+                        minimumHeight = dp(56)
+                        setPaddingRelative(dp(16), dp(10), dp(14), dp(10))
+                    }, LinearLayout.LayoutParams(-1, -2))
                 }
+                pageUi.groupCard(results)
             }
             input.doAfterTextChanged { render(it?.toString().orEmpty()) }
-            container.addView(input, LinearLayout.LayoutParams(-1, dp(52)))
-            container.addView(LumenMaxHeightScrollView(this, minOf(dp(320), resources.displayMetrics.heightPixels / 2))
-                .apply { addView(results) }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            container.addView(input, LinearLayout.LayoutParams(-1, dp(INPUT_HEIGHT_DP)).apply { topMargin = dp(12) })
+            container.addView(empty, LinearLayout.LayoutParams(-1, -2))
+            container.addView(resultScroll.apply { addView(results) },
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
             render("")
             input.requestFocus()
         }

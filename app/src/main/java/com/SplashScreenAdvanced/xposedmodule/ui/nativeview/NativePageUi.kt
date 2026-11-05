@@ -28,6 +28,7 @@ import io.github.jichuo1.meguviz.android.extensions.textColor
 import com.SplashScreenAdvanced.xposedmodule.utils.toast
 import com.lumen.coacervation.engine.interaction.ElasticInteractionController
 import com.lumen.coacervation.engine.motion.expansion.SectionExpansionController
+import com.lumen.coacervation.engine.motion.modal.ModalAnchorStyle
 import com.lumen.coacervation.engine.motion.pager.LumenPageScrollView
 import com.lumen.coacervation.engine.widget.CoverableRippleDrawable
 import com.lumen.coacervation.engine.widget.LumenMaxHeightScrollView
@@ -183,23 +184,29 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         activeSection = section
         try { body.build() } finally { activeSection = outer }
         if (body.childCount == 0) return
-        // One card per group with hairlines between its rows (BIL's settings cards), instead of a stack of separate
-        // slabs: a single glass surface per group also samples once instead of once per row.
-        adoptIntoGroup(body)
-        body.background = lumen.cardBackground(palette.surfaceVariant, GROUP_RADIUS_DP)
-        // Ripples and the accordion's folding rows stay inside the rounded card. The shape is explicit: not every
-        // material's drawable reports an outline, and an empty one would not clip at all.
-        val radius = dp(GROUP_RADIUS_DP.toInt()).toFloat()
-        body.outlineProvider = object : android.view.ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: android.graphics.Outline) =
-                outline.setRoundRect(0, 0, view.width, view.height, radius)
-        }
-        body.clipToOutline = true
+        groupCard(body)
         // Groups are told apart by air above the caption (BIL: 20dp above, 6dp below).
         addView(sectionTitle(string(section.titleRes)), LinearLayout.LayoutParams(-1, -2).apply {
             topMargin = dp(if (childCount == 0) 4 else 18); bottomMargin = dp(8)
         })
         addView(body, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+    }
+
+    /**
+     * One card per group with hairlines between its rows (BIL's settings cards), instead of a stack of separate slabs: a
+     * single glass surface per group also samples once instead of once per row. Used by sections and search results.
+     */
+    internal fun groupCard(body: DividedColumn): DividedColumn = body.apply {
+        adoptIntoGroup(this)
+        background = lumen.cardBackground(palette.surfaceVariant, GROUP_RADIUS_DP)
+        // Ripples and the accordion's folding rows stay inside the rounded card. The shape is explicit: not every
+        // material's drawable reports an outline, and an empty one would not clip at all.
+        val radius = dp(GROUP_RADIUS_DP.toInt()).toFloat()
+        outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) =
+                outline.setRoundRect(0, 0, view.width, view.height, radius)
+        }
+        clipToOutline = true
     }
 
     /**
@@ -450,11 +457,16 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             })
     }
 
-    fun dialog(title: String, message: String? = null, anchor: NativeRow? = null, onDismissed: () -> Unit = {},
+    /**
+     * [anchor] is where the panel comes from: a settings row grows into the card (its title moves into the heading), a
+     * toolbar [ImageView] with [ModalAnchorStyle.BUBBLE] opens the engine's bubble beside it, glyph handed over.
+     */
+    fun dialog(title: String, message: String? = null, anchor: View? = null,
+               anchorStyle: ModalAnchorStyle = ModalAnchorStyle.CONTAINER, onDismissed: () -> Unit = {},
                build: (Dialog, LinearLayout) -> Unit) {
         val dialog = Dialog(activity)
         val container = activity.modals.createContainer()
-        val sourceTitle = anchor?.titleView?.text?.toString()
+        val sourceTitle = (anchor as? NativeRow)?.titleView?.text?.toString()
         // Heading block (title, source subtitle, message) sits tight; every body block below opens with a 16dp gap.
         container.addView(text(sourceTitle ?: title, 20f, bold = true))
         if (sourceTitle != null && sourceTitle != title) container.addView(text(title, 14f, secondary = true).apply {
@@ -465,7 +477,7 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             setLineSpacing(dp(2).toFloat(), 1f)
         })
         build(dialog, container)
-        activity.modals.present(dialog, container, anchor = anchor, onBackDismiss = onDismissed)
+        activity.modals.present(dialog, container, anchor = anchor, anchorStyle = anchorStyle, onBackDismiss = onDismissed)
     }
 
     fun openUrl(url: String) {
@@ -473,7 +485,9 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
         catch (_: Exception) { activity.toast(R.string.no_browser) }
     }
 
-    fun showRestartDialog() = dialog(string(R.string.restart_title), string(R.string.restart_message)) { dialog, container ->
+    /** From the capsule's restart button: the engine bubble opens beside it. */
+    fun showRestartDialog(source: ImageView? = null) = dialog(string(R.string.restart_title), string(R.string.restart_message),
+        anchor = source, anchorStyle = ModalAnchorStyle.BUBBLE) { dialog, container ->
         fun execute(command: String) { activity.modals.dismiss(dialog, container) {
             activity.uiScope.launch { withContext(Dispatchers.IO) { execShell(command) }; delay(300); activity.toast(R.string.no_root) }
         } }
