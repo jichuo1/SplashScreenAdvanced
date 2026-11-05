@@ -100,6 +100,8 @@ private const val DOCK_LABEL_ROOM_DP = 16
 /** Label size of the engine's navigation bar items and its inner inset (NavigationBarMotion.INSET_DP). */
 private const val DOCK_LABEL_SP = 12f
 private const val DOCK_INSET_DP = 4
+/** Name the engine reports for its zero-resource glass backend, the one it falls back to under memory pressure. */
+private const val TRANSLUCENT_BACKEND = "TRANSLUCENT"
 /** Pause before the dock pages that are not on screen start building (after the enter motion and the first frames). */
 private const val PREWARM_DELAY_MS = 400L
 /** Until the dock is measured: its default height, so the first frame already leaves room. */
@@ -199,6 +201,8 @@ abstract class NativeSettingsActivity : Activity() {
                 lumen.palette.textPrimary, toolbarTitle?.text?.toString().orEmpty())
             morphHost = host
             // Engine surfaces go straight onto their View: they locate the host through `callback as? View` to sample.
+            // The expanded page meets the screen's own rounded corners instead of square edges (API 31+, engine §13.5).
+            host.followScreenCorners = true
             host.setMotionSurfaceBackground(lumen.motionSurfaceBackground(lumen.palette.surface, 16f))
             host.replacePage(page, checkNotNull(toolbarTitle))
             // The page's chrome owns status-bar insets; padding the host would leave a material seam.
@@ -773,6 +777,29 @@ abstract class NativeSettingsActivity : Activity() {
         return LumenPalette.modern(primary, onPrimary, secondary, tertiary, dark)
     }
 
+    /** Best Liquid backend this window has drawn with; see [recoverDegradedGlass]. */
+    private var liquidBackendSeen: String? = null
+
+    private fun liquidBackend(): String? =
+        lumen.diagnostics()?.takeIf { it.effectiveSkin == SkinId.LIQUID }?.liquidBackendName
+
+    /**
+     * Under memory pressure (opening and closing pages on a busy device is enough) the engine drops this window's glass to
+     * its translucent backend for good: only the tint and rim remain over the unblurred background, which reads as a dark
+     * film inside every card. The engine heals that only at a session boundary, so a window that drew real glass before
+     * and comes back to the front degraded starts a fresh session. A session that was translucent from the start keeps it.
+     * Checked on resume: secondary pages are translucent windows, so the page below is only paused, never stopped.
+     */
+    private fun recoverDegradedGlass(): Boolean {
+        val backend = liquidBackend()
+        if (liquidBackendSeen != null && backend == TRANSLUCENT_BACKEND && !isFinishing) {
+            recreate()
+            return true
+        }
+        if (backend != null && backend != TRANSLUCENT_BACKEND) liquidBackendSeen = backend
+        return false
+    }
+
     override fun onStart() {
         super.onStart()
         meguviz.onStart()
@@ -787,6 +814,7 @@ abstract class NativeSettingsActivity : Activity() {
             recreate()
             return
         }
+        if (recoverDegradedGlass()) return
         FairMemorySessionStore.remember(pageRoute)
         uiState.refreshRestartState()
         pageUi.refresh()

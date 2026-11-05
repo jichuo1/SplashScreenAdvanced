@@ -223,7 +223,10 @@ class NativePageUi(val activity: NativeSettingsActivity, val restored: Bundle?) 
             }
             if (child is DividedColumn) { adoptIntoGroup(child); continue }
             child.background = null
-            if (child is NativeRow) child.foreground = activity.meguviz.own(CoverableRippleDrawable.rounded(palette, 0f))
+            // The ripple also declares the row's corner to the engine: panels and pages opened from this row grow out of
+            // it. A square ripple made every panel start as a sharp rectangle; BIL's rows declare 10dp the same way.
+            if (child is NativeRow) child.foreground = activity.meguviz.own(
+                CoverableRippleDrawable.rounded(palette, dp(GROUPED_ROW_CORNER_DP).toFloat()))
         }
     }
 
@@ -565,6 +568,8 @@ internal class AccordionCard(context: android.content.Context) : DividedColumn(c
 
 /** Gap between two stand-alone cards (status, routes, list rows). Rows inside a group card have no gap. */
 internal const val ROW_GAP_DP = 8
+/** Press highlight of a row inside a group card, and the corner panels opened from it start with. */
+private const val GROUPED_ROW_CORNER_DP = 10
 /** Corner of a group card; a little rounder than a single row (16dp) because it is taller. */
 private const val GROUP_RADIUS_DP = 20f
 /** Hairline between rows of a group: ~16% of the secondary text colour, visible but never louder than the text. */
