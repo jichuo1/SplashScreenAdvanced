@@ -71,14 +71,37 @@ class ReleaseWorkflowSigningTest(unittest.TestCase):
             content,
         )
         self.assertIn("github.event_name }}-${{ github.ref }}", content)
-        self.assertIn("lint-reports-", content)
         self.assertIn("--continue", content)
 
-    def test_stable_verify_uploads_lint_reports_on_failure(self) -> None:
+    def test_stable_verify_keeps_continue_and_timeout(self) -> None:
         content = (WORKFLOW_DIRECTORY / "stable-release.yml").read_text(encoding="utf-8")
-        self.assertIn("lint-reports-", content)
         self.assertIn("--continue", content)
         self.assertIn("timeout-minutes: 45", content)
+
+    def test_lint_runs_in_parallel_and_gates_publishing(self) -> None:
+        lint = (WORKFLOW_DIRECTORY / "android-lint.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_call:", lint)
+        self.assertIn(":app:lintDebug", lint)
+        self.assertIn("lint-reports-", lint)
+        self.assertIn("cache-read-only: true", lint)
+        for constant in ("CI_COMPILE_SDK_PACKAGE: 'platforms;android-37.2'", "CI_BUILD_TOOLS: '37.0.0'"):
+            self.assertIn(constant, lint)
+        for workflow_name in ("alpha-release.yml", "stable-release.yml"):
+            with self.subTest(workflow=workflow_name):
+                content = (WORKFLOW_DIRECTORY / workflow_name).read_text(encoding="utf-8")
+                self.assertIn("uses: ./.github/workflows/android-lint.yml", content)
+                self.assertIn("needs: [verify, lint]", content)
+                self.assertIn("needs.lint.result == 'success'", content)
+                # lint 只在并行作业里跑一次；verify 保留构建、测试与 R8。
+                self.assertNotIn(":app:lintDebug", content)
+                verify_block = content.split("\n  lint:\n", 1)[0]
+                self.assertIn(":app:testDebugUnitTest", verify_block)
+                self.assertIn(":app:minifyReleaseWithR8", verify_block)
+                # R8 缓存键对齐：verify 带一次性签名身份，从不使用正式签名密钥。
+                self.assertIn("verify-throwaway.p12", verify_block)
+                self.assertNotIn("secrets.ANDROID_SIGNING", verify_block)
+                for constant in ("CI_COMPILE_SDK_PACKAGE: 'platforms;android-37.2'", "CI_BUILD_TOOLS: '37.0.0'"):
+                    self.assertIn(constant, content)
 
     def test_gradle_release_packaging_fails_without_complete_signing_identity(self) -> None:
         gradle_script = (

@@ -42,7 +42,7 @@ env:
 
 jobs:
   verify:
-    name: Build, test, lint and validate Release minification
+    name: Build, test and validate Release minification
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -177,32 +177,46 @@ jobs:
           # 上游 v4.0.1 还没改这个默认值，只能在调用处显式声明所需 SDK 包，单次调用装齐。
           packages: platform-tools ${{ env.CI_COMPILE_SDK_PACKAGE }} build-tools;${{ env.CI_BUILD_TOOLS }}
 
-      - name: Build, test, lint and validate Release minification
+      # 与发布作业的 R8 缓存键对齐：有无签名配置决定 release 产物名（app-release-unsigned.apk /
+      # app-release.apk），而 R8 的缓存键含该文件名，没有签名配置时 verify 存下的 R8 结果发布作业永远
+      # 命中不了（BIL 实测）。这是一次性的自签身份，只用于这一步，从不签任何产物。
+      - name: Create throwaway signing identity for R8 cache parity
+        id: throwaway
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/verify-throwaway.p12"
+          keytool -genkeypair -storetype PKCS12 -keystore "$keystore" -storepass throwaway-r8 \
+            -keypass throwaway-r8 -alias throwaway -keyalg RSA -keysize 2048 -validity 2 \
+            -dname 'CN=verify-throwaway' >/dev/null
+          echo "keystore=$keystore" >> "$GITHUB_OUTPUT"
+
+      - name: Build, test and validate Release minification
         shell: bash
         env:
           EXPECTED_VERSION_NAME: ${{ steps.identity.outputs.build_version_name }}
+          SPLASH_SIGNING_STORE_FILE: ${{ steps.throwaway.outputs.keystore }}
+          SPLASH_SIGNING_STORE_PASSWORD: throwaway-r8
+          SPLASH_SIGNING_KEY_ALIAS: throwaway
+          SPLASH_SIGNING_KEY_PASSWORD: throwaway-r8
         run: |
           set -euo pipefail
           ./gradlew \
             "-PsplashScreen.releaseVersionName=${EXPECTED_VERSION_NAME}" \
-            :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:minifyReleaseWithR8 \
+            :app:assembleDebug :app:testDebugUnitTest :app:minifyReleaseWithR8 \
             --console=plain --continue
 
-      - name: Upload lint reports on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lint-reports-${{ github.sha }}
-          path: |
-            **/build/reports/lint-results-*
-            **/build/intermediates/lint_intermediate_text_report/**/lint-results-*.txt
-          if-no-files-found: ignore
-          retention-days: 7
+  # 完整 lint 交给另一台 runner，与 verify 同时开始（见 android-lint.yml）。
+  lint:
+    name: Android Lint
+    permissions:
+      contents: read
+    uses: ./.github/workflows/android-lint.yml
 
   publish:
     name: Publish Alpha pre-release
-    needs: verify
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_alpha == true && needs.verify.outputs.release_tag == inputs.release_tag }}
+    needs: [verify, lint]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_alpha == true && needs.verify.outputs.release_tag == inputs.release_tag && needs.lint.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment:
